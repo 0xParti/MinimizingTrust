@@ -122,7 +122,7 @@ The remarkable discovery of the 1980s and 1990s was that cheap verification *is*
 
 The key insight came from complexity theory, and it involved a conceptual leap: *interaction* and *randomness* together can create verification power that neither possesses alone.
 
-Consider this scenario. A computationally unbounded prover claims to have solved a problem. A polynomially bounded verifier wants to check this claim. The verifier cannot solve the problem themselves (that's the whole point), but they can engage in a conversation with the prover.
+A computationally unbounded prover claims to have solved a problem. A polynomially bounded verifier wants to check this claim. The verifier cannot solve the problem themselves (that's the whole point), but they can engage in a conversation with the prover.
 
 In an **interactive proof**, the verifier sends random challenges, the prover responds, and after some number of rounds, the verifier decides whether to accept or reject the claim.
 
@@ -137,8 +137,6 @@ The probability in soundness comes from the verifier's randomness. The prover do
 
 
 ## Randomness Creates Asymmetry
-
-Here's a simple example that illustrates the power of randomness in verification.
 
 Suppose I claim two polynomials $p(x)$ and $q(x)$ are identical. Both polynomials have degree at most $d$, and their coefficients are elements of a large finite field $\mathbb{F}$ of size $|\mathbb{F}| = 2^{256}$.
 
@@ -391,35 +389,23 @@ By the end, you'll understand not just what zkSNARKs do, but *how* they work: th
 
 ## Key Takeaways
 
-### The Core Problem
+1. **Verification should be cheaper than computation.** If Alice outsources a computation to Bob, she shouldn't have to redo the entire work to check his answer. The goal is *asymmetric verification*: Bob does the hard work once, Alice checks quickly.
 
-1. **Verification should be cheaper than computation.** If Alice outsources a computation to Bob, she shouldn't have to redo the entire work to check his answer. The goal of proof systems is *asymmetric verification*: Bob does the hard work once, Alice checks quickly.
+2. **Randomness creates verification power.** A deterministic verifier who can't compute the answer can't check it either. But a randomized verifier can probe for inconsistencies. Random questions catch cheaters with high probability.
 
-2. **Randomness creates verification power.** A deterministic verifier who can't compute the answer also can't check it. But a randomized verifier can probe for inconsistencies. If Bob is honest, his answers are consistent. If Bob cheats, random questions catch him with high probability.
+3. **Schwartz-Zippel is the fundamental tool.** Two different degree-$d$ polynomials agree on at most $d$ points. Evaluating at a random point catches disagreement with probability at least $1 - d/|\mathbb{F}|$. Polynomials are central to proof systems because errors propagate almost everywhere.
 
-3. **Schwartz-Zippel is the fundamental tool.** Two different polynomials of degree $d$ agree on at most $d$ points. Evaluating at a random point catches disagreement with probability at least $1 - d/|\mathbb{F}|$. This is why polynomials are central to proof systems: they have rigid structure, so any error propagates almost everywhere.
+4. **Proof models evolved by constraining the prover.** IP captures PSPACE. MIP (multiple non-communicating provers) captures NEXP. PCPs allow constant-query verification. IOPs combine interaction with oracle access. Paradoxically, more constraints on the prover give the verifier more power.
 
-### The Proof System Landscape
+5. **The PCP theorem is foundational.** NP = PCP[$O(\log n)$, $O(1)$]. Any NP statement has a proof where the verifier reads constantly many bits. This requires encoding the witness with structured redundancy so that any error creates detectable inconsistencies.
 
-4. **Different proof models have different verification power.** Interactive Proofs (IP) capture PSPACE. Multi-Prover Proofs (MIP) capture NEXP. The distinctions matter less than the pattern: constraining the prover in various ways paradoxically *increases* what the verifier can check.
+6. **Polynomial commitments instantiate oracles.** The prover commits to a polynomial; the verifier queries evaluations; a short proof demonstrates each evaluation is correct. Different schemes (KZG, FRI, IPA) offer different trade-offs.
 
-5. **The PCP theorem is foundational.** NP = PCP[$O(\log n)$, $O(1)$]. Any NP statement has a proof where the verifier reads only constantly many bits and catches cheating with high probability. This requires encoding the witness with structured redundancy so that any error creates detectable inconsistencies.
+7. **Fiat-Shamir eliminates interaction.** Replace the verifier's random challenges with hashes of the transcript. The prover computes the entire interaction locally and outputs a static proof.
 
-6. **IOPs combine interaction with oracles.** The prover sends polynomials (as oracles), the verifier queries evaluations and sends challenges. This hybrid model underlies most modern SNARKs.
+8. **The architecture is modular.** Arithmetization encodes computation as constraints. An IOP proves the constraints are satisfied. Cryptographic compilation (PCS + Fiat-Shamir) makes proofs short and non-interactive. Each layer can be swapped independently.
 
-7. **Linear PCPs restrict queries to linear combinations.** The verifier can only ask for weighted sums of proof values. Elliptic curve groups enforce this restriction cryptographically, since group elements support addition but not multiplication. This is how Groth16 works.
-
-### From Theory to Practice
-
-8. **Polynomial commitments instantiate oracles.** The prover commits to a polynomial; the verifier queries evaluations; a short proof demonstrates each evaluation is correct. Different schemes (KZG, FRI, IPA) offer different trade-offs between proof size, verification time, and setup assumptions.
-
-9. **Fiat-Shamir eliminates interaction.** Replace the verifier's random challenges with hashes of the transcript. The prover computes the entire interaction locally and outputs a static proof. Security relies on modeling the hash as a random oracle.
-
-10. **The architecture is modular.** Arithmetization encodes computation as constraints. An information-theoretic protocol (IOP) proves the constraints are satisfied. Cryptographic compilation (PCS + Fiat-Shamir) makes proofs short and non-interactive. Each layer can be swapped independently.
-
-11. **Zero-knowledge adds privacy.** The proof reveals nothing beyond the statement's truth. Techniques like blinding polynomials and randomized commitments layer on top of the basic SNARK machinery. Privacy is orthogonal to succinctness.
-
-
+9. **Zero-knowledge is orthogonal to succinctness.** The proof can reveal nothing beyond the statement's truth. Privacy and compression are independent properties; modern systems achieve both.
 
 \newpage
 
@@ -581,6 +567,8 @@ This is *rigidity*. A polynomial can't "cheat locally." If a prover tries to con
 Compare this to arbitrary functions. Two functions could agree on 99% of inputs and differ on just 1%. But a degree-99 polynomial that differs from another *anywhere* must differ on essentially *all* points. The disagreement isn't localized; it's smeared across the domain.
 
 This rigidity has a striking consequence: you cannot construct a degree-$d$ polynomial that matches another degree-$d$ polynomial at strategically chosen points while differing elsewhere. If two degree-$d$ polynomials differ at all, they differ almost everywhere. A local patch is impossible; any change propagates globally.
+
+A polynomial cannot lie consistently. It must betray itself almost everywhere.
 
 This property alone is purely mathematical. To turn it into a verification tool, we need one more ingredient: randomness.
 
@@ -1351,6 +1339,7 @@ Each round tightens the trap. The second lie must be consistent with the first. 
 The prover's only hope is that every random challenge happens to land on a point where the cheating polynomial agrees with the true one. For degree-$d$ polynomials over a field of size $|\mathbb{F}|$, this probability is at most $d/|\mathbb{F}|$ per round, negligible in cryptographic settings.
 
 
+
 ## Application: Counting Satisfying Assignments (#SAT)
 
 The sum-check protocol becomes truly powerful when combined with **arithmetization**: the process of translating discrete, combinatorial problems into the language of polynomials over finite fields. We touched on #SAT in Chapter 2 as motivation for why polynomials matter in complexity theory. Now we see exactly how the translation works and why it enables efficient verification. The full theory of arithmetization will occupy later chapters; for now, we need just enough to see sum-check in action.
@@ -1536,26 +1525,17 @@ The sum-check protocol is where the abstract power of polynomials (their rigidit
 
 ## Key Takeaways
 
-1. **The sum-check protocol verifies exponential sums efficiently**: A prover can convince a verifier that $\sum_{b \in \{0,1\}^\nu} g(b) = H$ with the verifier doing only $O(\nu)$ work, plus one evaluation of $g$.
+1. **The sum-check protocol verifies exponential sums efficiently**: A prover can convince a verifier that $\sum_{b \in \{0,1\}^\nu} g(b) = H$ with the verifier doing only $O(\nu)$ work, plus one evaluation of $g$. The verifier never computes any sum herself.
 
-2. **Claim reduction is the key mechanism**: Each round reduces a claim about a sum over $2^k$ points to a claim about a sum over $2^{k-1}$ points, using a random challenge to "pin down" one variable.
+2. **Claim reduction is the key mechanism**: Each round reduces a claim about $2^k$ points to a claim about $2^{k-1}$ points. After $\nu$ rounds, the exponential sum becomes a single evaluation.
 
-3. **Lies propagate and amplify**: If the prover starts with a false claim, the Schwartz-Zippel lemma ensures that random challenges will, with overwhelming probability, force the lie into an inconsistent position by the final round.
+3. **Lies propagate and amplify**: A false initial claim forces the prover to send dishonest polynomials. Random challenges catch the discrepancy with probability $1 - d/|\mathbb{F}|$ per round. The lie can't hide; it gets cornered.
 
-4. **The verifier never computes any sum**: All the hard work is done by the prover. The verifier only checks consistency and makes one evaluation at the end.
+4. **The degree bound is essential**: Without it, a cheating prover could craft high-degree polynomials that pass consistency checks at 0 and 1 while matching the honest polynomial elsewhere. The degree bound forces rigidity.
 
-5. **Soundness error is $\nu d / |\mathbb{F}|$**: For large fields, this is negligible. The protocol can be made arbitrarily secure by using a sufficiently large field.
+5. **Arithmetization connects sum-check to computation**: Problems like #SAT encode as sums over the boolean hypercube. The prover does $O(2^\nu)$ work; the verifier does $O(\nu)$. This asymmetry is what makes verification useful.
 
-6. **Arithmetization turns problems into polynomials**: Problems like #SAT can be encoded as sums over the boolean hypercube, making them amenable to sum-check verification.
-
-7. **Oracle access is required**: The verifier must be able to evaluate $g$ at random points efficiently. In practice, this means $g$ has a known, efficiently computable structure.
-
-8. **Sum-check is the foundation of modern verifiable computation**: From IP = PSPACE to GKR to contemporary SNARKs, the sum-check protocol's ideas pervade the field.
-
-9. **The compression game captures the intuition**: Each round compresses an exponentially large table into a low-degree polynomial; random probing catches any inconsistency between the prover's compression and the true one.
-
-10. **Efficiency comes from structure**: The protocol exploits the algebraic structure of polynomials, specifically, that low-degree polynomials are "rigid" and can't match arbitrary values at many points.
-
+6. **Sum-check is foundational**: IP = PSPACE, GKR, Spartan, Lasso, and most multilinear SNARKs build on sum-check. The protocol's comeback in practical systems (Chapter 19) shows it wasn't just theoretically elegant but practically powerful.
 
 
 \newpage
@@ -1564,17 +1544,17 @@ The sum-check protocol is where the abstract power of polynomials (their rigidit
 
 In 1971, the Mariner 9 probe became the first spacecraft to orbit another planet. Its mission: map the surface of Mars. But transmitting high-resolution images across 100 million miles of static-filled space was a nightmare. A single burst of cosmic noise could turn a crater into a glitch.
 
-NASA didn't send raw pixels. They used a code developed years earlier by Irving Reed and David Muller: treat the pixel data as values and send evaluations of a *multivariate polynomial*. The Reed-Muller code could correct up to seven bit errors per 32-bit word. When Mariner 9 arrived to find Mars engulfed in a planet-wide dust storm, mission control reprogrammed the spacecraft from Earth and waited. When the dust cleared, the code delivered 7,329 images, mapping 85% of the Martian surface.
+NASA didn't send raw pixels. They used a code developed years earlier by Irving Reed and David Muller: treat the pixel data as evaluations of a *multivariate polynomial*. The Reed-Muller code could correct up to seven bit errors per 32-bit word. When Mariner 9 arrived to find Mars engulfed in a planet-wide dust storm, mission control reprogrammed the spacecraft from Earth and waited. When the dust cleared, the code delivered 7,329 images, mapping 85% of the Martian surface.
 
-The same mathematical structure that gave humanity its first clear look at Mars now powers zero-knowledge proofs. Multivariate polynomials are robust: they let you reconstruct data even when parts are corrupted, or verify data by checking a single random point. This chapter develops that theory.
+Why not Reed-Solomon? In Chapter 2, we encoded $n$ values as a univariate polynomial of degree $n-1$. That works when $n$ is modest. But Mariner's data was indexed by *bit positions*: a 32-bit word has $2^5$ bit combinations, a memory address space has $2^{64}$ locations, a boolean formula with 100 variables has $2^{100}$ possible assignments. Encoding $2^{100}$ values as a univariate polynomial means degree $2^{100} - 1$. Impossible.
+
+The solution: let each bit be its own variable. A 100-bit index becomes 100 coordinates, each 0 or 1. The polynomial has 100 variables instead of degree $2^{100}$. Data lives not on a line but on a hypercube. This chapter develops that theory.
 
 ---
 
-How do you turn data into a polynomial?
+In Chapter 2, we turned data into polynomials via Lagrange interpolation: given $n$ values, construct the unique degree-$(n-1)$ univariate polynomial passing through them. That was interpolation over a *line*.
 
-The question is more subtle than it appears. Data is discrete: a list of values, a vector of field elements, the output of gates in a circuit. Polynomials are continuous mathematical objects defined over all of $\mathbb{F}^n$. Bridging this gap is the art of **extension**: taking a function defined on a finite set and stretching it to a polynomial defined everywhere.
-
-The choice of extension matters enormously. A bad extension creates polynomials of exponential degree, destroying efficiency. A good extension preserves structure, enables fast algorithms, and makes random evaluation meaningful.
+Now we need interpolation over a *hypercube*. The data lives at $2^n$ vertices, indexed by bit strings. The polynomial must agree with the data at these vertices and extend smoothly to all of $\mathbb{F}^n$. The construction is analogous to univariate Lagrange, but the geometry is different, and the efficiency implications are dramatic.
 
 This chapter develops the theory of **multilinear extensions**: the canonical way to extend functions from the Boolean hypercube $\{0,1\}^n$ to polynomials over $\mathbb{F}^n$. These extensions are the workhorses of sum-check-based proof systems, encoding everything from circuit wire values to constraint satisfaction.
 
@@ -1699,7 +1679,7 @@ for $a, b \in \{0,1\}^n$.
 The Lagrange basis polynomials are just the equality polynomial with one input fixed:
 $$L_w(X) = \widetilde{\text{eq}}(w, X)$$
 
-**Why does this matter?** The equality polynomial appears constantly in sum-check-based protocols. When we want to "select" a specific hypercube point using randomness, we evaluate $\widetilde{\text{eq}}(r, \cdot)$ at that point. Random $r \in \mathbb{F}^n$ gives a function that's negligibly small everywhere except near the hypercube points: a probabilistic selection mechanism.
+**Why does this matter?** The equality polynomial appears constantly in sum-check-based protocols. Here's the key use case: suppose you want to "select" a specific hypercube point $w \in \{0,1\}^n$ from a sum. The verifier sends a random challenge $r \in \mathbb{F}^n$, and you evaluate $\widetilde{\text{eq}}(r, w)$. On the hypercube, this function equals 1 at $w$ and 0 everywhere else. But at a random $r$, it gives a *weighted* selection: $\widetilde{\text{eq}}(r, w)$ is large when $r$ is "close" to $w$ (in a polynomial sense) and negligibly small otherwise. This lets the verifier probe specific hypercube points through random field elements.
 
 
 
@@ -1797,7 +1777,7 @@ $T_0$ is just the original table, a function of both variables:
 $$T_0(x_1, x_2) = f(x_1, x_2)$$
 
 Think of it as four values indexed by $(x_1, x_2) \in \{0,1\}^2$:
-$$T_0 = \begin{array}{c|cc} & x_2=0 & x_2=1 \\ \hline x_1=0 & 3 & 7 \\ x_1=1 & 2 & 5 \end{array}$$
+$$T_0 = \begin{array}{c|cc} & x_2=0 & x_2=1 \\ x_1=0 & 3 & 7 \\ x_1=1 & 2 & 5 \end{array}$$
 
 **Step 1: Compute $T_1$ by "folding in" $r_1 = 0.4$**
 
@@ -1821,10 +1801,22 @@ The table has shrunk from 2 values to 1 value. This single value is $\tilde{f}(0
 **Verification**: Using the explicit formula $\tilde{f}(X_1, X_2) = 3 - X_1 + 4X_2 - X_1X_2$:
 $$\tilde{f}(0.4, 0.7) = 3 - 0.4 + 4(0.7) - (0.4)(0.7) = 3 - 0.4 + 2.8 - 0.28 = 5.12 \checkmark$$
 
-**Why does this work?** The key insight is that the Lagrange basis factorizes:
+**Why does this work?** The Lagrange basis polynomial factorizes into independent pieces, one per coordinate:
 $$L_{(b_1, b_2)}(r_1, r_2) = L_{b_1}(r_1) \cdot L_{b_2}(r_2)$$
 
-where $L_0(r) = 1 - r$ and $L_1(r) = r$. So when we compute the weighted sum in Step 1, we're effectively "absorbing" the $L_{b_1}(r_1)$ factor from each term. What remains is a smaller sum over just $b_2$, which we handle in Step 2.
+where $L_0(r) = 1 - r$ and $L_1(r) = r$ are univariate selectors. This factorization holds because the multilinear Lagrange formula is a *product* over coordinates:
+
+$$L_w(X) = \prod_{i=1}^{n} \left( w_i \cdot X_i + (1 - w_i)(1 - X_i) \right)$$
+
+Each factor depends only on one coordinate of $w$ and one coordinate of $X$. So evaluating at $(r_1, r_2)$ gives a product of independent terms.
+
+**How the algorithm exploits this**: The MLE evaluation is:
+$$\tilde{f}(r_1, r_2) = \sum_{b_1, b_2 \in \{0,1\}} f(b_1, b_2) \cdot L_{b_1}(r_1) \cdot L_{b_2}(r_2)$$
+
+Rearranging the sum (grouping by $b_2$):
+$$= \sum_{b_2} L_{b_2}(r_2) \cdot \underbrace{\left( \sum_{b_1} f(b_1, b_2) \cdot L_{b_1}(r_1) \right)}_{T_1(b_2)}$$
+
+The inner sum is exactly what Step 1 computes: for each value of $b_2$, it combines the two $b_1$ cases using weights $L_0(r_1) = 1 - r_1$ and $L_1(r_1) = r_1$. The result $T_1$ has half as many entries. Step 2 then folds in the $r_2$ weights similarly.
 
 **The Tournament Bracket.** Think of a single-elimination tournament with $2^n$ players. In each round, pairs compete and half are eliminated. After $n$ rounds, one champion remains. The streaming algorithm works the same way: $2^n$ table entries enter, each round uses a random weight to combine pairs, and after $n$ rounds a single evaluation emerges. The tournament bracket is the structure of multilinear computation.
 
@@ -1879,27 +1871,34 @@ The streaming algorithm touches each table entry exactly once. For a table of si
 
 ## Tensor Product Structure
 
-The Lagrange basis has a beautiful factorization that underlies many fast algorithms.
-
-For $w = (w_1, \ldots, w_n) \in \{0,1\}^n$:
+The factorization we used in the streaming algorithm generalizes to any number of variables. For $w = (w_1, \ldots, w_n) \in \{0,1\}^n$:
 
 $$L_w(r_1, \ldots, r_n) = \prod_{i=1}^{n} L_{w_i}(r_i)$$
 
 where $L_0(r_i) = 1 - r_i$ and $L_1(r_i) = r_i$.
 
-This is a **tensor product**: the $n$-variable basis factorizes into a product of $n$ one-variable bases.
+This is a **tensor product** structure. To see what this means concretely, consider $n = 2$. Define the vectors:
 
-**Consequence**: The vector of all $2^n$ Lagrange evaluations $(L_w(r))_{w \in \{0,1\}^n}$ is the tensor product:
+$$\vec{v}_1 = (L_0(r_1), L_1(r_1)) = (1 - r_1, r_1)$$
+$$\vec{v}_2 = (L_0(r_2), L_1(r_2)) = (1 - r_2, r_2)$$
+
+Their tensor product $\vec{v}_1 \otimes \vec{v}_2$ is the $2 \times 2$ matrix (or equivalently, length-4 vector) of all pairwise products:
+
+$$\vec{v}_1 \otimes \vec{v}_2 = \begin{pmatrix} (1-r_1)(1-r_2) & (1-r_1)r_2 \\ r_1(1-r_2) & r_1 r_2 \end{pmatrix}$$
+
+Reading off the entries: $L_{(0,0)}(r), L_{(0,1)}(r), L_{(1,0)}(r), L_{(1,1)}(r)$. The tensor product *is* the vector of Lagrange evaluations.
+
+For general $n$, the vector of all $2^n$ Lagrange evaluations is:
 
 $$(L_0(r_1), L_1(r_1)) \otimes (L_0(r_2), L_1(r_2)) \otimes \cdots \otimes (L_0(r_n), L_1(r_n))$$
 
-Computing this tensor product directly takes $O(2^n)$ operations. The structure enables:
-
-- Fast evaluation via the streaming algorithm above
+**Why this matters**: The streaming algorithm exploits tensor structure. Instead of computing all $2^n$ Lagrange values (expensive), it processes one coordinate at a time, folding the tensor product incrementally. This is why MLE evaluation costs $O(2^n)$ instead of $O(n \cdot 2^n)$. The same tensor structure enables:
 
 - Efficient prover algorithms for sum-check (Chapter 19)
 
 - Recursive proof constructions
+
+- Memory-efficient streaming over large tables
 
 
 
@@ -1956,9 +1955,9 @@ This means:
 
 - Evaluating at a random point = a linear combination of table entries
 
-- Sum-check over an MLE = reasoning about the table entries
+- Sum-check over an MLE = verifying global properties through local queries
 
-The polynomial structure enables *random access* to compressed representations of the table. That's the source of succinctness.
+The table has $2^n$ entries. The verifier touches $O(n)$ of them. The polynomial is what bridges the gap: it's a compressed representation that can be probed at random points, and those random probes reveal whether the full table satisfies the claimed property. Extension creates redundancy; redundancy enables compression; compression enables succinctness.
 
 ### Polynomial Evaluation as Inner Product
 
@@ -1970,7 +1969,7 @@ $$\tilde{f}(r) = \sum_{w \in \{0,1\}^n} f(w) \cdot L_w(r) = \langle \vec{f}, \ve
 
 where $\vec{f} = (f(w))_{w \in \{0,1\}^n}$ is the table of values and $\vec{L}(r) = (L_w(r))_{w \in \{0,1\}^n}$ is the vector of Lagrange basis evaluations at $r$.
 
-This linear algebra perspective is surprisingly powerful, and it sparked what researchers call the "Sum-Check Renaissance" in the 2010s. For decades, sum-check was seen as a beautiful theoretical result with limited practical use. Then came the realization: if you express polynomial evaluation as an inner product, and you have efficient inner product arguments, you can build practical proof systems entirely from sum-check and linear algebra. No FFTs, no trusted setups, just vectors and dot products. Systems like Spartan, HyperPlonk, and Lasso all exploit this insight.
+This linear algebra perspective is surprisingly powerful. For decades, sum-check was seen as a beautiful theoretical result with limited practical use. Then came the realization: polynomial evaluation is an inner product, and inner products interact beautifully with commitment schemes. No FFTs, no trusted setups, just vectors and dot products. Systems like Spartan, HyperPlonk, and Lasso all exploit this insight. Chapter 19 tells the full story of this "Sum-Check Renaissance."
 
 The consequences are immediate:
 
@@ -2003,8 +2002,6 @@ This reduces polynomial evaluation proofs to inner product proofs, and inner pro
 9. **Binary encoding**: Any function on $\{0, \ldots, 2^n - 1\}$ can be encoded as a function on $\{0,1\}^n$, then extended multilinearly.
 
 10. **The bridge to proofs**: MLEs encode data; sum-check verifies properties; polynomial commitment binds the prover. This trinity underlies sum-check-based SNARKs.
-
-
 
 
 \newpage
