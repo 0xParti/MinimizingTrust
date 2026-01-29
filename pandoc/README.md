@@ -1,12 +1,18 @@
 # Compiling the Book
 
-From this directory (`markdown/full/`), run:
+From this directory (`pandoc/`), run:
 
 ```bash
-pandoc zkBookFull_compilation.md --template=eisvogel -o zkBook.pdf --pdf-engine=xelatex
+./build.sh
 ```
 
-Requires:
+This script automatically:
+- Concatenates all chapters from `web/src/`
+- Filters out mermaid diagrams (not supported in PDF)
+- Compiles with pandoc/eisvogel
+
+### Requirements
+
 - [Pandoc](https://pandoc.org/)
 - [Eisvogel template](https://github.com/Wandmalfarbe/pandoc-latex-template)
 - XeLaTeX (via TeX Live or MacTeX)
