@@ -92,7 +92,7 @@ done
 MERMAID_FILTER_WIDTH=400 pandoc /tmp/zkBook_combined.md \
     --template=eisvogel \
     -F mermaid-filter \
-    -o zkBook.pdf \
+    -o ../zkBook.pdf \
     --pdf-engine=xelatex
 
 echo "Built zkBook.pdf"
