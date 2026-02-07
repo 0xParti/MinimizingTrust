@@ -147,6 +147,8 @@ Here's the key property that makes verification possible:
 
 **Two different degree-$d$ polynomials can agree on at most $d$ points.**
 
+*Proof*: Let $p$ and $q$ be distinct polynomials of degree at most $d$. Their difference $p - q$ is non-zero (since $p \neq q$) and has degree at most $d$. A non-zero polynomial of degree $d$ has at most $d$ roots. Therefore $p(x) = q(x)$ for at most $d$ values of $x$. $\square$
+
 This seems like a simple algebraic fact, but its consequences are profound. Consider what this means:
 
 If you and I each have a degree-99 polynomial, and they're *different* polynomials, then they can agree on at most 99 input values. Out of, say, $2^{256}$ possible inputs in a cryptographic field, they *disagree* on all but at most 99 of them.

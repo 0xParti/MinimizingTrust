@@ -224,6 +224,8 @@ $$\sum_b f(b) = H' + \rho P \neq H + \rho P = \sum_b g(b) + \rho \cdot \sum_b p(
 
 The inequality holds for all $\rho$ (it's a non-zero constant, not depending on $\rho$). False claims remain false under masking.
 
+**Formal soundness preservation**: Suppose the prover claims $\sum_b g(b) = H'$ but the true sum is $H \neq H'$. After masking, the verifier checks whether $\sum_b f(b) = H' + \rho P$. But $\sum_b f(b) = \sum_b g(b) + \rho P = H + \rho P$. For the check to pass, we'd need $H + \rho P = H' + \rho P$, which implies $H = H'$. Contradiction. The masking is a *soundness-preserving transformation*: it changes the representation but not the truth value of what's being verified.
+
 **Key observation:** Masking adds noise but doesn't change the "essence" of what's being verified. A true statement stays true; a false statement stays false. Only the representation is randomized.
 
 ### Constructing the Masking Polynomial
@@ -303,6 +305,8 @@ At a random point $z = 0.5$:
 - $\tilde{W}(0.5) = 5 - 1.75 = 3.25$ (masked by the random $c = 7$)
 
 Different random $c$ values produce different evaluations at $z = 0.5$, hiding the structure of $W$.
+
+**Counting the randomness**: For an $n$-variable multilinear polynomial, we add $n$ random scalars $c_1, \ldots, c_n$. The verifier learns one evaluation $\tilde{W}(z) = W(z) + \sum_i c_i z_i(1-z_i)$ at random $z$. Since each $z_i(1-z_i) \neq 0$ for random $z_i \notin \{0,1\}$, this is a random affine function of the $c_i$ values. The key observation: for uniform random $c_i$ and any fixed $W$, the distribution of $\tilde{W}(z)$ is identical (uniform over $\mathbb{F}$). A simulator who doesn't know $W$ can produce identically distributed evaluations by choosing random $c_i$. This is how zero-knowledge is achieved.
 
 ## Zero-Knowledge in Groth16
 

@@ -251,6 +251,8 @@ Two constraints, each with one multiplication. This is the general pattern: any 
 
 This decomposition is why R1CS can encode arbitrary arithmetic circuits. Every gate becomes one constraint. The "one multiplication" rule isn't a limitation; it's a *normal form* that any computation can be converted into.
 
+**Formal claim**: Any arithmetic circuit with $m$ multiplication gates and $a$ addition gates can be expressed as an R1CS with exactly $m$ constraints. The witness vector has length at most $m + a + \text{inputs} + \text{outputs}$. Addition gates require no constraints; they're absorbed into the linear combinations. Each multiplication gate contributes one constraint of the form $(A_i \cdot Z) \times (B_i \cdot Z) = C_i \cdot Z$.
+
 ### Basic Gates in R1CS
 
 **Multiplication** ($a \cdot b = c$):
@@ -860,5 +862,3 @@ Arithmetization is the bridge between computation and algebra. It's where comput
 8. **Lookup arguments changed everything**: Plookup, LogUp, and Lasso replace expensive bit operations with cheap table membership proofs, enabling efficient zkVMs and non-ZK-friendly operations.
 
 9. **Frontend/backend split**: Frontends handle arithmetization; backends handle proving. They can be mixed and matched.
-
-10. **Constraint cost guides design**: Choose field-friendly operations (hashes, curves) over bit-heavy operations.

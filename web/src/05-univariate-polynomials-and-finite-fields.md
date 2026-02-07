@@ -214,6 +214,10 @@ The combination uses the antisymmetry property:
 $$P(\omega^k) = P_{\text{even}}(\omega^{2k}) + \omega^k \cdot P_{\text{odd}}(\omega^{2k})$$
 $$P(\omega^{k + n/2}) = P_{\text{even}}(\omega^{2k}) - \omega^k \cdot P_{\text{odd}}(\omega^{2k})$$
 
+*Proof of first equation*: By definition, $P(X) = P_{\text{even}}(X^2) + X \cdot P_{\text{odd}}(X^2)$. Substituting $X = \omega^k$: $P(\omega^k) = P_{\text{even}}((\omega^k)^2) + \omega^k \cdot P_{\text{odd}}((\omega^k)^2) = P_{\text{even}}(\omega^{2k}) + \omega^k \cdot P_{\text{odd}}(\omega^{2k})$.
+
+*Proof of second equation*: Substitute $X = \omega^{k+n/2} = -\omega^k$: $P(-\omega^k) = P_{\text{even}}((-\omega^k)^2) + (-\omega^k) \cdot P_{\text{odd}}((-\omega^k)^2) = P_{\text{even}}(\omega^{2k}) - \omega^k \cdot P_{\text{odd}}(\omega^{2k})$. The even part is unchanged (squaring kills the sign); the odd part flips sign. $\square$
+
 Two evaluations of $P$ from one evaluation each of $P_{\text{even}}$ and $P_{\text{odd}}$: the same work computes both, with just an addition versus subtraction.
 
 ### Worked Example: 4-Point FFT
@@ -259,9 +263,13 @@ For the $n$-th roots of unity, this simplifies dramatically:
 
 $$Z_H(X) = X^n - 1$$
 
-This is because $\omega^n = 1$ for every root of unity $\omega$; they are precisely the roots of $X^n - 1$.
+*Proof*: By definition, $h \in H$ means $h^n = 1$, so every element of $H$ is a root of $X^n - 1$. Since $|H| = n$ and $X^n - 1$ has degree $n$, these are *all* the roots. By the factor theorem, $X^n - 1 = \prod_{h \in H}(X - h) = Z_H(X)$. $\square$
 
 **The key theorem**: A polynomial $C(X)$ vanishes at every point of $H$ if and only if $Z_H(X)$ divides $C(X)$.
+
+*Proof*: ($\Leftarrow$) If $C(X) = Q(X) \cdot Z_H(X)$, then for any $h \in H$: $C(h) = Q(h) \cdot Z_H(h) = Q(h) \cdot 0 = 0$.
+
+($\Rightarrow$) If $C(h) = 0$ for all $h \in H$, then each $(X - h)$ divides $C(X)$. Since the $(X - h)$ are coprime (distinct linear factors), their product $Z_H(X)$ divides $C(X)$. $\square$
 
 This is the compression at the heart of univariate SNARKs:
 
@@ -401,11 +409,3 @@ Both achieve the same essential goal: reduce exponentially many constraint check
 5. **The vanishing polynomial** $Z_H(X) = X^n - 1$ captures all roots of unity. A polynomial vanishes on $H$ iff $Z_H$ divides it.
 
 6. **Constraint compression**: $n$ constraints "$C(\omega^i) = 0$" become one divisibility "$Z_H | C$", verified by one random check.
-
-7. **Lagrange interpolation** over roots of unity has a clean closed form exploiting the structure of $Z_H$.
-
-8. **Cosets** extend the domain while preserving FFT-friendliness.
-
-9. **Quotient arguments** prove evaluation claims: to show $P(z) = y$, prove $(X-z)$ divides $P(X) - y$.
-
-10. **The FFT exists because of roots of unity.** The algorithm is a direct consequence of the symmetries $\omega^{n/2} = -1$ and $(\omega^k)^2 = \omega^{2k}$.

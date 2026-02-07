@@ -66,11 +66,17 @@ Why does this help? Because polynomials are rigid objects. A degree-$(k-1)$ poly
 
 Think of it this way: a polynomial is like a crystal lattice. Every atom's position is determined by the structure as a whole. You cannot move one atom without shattering the crystal (or rather, you can move it, but what remains is no longer a crystal of the same type). It's a defect, and the defect is visible from almost any angle. A forger trying to fake a polynomial faces this crystalline rigidity. They can change one point, but they cannot make the change local. The alteration propagates, disrupts the global pattern, and announces itself to anyone who checks a random position.
 
-**The distance property.** How different is a corrupted codeword from valid ones? Dramatically. Two distinct degree-$(k-1)$ polynomials agree on at most $k-1$ points (their difference is a degree-$(k-1)$ polynomial with at most $k-1$ roots). So any two valid codewords differ in at least $n - k + 1$ positions. Errors don't cluster; they spread across most of the codeword. Random sampling finds them.
+**The distance property.** How different is a corrupted codeword from valid ones? Dramatically. Two distinct degree-$(k-1)$ polynomials agree on at most $k-1$ points (their difference is a degree-$(k-1)$ polynomial with at most $k-1$ roots). So any two valid codewords differ in at least $n - k + 1$ positions.
+
+*Proof*: Let $p \neq q$ both have degree $< k$. Then $p - q$ is nonzero with degree $< k$, so it has at most $k-1$ roots. Thus $p(x) = q(x)$ for at most $k-1$ values, meaning they differ on at least $n - (k-1) = n - k + 1$ points. $\square$
+
+This is the **minimum distance** of the Reed-Solomon code: $d = n - k + 1$. Errors don't cluster; they spread across most of the codeword. Random sampling finds them.
 
 **The connection to STARKs.** The prover commits to function evaluations via Merkle tree. They claim these evaluations correspond to a low-degree polynomial. If they're lying (if the committed function isn't actually low-degree) it disagrees with *every* low-degree polynomial on at least $n - k + 1$ points. Random queries find these disagreements with high probability.
 
-This is the leverage STARKs exploit. The verifier doesn't need to check all $n$ evaluations. A random sample suffices. If the committed function deviates from any low-degree polynomial (if the prover is cheating) the deviations are spread across most of the domain. Random queries expose the lie.
+**Soundness bound**: If the committed function disagrees with every degree-$(k-1)$ polynomial on at least $\delta n$ points (where $\delta = 1 - (k-1)/n$ is the relative distance), then a single random query hits a disagreement with probability $\geq \delta$. With $q$ independent queries, the probability of missing all disagreements is at most $(1-\delta)^q$. For a blowup factor $\rho = n/k$ (e.g., $\rho = 8$), we have $\delta \approx 1 - 1/\rho$, so $(1-\delta)^q \approx (1/\rho)^q$. With $\rho = 8$ and $q = 45$ queries: $(1/8)^{45} < 2^{-135}$.
+
+This is the leverage STARKs exploit. The verifier doesn't need to check all $n$ evaluations. A random sample suffices.
 
 The **FRI protocol** (Chapter 10) formalizes this. Given a Merkle commitment to function evaluations, FRI proves the function is close to a polynomial of bounded degree. The prover cannot commit to garbage and claim it's low-degree; the random queries expose the lie.
 

@@ -176,7 +176,7 @@ Given random challenge $\gamma$:
 
 $$\prod_{i=1}^{3n} (v_i + \gamma) = \prod_{i=1}^{3n} (v_{\sigma(i)} + \gamma)$$
 
-By Schwartz-Zippel, equality at random $\gamma$ implies the multisets match.
+**Formal soundness**: If the multisets differ (some value appears with different multiplicities), then the polynomials $\prod_{i=1}^{3n} (X + v_i)$ and $\prod_{i=1}^{3n} (X + v_{\sigma(i)})$ are distinct. By Schwartz-Zippel, distinct degree-$3n$ polynomials agree on at most $3n$ points, so a random $\gamma$ satisfies the equality with probability at most $3n/|\mathbb{F}|$ (negligible for cryptographic fields).
 
 ### Binding Values to Locations
 

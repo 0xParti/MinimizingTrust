@@ -113,6 +113,10 @@ But the prover doesn't know $\tau$; it's hidden in the SRS. From their perspecti
 
 The logic: if you can pass the check at a *random* point without knowing which point, you must have the correct polynomial identity.
 
+**Formal soundness statement**: Let $f(X)$ be the committed polynomial of degree at most $d$. For any adversary $\mathcal{A}$ that outputs $(z, v, \pi)$ with $f(z) \neq v$:
+$$\Pr[\text{Verify}(C, z, v, \pi) = \text{accept}] \leq \frac{d}{|\mathbb{F}|}$$
+where the probability is over the random choice of $\tau$ in the trusted setup. Under the $q$-Strong Diffie-Hellman assumption (that computing $g^{1/(\tau+a)}$ from the SRS is hard), this bound holds even for adversaries who choose $f$ adaptively.
+
 
 
 ## Worked Example: KZG in Action

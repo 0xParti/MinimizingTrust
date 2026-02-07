@@ -280,6 +280,8 @@ $$A(\tau)B(\tau) = C(\tau) + H(\tau)Z_H(\tau)$$
 
 This is exactly the QAP identity. The elaborate construction of $\pi_C$ exists precisely to provide terms that cancel the blinding while preserving the core check.
 
+**Soundness implication**: If the QAP is not satisfied (i.e., $A(X)B(X) - C(X) \neq H(X)Z_H(X)$ as polynomials), then the difference $A(X)B(X) - C(X) - H(X)Z_H(X)$ is a non-zero polynomial. By Schwartz-Zippel, it vanishes at the random point $\tau$ with probability at most $\deg/|\mathbb{F}|$. Since $\tau$ is hidden in the SRS, a cheating prover cannot target it. Thus false proofs are rejected with overwhelming probability.
+
 ## Security and the Generic Group Model
 
 Groth16's security proof relies on the **Generic Bilinear Group Model**: an idealization where the adversary can only perform group operations without exploiting the specific structure of the underlying curve.

@@ -103,7 +103,10 @@ This is the strongest notion. The Schnorr protocol (Chapter 16) achieves PZK aga
 **Statistical zero-knowledge (SZK).** The distributions are statistically close:
 $$\Delta(\text{View}_{\mathcal{V}}, \mathcal{S}(x)) \leq \text{negl}(\lambda)$$
 
-The statistical distance is negligible in the security parameter $\lambda$. An unbounded adversary might distinguish the distributions, but only with probability $2^{-\Omega(\lambda)}$ (effectively never).
+where the **statistical distance** (or total variation distance) between distributions $P$ and $Q$ is defined as:
+$$\Delta(P, Q) = \frac{1}{2} \sum_{x} |P(x) - Q(x)| = \max_{S} |P(S) - Q(S)|$$
+
+This is the maximum advantage any distinguisher (even computationally unbounded) can achieve. An unbounded adversary might distinguish the distributions, but only with probability $2^{-\Omega(\lambda)}$ (effectively never).
 
 SZK allows for protocols where perfect simulation is impossible but the gap is cryptographically small. Many commitment-based protocols achieve SZK.
 

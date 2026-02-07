@@ -142,6 +142,8 @@ The prover sends $C$ before seeing the query point $z$; this is exactly the orde
 
 If the binding property fails (if the prover can commit to one polynomial and open to another) the entire soundness argument collapses. This is why the security of a SNARK ultimately rests on the security of its underlying PCS.
 
+**Formal theorem**: Let the IOP have soundness error $\epsilon_{\text{IOP}}$ and the PCS have binding error $\epsilon_{\text{bind}}$. The compiled SNARK has soundness error at most $\epsilon_{\text{IOP}} + \epsilon_{\text{bind}}$. *Proof sketch*: A cheating prover either (1) breaks the IOP soundness by finding a cheating strategy that succeeds with the committed polynomial, or (2) breaks binding by opening to evaluations inconsistent with the commitment. By union bound, cheating succeeds with probability at most $\epsilon_{\text{IOP}} + \epsilon_{\text{bind}}$.
+
 ### PCS Choices
 
 Different commitment schemes offer different trade-offs:
@@ -279,6 +281,8 @@ With FRI instead of KZG, proof size grows to ~100 KB (larger, but still succinct
 ## Zero-Knowledge
 
 We have focused on succinctness and soundness. The basic construction does not provide zero-knowledge: the sum-check polynomials reveal information about the witness.
+
+**Formal definition**: A proof system is *zero-knowledge* if there exists a simulator $\mathcal{S}$ that, given only the statement (not the witness), produces transcripts indistinguishable from real proofs. Intuitively: the proof reveals nothing about the witness beyond the truth of the statement. The verifier could have generated the same transcript themselves without seeing the witness.
 
 Adding zero-knowledge requires additional techniques:
 

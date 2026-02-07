@@ -63,6 +63,8 @@ A function that's *not* a low-degree polynomial must differ from every codeword 
 
 **Proximity, not exactness.** Strictly speaking, FRI does not prove that $f$ *is* a low-degree polynomial. It proves that $f$ is *close* to a low-degree polynomial, meaning it differs from some valid codeword in at most a small fraction of positions (say, 10%). This distinction matters because a cheater could take a valid polynomial and change just one evaluation point. FRI might miss that single corrupted point on any given query.
 
+**Formal definition**: A function $f: D \to \mathbb{F}$ is $\delta$-close to degree $d$ if there exists a polynomial $p(X)$ of degree $\leq d$ such that $f$ and $p$ agree on at least $(1-\delta)|D|$ points. The distance $\Delta(f, d) = \min_{\deg p \leq d} |\{x : f(x) \neq p(x)\}|/|D|$ measures how far $f$ is from being low-degree.
+
 This is why we rely on the *soundness error*. We tune the parameters (rate, number of queries) so that being "close" is good enough for our application, or so that the probability of missing the difference is cryptographically negligible (e.g., $2^{-128}$). In practice, the gap between "is low-degree" and "is close to low-degree" vanishes into the security parameter.
 
 
@@ -311,6 +313,8 @@ The verifier checks: does $f_1(13)$ equal the folded value from $f_0(9)$ and $f_
 
 The consistency formula recovers the even and odd parts from evaluations at $x$ and $-x$:
 $$f_{0,E}(y) = \frac{f_0(x) + f_0(-x)}{2}, \quad f_{0,O}(y) = \frac{f_0(x) - f_0(-x)}{2x}$$
+
+*Why this works*: Since $f_0(X) = f_{0,E}(X^2) + X \cdot f_{0,O}(X^2)$, we have $f_0(x) = f_{0,E}(y) + x \cdot f_{0,O}(y)$ and $f_0(-x) = f_{0,E}(y) - x \cdot f_{0,O}(y)$ where $y = x^2$. Adding these gives $2f_{0,E}(y)$; subtracting gives $2x \cdot f_{0,O}(y)$. Solving recovers the even and odd parts.
 
 With $x = 9$, $-x = 8$, $y = x^2 = 13$:
 

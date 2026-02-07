@@ -117,9 +117,15 @@ The extension agrees with $f$ on the hypercube. Since it's a sum of multilinear 
 
 ### Uniqueness
 
-If two multilinear polynomials agree on $\{0,1\}^n$, their difference is a multilinear polynomial that vanishes on all $2^n$ hypercube points. But a nonzero multilinear polynomial in $n$ variables has degree 1 in each variable; by Schwartz-Zippel, it can vanish on at most $1/|\mathbb{F}|$ fraction of points per variable. Over the hypercube, this means it can vanish on at most half the points in each direction, unless it's identically zero.
+**Claim**: If a multilinear polynomial $p$ vanishes on all of $\{0,1\}^n$, then $p \equiv 0$.
 
-More directly: there are $2^n$ coefficients in a multilinear polynomial, and $2^n$ constraints (values at hypercube points). The system is determined. The unique solution is the MLE.
+*Proof by induction on $n$*:
+
+**Base case** ($n=1$): A multilinear polynomial in one variable has form $p(X) = a + bX$. If $p(0) = 0$ and $p(1) = 0$, then $a = 0$ and $a + b = 0$, so $b = 0$. Thus $p \equiv 0$.
+
+**Inductive step**: Write $p(X_1, \ldots, X_n) = q_0(X_2, \ldots, X_n) + X_1 \cdot q_1(X_2, \ldots, X_n)$ where $q_0, q_1$ are multilinear in $n-1$ variables. Evaluating at $X_1 = 0$: $p(0, X_2, \ldots, X_n) = q_0(X_2, \ldots, X_n)$. Since $p$ vanishes on all of $\{0,1\}^n$, in particular $q_0$ vanishes on $\{0,1\}^{n-1}$. By induction, $q_0 \equiv 0$. Similarly, $p(1, X_2, \ldots, X_n) = q_1(X_2, \ldots, X_n)$ vanishes on $\{0,1\}^{n-1}$, so $q_1 \equiv 0$. Thus $p \equiv 0$. $\square$
+
+**Corollary**: If two multilinear polynomials agree on $\{0,1\}^n$, their difference vanishes there, hence is identically zero, so they are equal.
 
 
 

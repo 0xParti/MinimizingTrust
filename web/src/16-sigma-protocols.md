@@ -105,6 +105,8 @@ $$w = \frac{z_1 - z_2}{e_1 - e_2} \mod q$$
 
 A cheater who could answer two challenges *must* know $w$. This is **special soundness**: two accepting transcripts with different challenges allow extracting the witness.
 
+**Formal extraction statement**: Given transcripts $(a, e_1, z_1)$ and $(a, e_2, z_2)$ with $e_1 \neq e_2$ that both satisfy $g^{z_i} = a \cdot h^{e_i}$, the extractor computes $w = (z_1 - z_2)(e_1 - e_2)^{-1} \mod q$. This is well-defined since $e_1 \neq e_2$ and $q$ is prime. Verification: $g^w = g^{(z_1-z_2)/(e_1-e_2)} = (g^{z_1}/g^{z_2})^{1/(e_1-e_2)} = (ah^{e_1}/ah^{e_2})^{1/(e_1-e_2)} = h^{(e_1-e_2)/(e_1-e_2)} = h$. $\square$
+
 > **The Rewinding Lemma**
 >
 > How do we get two transcripts with the same commitment $a$ but different challenges? In real life, we cannot. The prover sends $a$ only once, receives one challenge, and responds.
@@ -131,6 +133,8 @@ The transcript $(a, e, z)$ is valid. And its distribution is identical to a real
 - In a simulated transcript: $e$ is uniform (simulator's choice), $z$ is uniform (simulator's choice), and $a = g^z h^{-e}$ is determined.
 
 Both distributions have $e$ and $z$ uniform and independent, with $a$ determined by the verification equation. They are identical.
+
+**Formal indistinguishability**: Let $\mathcal{T}_{\text{real}}$ denote the distribution of real transcripts and $\mathcal{T}_{\text{sim}}$ the simulator's output. Both are distributions over $\mathbb{G} \times \mathbb{Z}_q \times \mathbb{Z}_q$. In $\mathcal{T}_{\text{real}}$: $(a, e, z) = (g^r, e, r + we)$ where $r, e \stackrel{\$}{\leftarrow} \mathbb{Z}_q$. In $\mathcal{T}_{\text{sim}}$: $(a, e, z) = (g^z h^{-e}, e, z)$ where $e, z \stackrel{\$}{\leftarrow} \mathbb{Z}_q$. In both cases, $e$ and $z$ are uniform and independent (in the real case, $z = r + we$ is uniform because $r$ is uniform and independent of $e$). The value $a$ is then uniquely determined by the verification equation $g^z = ah^e$. Since both distributions have identical marginals on $(e, z)$ and $a$ is a deterministic function of $(e, z)$, we have $\mathcal{T}_{\text{real}} \equiv \mathcal{T}_{\text{sim}}$ (perfect equality, not just computational indistinguishability).
 
 This is **honest-verifier zero-knowledge (HVZK)**: if the verifier samples $e$ honestly (uniformly at random), the transcript reveals nothing about $w$ that the verifier couldn't have generated alone.
 

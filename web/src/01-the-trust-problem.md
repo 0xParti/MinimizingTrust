@@ -189,6 +189,8 @@ The **PCP Theorem** (Arora, Safra; Arora, Lund, Motwani, Sudan, Szegedy; 1992) i
 
 $$\textbf{NP} = \textbf{PCP}[O(\log n), O(1)]$$
 
+**Notation**: $\textbf{PCP}[r(n), q(n)]$ is the class of languages decidable by a probabilistic verifier that uses $r(n)$ random bits and queries $q(n)$ positions in a proof string. The theorem says: using only $O(\log n)$ random bits (polynomially many possible random choices) and reading $O(1)$ proof positions (a constant, independent of input size), you can verify any NP statement with constant soundness error.
+
 What does "every NP problem has a PCP" mean? Recall that an NP problem is one where solutions can be verified quickly given a witness (like checking that a proposed graph coloring is valid). The PCP theorem says something stronger: for any such problem, there exists a way to encode the witness into a longer proof string such that the verifier uses only $O(\log n)$ random bits and queries only a *constant* number of proof positions. The proof might be polynomial-size, but verification reads only $O(1)$ bits.
 
 How can this possibly work? The key is **structured redundancy**.

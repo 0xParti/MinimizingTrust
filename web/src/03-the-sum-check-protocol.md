@@ -90,7 +90,9 @@ $$g_1(r_1) = \sum_{(b_2, \ldots, b_\nu) \in \{0,1\}^{\nu-1}} g(r_1, b_2, \ldots,
 
 Without a degree bound, the prover is a wizard. He can conjure a polynomial that passes through the lie at $x = 0$ and $x = 1$, yet looks exactly like the honest polynomial everywhere else. A degree-$(|\mathbb{F}| - 1)$ polynomial can match $s_1$ at every point except 0 and 1, making it indistinguishable from the honest polynomial at any random challenge $r_1 \notin \{0, 1\}$.
 
-The degree bound is the handcuffs. It forces the polynomial to be *stiff*. If it must pass through the wrong sum, its stiffness forces it to miss the honest polynomial almost everywhere else. Specifically: if the prover must send a degree-$d$ polynomial, Lagrange interpolation on $d+1$ points fully determines it. The prover cannot simultaneously satisfy $g_1(0) + g_1(1) = H$ and have $g_1$ agree with $s_1$ at more than $d$ points (unless $g_1 = s_1$, which requires $H = H^*$).
+The degree bound is the handcuffs. It forces the polynomial to be *stiff*. If it must pass through the wrong sum, its stiffness forces it to miss the honest polynomial almost everywhere else.
+
+**Formal argument**: Suppose the prover sends $g_1 \neq s_1$ with $\deg(g_1) \leq d$. The difference $g_1 - s_1$ is a non-zero polynomial of degree at most $d$, so it has at most $d$ roots. Therefore $g_1$ and $s_1$ agree on at most $d$ points. When the verifier samples $r_1$ uniformly from $\mathbb{F}$, the probability that $g_1(r_1) = s_1(r_1)$ is at most $d/|\mathbb{F}|$. If $g_1(r_1) \neq s_1(r_1)$, the cheating prover is now committed to a false claim that propagates through subsequent rounds.
 
 ### Round $j$ (for $j = 2, \ldots, \nu$)
 

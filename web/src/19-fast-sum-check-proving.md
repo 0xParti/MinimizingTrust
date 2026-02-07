@@ -96,6 +96,10 @@ $$O(2^{n-1}) + O(2^{n-2}) + \cdots + O(1) = O(2^n)$$
 
 The total prover work is $O(2^n)$, down from the naive $O(n \cdot 2^n)$ analysis at the start of this chapter. This is optimal: any algorithm proving a claim about a sum over $2^n$ terms must read all $2^n$ inputs at least once, so $\Omega(2^n)$ is an information-theoretic lower bound.
 
+**Formal complexity bound.** Let $T(n)$ denote the total field operations across all $n$ rounds. In round $i$, computing the three evaluations $s_i(0), s_i(1), s_i(2)$ requires $O(2^{n-i})$ operations (one pass over the current arrays), and folding requires another $O(2^{n-i})$ operations. Thus:
+$$T(n) = \sum_{i=1}^{n} c \cdot 2^{n-i} = c \cdot (2^{n-1} + 2^{n-2} + \cdots + 1) = c \cdot (2^n - 1) = O(2^n)$$
+for some constant $c$ depending on the number of field operations per entry (typically $c \leq 10$ for the product $\tilde{a} \cdot \tilde{b}$). The key insight: the geometric series $\sum_{i=0}^{n-1} 2^i = 2^n - 1$ converts what appears to be $n$ rounds of $O(2^n)$ work each into $O(2^n)$ total. $\square$
+
 **Why the speedup works.** The core insight is simple once you see it.
 
 *Naive approach*: In each of the $n$ rounds, re-evaluate the polynomial at all necessary points from scratch. Round 1 touches $O(2^n)$ terms. Round 2 touches $O(2^{n-1})$ terms, but computes each by going back to the original tables. Round 3 the same. Each round performs a fresh evaluation, and "fresh evaluation" costs the full table size for that round. Total: $n$ separate evaluations, giving $O(n \cdot 2^n)$.
@@ -527,6 +531,10 @@ More precisely: define $Q(\tau) = \sum_x \widetilde{\text{eq}}(\tau, x) \cdot g(
 
 - If $g(x) = 0$ for all $x \in \{0,1\}^n$, then $\tilde{g}$ is the zero polynomial, so $Q(\tau) = 0$ for all $\tau$.
 - If some $g(x^*) \neq 0$, then $\tilde{g}$ is a nonzero polynomial of degree at most $n$. By Schwartz-Zippel, $Q(\tau) \neq 0$ for random $\tau$ with probability $\geq 1 - n/|\mathbb{F}|$.
+
+**Formal soundness statement.** Let $g: \{0,1\}^n \to \mathbb{F}$ be any function with multilinear extension $\tilde{g}$. Define the predicate $\text{ZERO}(g) := \forall x \in \{0,1\}^n, g(x) = 0$. Then:
+$$\Pr_{\tau \leftarrow \mathbb{F}^n}\left[\tilde{g}(\tau) = 0 \mid \neg\text{ZERO}(g)\right] \leq \frac{n}{|\mathbb{F}|}$$
+*Proof.* If $\neg\text{ZERO}(g)$, then $\tilde{g}$ is a nonzero multilinear polynomial (since $\tilde{g}(x) = g(x) \neq 0$ for some Boolean $x$). A nonzero multilinear polynomial has total degree at most $n$. By Schwartz-Zippel, a nonzero polynomial of degree $d$ over $\mathbb{F}$ has at most $d \cdot |\mathbb{F}|^{n-1}$ roots in $\mathbb{F}^n$. Thus the probability of hitting a root is at most $n \cdot |\mathbb{F}|^{n-1} / |\mathbb{F}|^n = n/|\mathbb{F}|$. $\square$
 
 This reduces "check $g$ vanishes on $2^n$ points" to "run sum-check on one random linear combination and verify it equals zero."
 

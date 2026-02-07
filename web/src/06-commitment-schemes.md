@@ -76,6 +76,8 @@ $$\log_g h = \frac{m - m'}{r' - r}$$
 
 But computing $\log_g h$ is the discrete logarithm problem! If Alice could find such $(m', r')$, she could break DLog in $G$. The binding property holds computationally, as long as discrete log is hard.
 
+**Formal reduction**: Suppose adversary $\mathcal{A}$ breaks binding with non-negligible probability, outputting $(m, r)$ and $(m', r')$ with $m \neq m'$ and $g^m h^r = g^{m'} h^{r'}$. We construct a DLog solver $\mathcal{B}$: given challenge $h$, run $\mathcal{A}$ to get the two openings, then compute $\log_g h = (m - m')/(r' - r) \mod q$. Note $r' \neq r$ since $m \neq m'$ would otherwise give $g^{m-m'} = 1$, implying $m = m' \mod q$. Thus $\mathcal{B}$ solves DLog whenever $\mathcal{A}$ breaks binding.
+
 ### Why Hiding Holds
 
 The commitment $C = g^m h^r$ is **perfectly hiding**. Here's the key insight: since $r$ is uniformly random in $\mathbb{Z}_q$, and $h$ is a generator of $G$, the term $h^r$ is uniformly distributed over all of $G$.
@@ -87,7 +89,6 @@ For any message $m$, the commitment $C = g^m \cdot h^r$ is a uniformly random gr
 
 The two distributions are identical: not just computationally indistinguishable, but *statistically* identical. Even an unbounded adversary cannot determine the committed value from the commitment alone.
 
-**The Paint Analogy.** Think of $g^m$ as a specific color of paint (say, blue for $m = 10$). Think of $h^r$ as a random bucket of paint mixed in. Because $h^r$ can be *any* color depending on $r$, adding it to blue produces a mixture that looks essentially random. If you see purple, it could be blue + red, or yellow + violet. Without knowing the exact shade of the random mixer ($r$), the original color ($m$) is completely masked.
 
 ### The Independence Requirement
 
@@ -198,17 +199,21 @@ $$f(z) = \sum_{i=0}^{n-1} c_i z^i = \langle \vec{c}, \vec{z} \rangle$$
 
 where $\vec{c} = (c_0, \ldots, c_{n-1})$ are the coefficients and $\vec{z} = (1, z, z^2, \ldots, z^{n-1})$ is the evaluation vector.
 
-If we commit to the coefficient vector using a Pedersen vector commitment, we've effectively committed to the polynomial itself. And thanks to homomorphism, the verifier can compute a commitment to any evaluation $f(z)$ without knowing the coefficients!
+If we commit to the coefficient vector using a Pedersen vector commitment, we've effectively committed to the polynomial itself. The verifier knows the evaluation point $z$, so they know $\vec{z} = (1, z, z^2, \ldots)$. The prover knows $\vec{c}$. Proving that a claimed value $v$ equals $f(z) = \langle \vec{c}, \vec{z} \rangle$ becomes an inner product argument: the prover convinces the verifier that their committed vector has the right inner product with the public vector $\vec{z}$.
 
-This observation, that polynomial evaluation is inner product and inner products interact beautifully with homomorphic commitments, is the conceptual bridge from simple commitments to full polynomial commitment schemes. We'll cross that bridge in Chapter 9.
+Homomorphism alone doesn't give us inner products. But it's a key ingredient: inner product arguments (like Bulletproofs) use the additive homomorphism to recursively fold commitments, shrinking the problem size logarithmically. The commitment structure enables the protocol; additional machinery makes it work.
+
+This observation, that polynomial evaluation reduces to inner product, is the conceptual bridge from simple commitments to full polynomial commitment schemes. We'll cross that bridge in Chapter 9.
 
 
 
 ## Proving Knowledge of an Opening
 
-A commitment alone proves nothing; the prover must eventually reveal the opening to be useful. But what if we want to prove something *about* the committed value without revealing it?
+A commitment alone proves nothing; the prover must eventually reveal the opening to be useful. But what if we want to prove we *know* a valid opening without revealing it?
 
-This is where $\Sigma$-protocols (Chapter 16) enter the picture. A prover who knows the opening $(m, r)$ for a commitment $C = g^m h^r$ can convince a verifier they know this opening without revealing $m$ or $r$.
+This is where $\Sigma$-protocols (Chapter 16) enter the picture. A prover who knows the opening for a commitment can convince a verifier they know it without revealing the values. This is a *proof of knowledge*: the prover demonstrates possession of the witness $(m, r)$, not a property of $m$.
+
+**Setup**: The prover has committed $C = g^m h^r$, where $m$ is the secret message and $r$ is the blinding factor. Both are hidden. The prover wants to prove they know $(m, r)$ without revealing either.
 
 The protocol follows the classic three-move structure:
 
@@ -323,9 +328,13 @@ Why can't we have both? Consider what each requires:
 
 - Perfect hiding needs all commitments to look identical regardless of the input. The commitment must be independent of the value.
 
-These requirements conflict. If commitments are independent of values (hiding), multiple values must map to the same commitment (not binding). If every value has a unique commitment (binding), the commitment reveals which value was chosen (not hiding).
+These requirements conflict. Perfect hiding means the distributions $\{\text{Commit}(m_0; r)\}$ and $\{\text{Commit}(m_1; r)\}$ are identical for all messages $m_0, m_1$. But if the distributions are identical, every commitment value $c$ must be reachable from both $m_0$ and $m_1$ (otherwise we could distinguish them). So there exist openings $(m_0, r_0)$ and $(m_1, r_1)$ that both produce $c$. Binding is broken.
 
-**The resolution**: Relax one property to *computational* rather than *information-theoretic*:
+**The resolution**: Relax one property to *computational* rather than *information-theoretic*.
+
+An **information-theoretic** (or *statistical*, or *perfect*) guarantee holds against adversaries with unlimited computational power. No amount of computation can break it. A **computational** guarantee holds only against efficient (polynomial-time) adversaries. An unbounded adversary could break it, but doing so requires solving a problem believed to be hard (like discrete log or factoring).
+
+The tradeoff:
 
 - **Perfectly hiding, computationally binding**: Pedersen commitments. As we proved earlier, for any message $m$ there exists an $r$ that produces any given commitment, so an unbounded adversary cannot determine which value is inside. But finding two openings requires solving discrete log, so binding holds against efficient adversaries. Even an all-powerful being cannot tell which value is committed (perfect hiding), but a quantum computer could eventually break the lock (computational binding).
 
@@ -349,20 +358,14 @@ But first, we need to understand *what* we're proving. Chapter 7 introduces the 
 
 1. **The binding problem**: Interactive proofs need cryptographic enforcement to prevent provers from adapting their answers to verifier challenges.
 
-2. **Commitment = seal**: A commitment locks in a value before revealing it; binding ensures it can't change, hiding ensures it reveals nothing.
+2. **Commitment = seal**: A commitment locks in a value before revealing it. Binding ensures it can't change; hiding ensures it reveals nothing.
 
-3. **Pedersen commitments**: $C = g^m h^r$ achieves perfect hiding (statistically) and computational binding (from discrete log hardness).
+3. **Pedersen commitments**: $C = g^m h^r$ achieves perfect hiding and computational binding (from discrete log hardness). The generators $g$ and $h$ must have unknown discrete log relationship, or binding fails.
 
-4. **Independence is critical**: The generators $g$ and $h$ must have unknown discrete log relationship, or binding fails.
+4. **Homomorphic structure**: Pedersen commitments allow addition in the committed domain ($C_1 \cdot C_2$ commits to $m_1 + m_2$), and extend naturally to vectors. Committing to a coefficient vector effectively commits to a polynomial.
 
-5. **Homomorphic magic**: Pedersen commitments allow addition in the "encrypted domain": $C_1 \cdot C_2$ commits to $m_1 + m_2$.
+5. **Proof of knowledge**: Sigma protocols let a prover demonstrate they know a commitment's opening without revealing it.
 
-6. **Vector commitments**: Committing to a coefficient vector effectively commits to a polynomial.
+6. **Commit-and-prove paradigm**: The foundation of all modern SNARKs: commit first, then prove properties of the committed values.
 
-7. **Proof of knowledge**: Sigma protocols let a prover demonstrate they know a commitment's opening without revealing it.
-
-8. **Commit-and-prove paradigm**: The foundation of all modern SNARKs: commit first, then prove properties of the committed values.
-
-9. **Trade-off landscape**: Different commitment schemes offer different balances of setup requirements, assumptions, efficiency, and quantum resistance.
-
-10. **Bridge to polynomial commitments**: The observation that evaluation = inner product connects scalar commitments to the polynomial commitment schemes that power SNARKs.
+7. **Bridge to polynomial commitments**: Polynomial evaluation is an inner product. This connects vector commitments to the polynomial commitment schemes (Chapter 9) that power SNARKs.

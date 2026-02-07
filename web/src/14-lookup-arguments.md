@@ -114,9 +114,11 @@ $$= (1+\beta)(\gamma + 1) \cdot (\gamma(1+\beta) + \beta) \cdot (\gamma(1+\beta)
 
 **Why $F = G$?** Notice that the pair $(1,1)$ in $G$ encodes as $\gamma(1+\beta) + 1 + \beta = (\gamma + 1)(1 + \beta)$. This factors! So $G$'s middle term equals $F$'s $(1+\beta)(\gamma+1)$ term. The other two terms match directly. The products are identical.
 
-**Claim (Plookup)**: $F \equiv G$ if and only if $f \subseteq t$ and $s$ is correctly formed.
+**Claim (Plookup)**: $F(\beta, \gamma) = G(\beta, \gamma)$ if and only if $f \subseteq t$ and $s$ is correctly formed.
 
-The logic: if every $f_j$ is in $t$, then $s$ is just $t$ with duplicates inserted, and the multiset of adjacent pairs in $s$ equals exactly what $F$ encodes. If some $f_j \notin t$, it creates a "bad" pair in $s$ that doesn't appear in $F$, and the products differ.
+**Completeness**: If $f \subseteq t$, then $s$ consists of $t$'s pairs plus repeated pairs $(f_j, f_j)$ for each lookup. Each repeated pair encodes as $(\gamma + f_j)(1+\beta)$, which exactly matches $F$'s structure.
+
+**Soundness**: If some $f_j \notin t$, then when sorted into $s$, $f_j$ creates an adjacent pair $(a, f_j)$ or $(f_j, b)$ where neither $a$ nor $b$ equals $f_j$. This "bad transition" doesn't appear in $F$'s table backbone, and can't factor as $(1+\beta)(\gamma + f_j)$ either. For random $\beta, \gamma$, the probability that $F = G$ despite this mismatch is at most $2(n+d)/|\mathbb{F}|$ by Schwartz-Zippel (the products have total degree at most $2(n+d)$ in $(\beta, \gamma)$).
 
 ## The Plookup Protocol
 
