@@ -28,7 +28,7 @@ A comprehensive guide to Zero-Knowledge Proofs, covering:
 
 ```bash
 cd pandoc
-pandoc zkBookFull_compilation.md --template=eisvogel -o zkBook.pdf --pdf-engine=xelatex
+./build.sh
 ```
 
 Requires: [Pandoc](https://pandoc.org/), [Eisvogel template](https://github.com/Wandmalfarbe/pandoc-latex-template), XeLaTeX

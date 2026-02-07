@@ -1,12 +1,10 @@
 # Chapter 5: Univariate Polynomials and Finite Fields
 
-In 1965, James Cooley and John Tukey published a paper that changed the world. They described an algorithm that could compute Fourier transforms in $O(n \log n)$ time instead of $O(n^2)$. This speedup was the difference between impossible and instant. It launched the digital signal processing revolution, enabling everything from MRI machines to JPEG compression.
+Gauss discovered the Fast Fourier Transform in 1805. He needed to predict the orbits of asteroids Pallas and Juno, so he wrote an algorithm that computed transforms in $O(n \log n)$ time instead of $O(n^2)$. He wrote it in Latin, in a notebook, and never published it. The algorithm waited 160 years for someone to notice.
 
-But they weren't the first.
+Cooley and Tukey rediscovered it in 1965. They gave it a name. It became one of the most important algorithms in computing: MRI machines, audio compression, the entire edifice of digital signal processing. All of it built on mathematics that had been sitting, unread, in the papers of a man who died in 1855.
 
-Years later, historians discovered that Carl Friedrich Gauss had written down the exact same algorithm in 1805, predating Joseph Fourier's foundational work on Fourier analysis by two years. Gauss used it to calculate the orbits of asteroids Pallas and Juno from astronomical observations. He wrote it in Latin in a notebook, but never published it. The algorithm sat dormant for 160 years.
-
-That such a powerful technique could be discovered, forgotten, and rediscovered says something about its naturalness. Once you understand the symmetries of roots of unity, the FFT practically writes itself. And those same symmetries now power zero-knowledge proofs.
+Why does the same algorithm keep appearing? Because the symmetries of roots of unity make it inevitable. Once you see the structure, the algorithm writes itself. Those symmetries now power zero-knowledge proofs.
 
 This chapter develops the univariate polynomial paradigm: finite fields, roots of unity, and the techniques that make systems like Groth16, PLONK, and STARKs possible. Where Chapter 4 explored multilinear polynomials over the Boolean hypercube, here we explore a single variable of high degree over a very different domain.
 
@@ -122,6 +120,8 @@ $$\sum_{j=0}^{n-1} c_j \cdot \omega^{jk}$$
 
 where $\omega$ is a primitive $n$-th root of unity.
 
+If you've seen the continuous Fourier transform, this is the same idea. The continuous version projects a function onto $e^{i\theta} = \cos\theta + i\sin\theta$ via integration, measuring how much of each frequency is present. Here, the integral becomes a sum, and the exponentials become $n$-th roots of unity: $\omega^k = e^{2\pi i k/n}$, equally spaced points on the unit circle. The projection interpretation is identical. You're decomposing a signal into frequency components; the discretization just replaces integration with summation.
+
 Now look at polynomial evaluation. Given a polynomial $P(X) = c_0 + c_1 X + \cdots + c_{n-1} X^{n-1}$, evaluate it at $\omega^k$:
 
 $$P(\omega^k) = \sum_{j=0}^{n-1} c_j \cdot (\omega^k)^j = \sum_{j=0}^{n-1} c_j \cdot \omega^{jk}$$
@@ -131,21 +131,6 @@ They are identical. The DFT of the coefficient vector *is* the evaluation vector
 The FFT, then, is not "like" converting between polynomial representations. It *is* converting between polynomial representations. Coefficient form and evaluation form are the two natural bases for the same vector space, and the DFT matrix is the change-of-basis matrix. The FFT is the fast algorithm for this change of basis, made possible by the recursive structure of roots of unity.
 
 This is why the same algorithm appears in signal processing, image compression, and zero-knowledge proofs. They are not merely related applications; they are the same mathematical operation in different disguises.
-
-### Resonance: A Physical Intuition
-
-There's a reason the Fourier transform appears in both signal processing and cryptographic proofs: both are exploiting the same mathematical structure.
-
-In physics, every oscillating system has **natural frequencies**: the resonant modes where energy flows most efficiently. Strike a bell, and it rings at specific pitches. Pluck a string, and it vibrates in harmonics. These aren't arbitrary; they're the **eigenfrequencies** of the system, determined by its physical structure.
-
-Roots of unity are the eigenfrequencies of the multiplicative group $\mathbb{F}_p^*$.
-
-Just as a physical system has modes that "fit" its boundary conditions, the finite field has elements that "fit" its cyclic structure. The $n$-th roots of unity are exactly the elements whose powers repeat with period $n$; they resonate with the group's multiplicative structure.
-
-The FFT is decomposition into eigenmodes. A polynomial is a sum of monomials, and each monomial interacts differently with roots of unity. The FFT separates these interactions, projecting the polynomial onto each eigenmode. Evaluating a polynomial at all $n$-th roots simultaneously is like decomposing a sound into its frequency components: same mathematics, different interpretation.
-
-This is why operations that are hard in one basis become easy in another. Multiplication of polynomials (convolution in coefficient space) becomes pointwise multiplication in evaluation space. The FFT is a change of basis to the eigenbasis, where operations decouple.
-
 
 
 ## Two Representations of Polynomials
@@ -166,7 +151,7 @@ Why care about evaluation form? In zero-knowledge proofs, constraints are natura
 
 ### Polynomial Evaluation as Inner Product
 
-Here's a key observation that bridges polynomials and linear algebra: **evaluating a polynomial is computing an inner product**.
+In Chapter 4, we saw that evaluating a multilinear polynomial is an inner product: $\tilde{f}(r) = \langle \vec{f}, \vec{L}(r) \rangle$. The same structure appears for univariate polynomials, in two forms.
 
 In coefficient form:
 $$P(z) = c_0 + c_1 z + c_2 z^2 + \cdots + c_{n-1} z^{n-1} = \langle \vec{c}, \vec{z} \rangle$$
@@ -176,9 +161,17 @@ where $\vec{c} = (c_0, c_1, \ldots, c_{n-1})$ is the coefficient vector and $\ve
 In evaluation form, the same polynomial can be written via Lagrange interpolation:
 $$P(z) = \sum_{i=0}^{n-1} P(\omega^i) \cdot L_i(z) = \langle \vec{P}, \vec{L}(z) \rangle$$
 
-where $\vec{P} = (P(1), P(\omega), \ldots, P(\omega^{n-1}))$ is the evaluation vector and $\vec{L}(z) = (L_0(z), L_1(z), \ldots, L_{n-1}(z))$ is the vector of Lagrange basis evaluations.
+where $\vec{P} = (P(1), P(\omega), \ldots, P(\omega^{n-1}))$ is the evaluation vector and $\vec{L}(z)$ is the vector of Lagrange basis evaluations. Each $L_i(z) = \prod_{j \neq i} \frac{z - \omega^j}{\omega^i - \omega^j}$ is the unique degree-$(n-1)$ polynomial that equals 1 at $\omega^i$ and 0 at all other roots of unity (Chapter 2). We'll see a cleaner closed form for roots of unity later in this chapter.
 
-Either way, polynomial evaluation is an inner product. This observation is surprisingly powerful: it means that **committing to a polynomial** (in either form) reduces to **committing to a vector**, and **proving an evaluation** reduces to **proving an inner product claim**. We'll exploit this connection extensively in Chapter 9.
+Either way, polynomial evaluation is an inner product. Committing to a polynomial reduces to committing to a vector; proving an evaluation reduces to proving an inner product claim.
+
+The difference from Chapter 4 is computational. For multilinear polynomials, the Lagrange basis factors beautifully:
+$$L_w(r) = \prod_{i=1}^{n} \big(r_i \cdot w_i + (1 - r_i)(1 - w_i)\big)$$
+Each term depends on one coordinate; the product of $n$ terms costs $O(n)$ per basis element. With $2^n$ basis elements, streaming through all of them takes $O(2^n)$ total.
+
+For univariate polynomials, no such factorization exists. Each $L_i(z) = \prod_{j \neq i} \frac{z - \omega^j}{\omega^i - \omega^j}$ is a product of $n-1$ terms that all depend on the same variable $z$. Computing one basis element costs $O(n)$; computing all $n$ of them naively costs $O(n^2)$. The FFT is what rescues us.
+
+We'll exploit the inner product connection extensively in Chapter 9.
 
 **Two ways to commit**: This duality (coefficient form vs evaluation form) manifests directly in polynomial commitment schemes:
 
@@ -296,35 +289,51 @@ One random check. $n$ constraints verified. This is the magic.
 
 
 
-## Lagrange Interpolation
+## Lagrange Interpolation over Roots of Unity
 
-Given evaluations at roots of unity, how do we recover the polynomial?
-
-The **Lagrange basis polynomial** $L_i(X)$ equals 1 at $\omega^i$ and 0 at all other roots:
-
-$$L_i(X) = \prod_{j \neq i} \frac{X - \omega^j}{\omega^i - \omega^j}$$
-
-The polynomial passing through points $({\omega^i, y_i})$ is:
-
-$$P(X) = \sum_{i=0}^{n-1} y_i \cdot L_i(X)$$
-
-For roots of unity, the Lagrange basis has a beautiful closed form:
+We saw earlier that the Lagrange basis $L_i(X) = \prod_{j \neq i} \frac{X - \omega^j}{\omega^i - \omega^j}$ is the polynomial that equals 1 at $\omega^i$ and 0 at all other roots. For roots of unity, this product simplifies to a closed form:
 
 $$L_i(X) = \frac{\omega^i}{n} \cdot \frac{X^n - 1}{X - \omega^i}$$
 
-The factor $\frac{X^n - 1}{X - \omega^i}$ vanishes at all roots except $\omega^i$. The prefactor $\frac{\omega^i}{n}$ normalizes to give $L_i(\omega^i) = 1$.
+Why does this work? The numerator $X^n - 1$ vanishes at all $n$-th roots of unity. Dividing by $(X - \omega^i)$ removes the zero at $\omega^i$, leaving a polynomial that vanishes at all roots *except* $\omega^i$. The prefactor $\frac{\omega^i}{n}$ normalizes so that $L_i(\omega^i) = 1$.
+
+**Worked example**: Let $n = 4$ in $\mathbb{F}_5$. Here $\omega = 2$ is a primitive 4th root of unity: $2^1 = 2$, $2^2 = 4$, $2^3 = 3$, $2^4 = 1$. The roots are $\{1, 2, 4, 3\}$.
+
+For $L_1(X)$, the polynomial that equals 1 at $\omega^1 = 2$ and 0 at $\{1, 4, 3\}$:
+
+$$L_1(X) = \frac{2}{4} \cdot \frac{X^4 - 1}{X - 2}$$
+
+In $\mathbb{F}_5$, we have $4^{-1} = 4$ (since $4 \cdot 4 = 16 \equiv 1$), so $\frac{2}{4} = 2 \cdot 4 = 8 \equiv 3$.
+
+Factor $X^4 - 1 = (X-1)(X-2)(X-4)(X-3)$ over $\mathbb{F}_5$. Dividing out $(X-2)$:
+
+$$L_1(X) = 3 \cdot (X-1)(X-4)(X-3)$$
+
+Check at $X = 2$: $L_1(2) = 3 \cdot (2-1)(2-4)(2-3) = 3 \cdot (1)(-2)(-1) = 3 \cdot 2 = 6 \equiv 1$. ✓
+
+Check at $X = 1$: $L_1(1) = 3 \cdot (0)(-3)(-2) = 0$. ✓
+
+The polynomial passing through points $(\omega^i, y_i)$ is then $P(X) = \sum_{i=0}^{n-1} y_i \cdot L_i(X)$.
 
 
 
 ## Cosets: Shifting the Domain
 
-Sometimes we need evaluation points outside $H$. **Cosets** provide them while preserving structure.
+Lagrange interpolation just did something powerful: it extended values defined on $H$ (the roots of unity) to a polynomial defined on all of $\mathbb{F}$. This is the univariate analog of multilinear extension from Chapter 4. There, we extended a function on the Boolean hypercube $\{0,1\}^n$ to all of $\mathbb{F}^n$. Here, we extend a function on roots of unity to all of $\mathbb{F}$.
+
+But sometimes we need more than just extension. We need structured evaluation points *outside* $H$. **Cosets** provide exactly this.
 
 If $k \notin H$ is any nonzero field element, then:
 
 $$k \cdot H = \{k, k\omega, k\omega^2, \ldots, k\omega^{n-1}\}$$
 
 is a coset of $H$. It's a "shifted" copy: $n$ new points, disjoint from $H$.
+
+**Worked example**: In $\mathbb{F}_{13}$, let $\omega = 5$ (a primitive 4th root: $5^2 = 12$, $5^3 = 8$, $5^4 = 1$). The subgroup is $H = \{1, 5, 12, 8\}$.
+
+Take $k = 2$. The coset is $2H = \{2, 10, 11, 3\}$. The two sets are disjoint, giving 8 evaluation points.
+
+The key property: to evaluate $P(X)$ on $2H$, you don't need a new algorithm. If $P(X) = c_0 + c_1 X + c_2 X^2 + c_3 X^3$, then evaluating at $2\omega^i$ is the same as evaluating $P'(X) = c_0 + 2c_1 X + 4c_2 X^2 + 8c_3 X^3$ at $\omega^i$. Scale the coefficients by powers of $k$, then run the standard FFT on $H$. Cosets give you new evaluation domains for free.
 
 **Why cosets matter in ZK:** Several proof systems crucially depend on cosets:
 
@@ -340,7 +349,7 @@ The FFT works on cosets too: just multiply each root of unity by $k$ before runn
 
 ## The Quotient Argument
 
-A fundamental operation: prove that $P(z) = y$ for a committed polynomial $P$.
+The divisibility check above verified vanishing on a *set* of points (all of $H$). The quotient argument is the single-point version: prove that $P(z) = y$ for a committed polynomial $P$.
 
 The **factor theorem** says: $P(z) = y$ if and only if $(X - z)$ divides $P(X) - y$.
 

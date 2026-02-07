@@ -81,7 +81,7 @@ The remarkable discovery of the 1980s and 1990s was that cheap verification *is*
 
 The key insight came from complexity theory, and it involved a conceptual leap: *interaction* and *randomness* together can create verification power that neither possesses alone.
 
-Consider this scenario. A computationally unbounded prover claims to have solved a problem. A polynomially bounded verifier wants to check this claim. The verifier cannot solve the problem themselves (that's the whole point), but they can engage in a conversation with the prover.
+A computationally unbounded prover claims to have solved a problem. A polynomially bounded verifier wants to check this claim. The verifier cannot solve the problem themselves (that's the whole point), but they can engage in a conversation with the prover.
 
 In an **interactive proof**, the verifier sends random challenges, the prover responds, and after some number of rounds, the verifier decides whether to accept or reject the claim.
 
@@ -96,8 +96,6 @@ The probability in soundness comes from the verifier's randomness. The prover do
 
 
 ## Randomness Creates Asymmetry
-
-Here's a simple example that illustrates the power of randomness in verification.
 
 Suppose I claim two polynomials $p(x)$ and $q(x)$ are identical. Both polynomials have degree at most $d$, and their coefficients are elements of a large finite field $\mathbb{F}$ of size $|\mathbb{F}| = 2^{256}$.
 
@@ -350,30 +348,20 @@ By the end, you'll understand not just what zkSNARKs do, but *how* they work: th
 
 ## Key Takeaways
 
-### The Core Problem
+1. **Verification should be cheaper than computation.** If Alice outsources a computation to Bob, she shouldn't have to redo the entire work to check his answer. The goal is *asymmetric verification*: Bob does the hard work once, Alice checks quickly.
 
-1. **Verification should be cheaper than computation.** If Alice outsources a computation to Bob, she shouldn't have to redo the entire work to check his answer. The goal of proof systems is *asymmetric verification*: Bob does the hard work once, Alice checks quickly.
+2. **Randomness creates verification power.** A deterministic verifier who can't compute the answer can't check it either. But a randomized verifier can probe for inconsistencies. Random questions catch cheaters with high probability.
 
-2. **Randomness creates verification power.** A deterministic verifier who can't compute the answer also can't check it. But a randomized verifier can probe for inconsistencies. If Bob is honest, his answers are consistent. If Bob cheats, random questions catch him with high probability.
+3. **Schwartz-Zippel is the fundamental tool.** Two different degree-$d$ polynomials agree on at most $d$ points. Evaluating at a random point catches disagreement with probability at least $1 - d/|\mathbb{F}|$. Polynomials are central to proof systems because errors propagate almost everywhere.
 
-3. **Schwartz-Zippel is the fundamental tool.** Two different polynomials of degree $d$ agree on at most $d$ points. Evaluating at a random point catches disagreement with probability at least $1 - d/|\mathbb{F}|$. This is why polynomials are central to proof systems: they have rigid structure, so any error propagates almost everywhere.
+4. **Proof models evolved by constraining the prover.** IP captures PSPACE. MIP (multiple non-communicating provers) captures NEXP. PCPs allow constant-query verification. IOPs combine interaction with oracle access. Paradoxically, more constraints on the prover give the verifier more power.
 
-### The Proof System Landscape
+5. **The PCP theorem is foundational.** NP = PCP[$O(\log n)$, $O(1)$]. Any NP statement has a proof where the verifier reads constantly many bits. This requires encoding the witness with structured redundancy so that any error creates detectable inconsistencies.
 
-4. **Different proof models have different verification power.** Interactive Proofs (IP) capture PSPACE. Multi-Prover Proofs (MIP) capture NEXP. The distinctions matter less than the pattern: constraining the prover in various ways paradoxically *increases* what the verifier can check.
+6. **Polynomial commitments instantiate oracles.** The prover commits to a polynomial; the verifier queries evaluations; a short proof demonstrates each evaluation is correct. Different schemes (KZG, FRI, IPA) offer different trade-offs.
 
-5. **The PCP theorem is foundational.** NP = PCP[$O(\log n)$, $O(1)$]. Any NP statement has a proof where the verifier reads only constantly many bits and catches cheating with high probability. This requires encoding the witness with structured redundancy so that any error creates detectable inconsistencies.
+7. **Fiat-Shamir eliminates interaction.** Replace the verifier's random challenges with hashes of the transcript. The prover computes the entire interaction locally and outputs a static proof.
 
-6. **IOPs combine interaction with oracles.** The prover sends polynomials (as oracles), the verifier queries evaluations and sends challenges. This hybrid model underlies most modern SNARKs.
+8. **The architecture is modular.** Arithmetization encodes computation as constraints. An IOP proves the constraints are satisfied. Cryptographic compilation (PCS + Fiat-Shamir) makes proofs short and non-interactive. Each layer can be swapped independently.
 
-7. **Linear PCPs restrict queries to linear combinations.** The verifier can only ask for weighted sums of proof values. Elliptic curve groups enforce this restriction cryptographically, since group elements support addition but not multiplication. This is how Groth16 works.
-
-### From Theory to Practice
-
-8. **Polynomial commitments instantiate oracles.** The prover commits to a polynomial; the verifier queries evaluations; a short proof demonstrates each evaluation is correct. Different schemes (KZG, FRI, IPA) offer different trade-offs between proof size, verification time, and setup assumptions.
-
-9. **Fiat-Shamir eliminates interaction.** Replace the verifier's random challenges with hashes of the transcript. The prover computes the entire interaction locally and outputs a static proof. Security relies on modeling the hash as a random oracle.
-
-10. **The architecture is modular.** Arithmetization encodes computation as constraints. An information-theoretic protocol (IOP) proves the constraints are satisfied. Cryptographic compilation (PCS + Fiat-Shamir) makes proofs short and non-interactive. Each layer can be swapped independently.
-
-11. **Zero-knowledge adds privacy.** The proof reveals nothing beyond the statement's truth. Techniques like blinding polynomials and randomized commitments layer on top of the basic SNARK machinery. Privacy is orthogonal to succinctness.
+9. **Zero-knowledge is orthogonal to succinctness.** The proof can reveal nothing beyond the statement's truth. Privacy and compression are independent properties; modern systems achieve both.

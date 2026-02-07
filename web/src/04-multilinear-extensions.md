@@ -2,17 +2,17 @@
 
 In 1971, the Mariner 9 probe became the first spacecraft to orbit another planet. Its mission: map the surface of Mars. But transmitting high-resolution images across 100 million miles of static-filled space was a nightmare. A single burst of cosmic noise could turn a crater into a glitch.
 
-NASA didn't send raw pixels. They used a code developed years earlier by Irving Reed and David Muller: treat the pixel data as values and send evaluations of a *multivariate polynomial*. The Reed-Muller code could correct up to seven bit errors per 32-bit word. When Mariner 9 arrived to find Mars engulfed in a planet-wide dust storm, mission control reprogrammed the spacecraft from Earth and waited. When the dust cleared, the code delivered 7,329 images, mapping 85% of the Martian surface.
+NASA didn't send raw pixels. They used a code developed years earlier by Irving Reed and David Muller: treat the pixel data as evaluations of a *multivariate polynomial*. The Reed-Muller code could correct up to seven bit errors per 32-bit word. When Mariner 9 arrived to find Mars engulfed in a planet-wide dust storm, mission control reprogrammed the spacecraft from Earth and waited. When the dust cleared, the code delivered 7,329 images, mapping 85% of the Martian surface.
 
-The same mathematical structure that gave humanity its first clear look at Mars now powers zero-knowledge proofs. Multivariate polynomials are robust: they let you reconstruct data even when parts are corrupted, or verify data by checking a single random point. This chapter develops that theory.
+Why not Reed-Solomon? In Chapter 2, we encoded $n$ values as a univariate polynomial of degree $n-1$. That works when $n$ is modest. But Mariner's data was indexed by *bit positions*: a 32-bit word has $2^5$ bit combinations, a memory address space has $2^{64}$ locations, a boolean formula with 100 variables has $2^{100}$ possible assignments. Encoding $2^{100}$ values as a univariate polynomial means degree $2^{100} - 1$. Impossible.
+
+The solution: let each bit be its own variable. A 100-bit index becomes 100 coordinates, each 0 or 1. The polynomial has 100 variables instead of degree $2^{100}$. Data lives not on a line but on a hypercube. This chapter develops that theory.
 
 ---
 
-How do you turn data into a polynomial?
+In Chapter 2, we turned data into polynomials via Lagrange interpolation: given $n$ values, construct the unique degree-$(n-1)$ univariate polynomial passing through them. That was interpolation over a *line*.
 
-The question is more subtle than it appears. Data is discrete: a list of values, a vector of field elements, the output of gates in a circuit. Polynomials are continuous mathematical objects defined over all of $\mathbb{F}^n$. Bridging this gap is the art of **extension**: taking a function defined on a finite set and stretching it to a polynomial defined everywhere.
-
-The choice of extension matters enormously. A bad extension creates polynomials of exponential degree, destroying efficiency. A good extension preserves structure, enables fast algorithms, and makes random evaluation meaningful.
+Now we need interpolation over a *hypercube*. The data lives at $2^n$ vertices, indexed by bit strings. The polynomial must agree with the data at these vertices and extend smoothly to all of $\mathbb{F}^n$. The construction is analogous to univariate Lagrange, but the geometry is different, and the efficiency implications are dramatic.
 
 This chapter develops the theory of **multilinear extensions**: the canonical way to extend functions from the Boolean hypercube $\{0,1\}^n$ to polynomials over $\mathbb{F}^n$. These extensions are the workhorses of sum-check-based proof systems, encoding everything from circuit wire values to constraint satisfaction.
 
@@ -137,7 +137,7 @@ for $a, b \in \{0,1\}^n$.
 The Lagrange basis polynomials are just the equality polynomial with one input fixed:
 $$L_w(X) = \widetilde{\text{eq}}(w, X)$$
 
-**Why does this matter?** The equality polynomial appears constantly in sum-check-based protocols. When we want to "select" a specific hypercube point using randomness, we evaluate $\widetilde{\text{eq}}(r, \cdot)$ at that point. Random $r \in \mathbb{F}^n$ gives a function that's negligibly small everywhere except near the hypercube points: a probabilistic selection mechanism.
+**Why does this matter?** The equality polynomial appears constantly in sum-check-based protocols. Here's the key use case: suppose you want to "select" a specific hypercube point $w \in \{0,1\}^n$ from a sum. The verifier sends a random challenge $r \in \mathbb{F}^n$, and you evaluate $\widetilde{\text{eq}}(r, w)$. On the hypercube, this function equals 1 at $w$ and 0 everywhere else. But at a random $r$, it gives a *weighted* selection: $\widetilde{\text{eq}}(r, w)$ is large when $r$ is "close" to $w$ (in a polynomial sense) and negligibly small otherwise. This lets the verifier probe specific hypercube points through random field elements.
 
 
 
@@ -259,10 +259,22 @@ The table has shrunk from 2 values to 1 value. This single value is $\tilde{f}(0
 **Verification**: Using the explicit formula $\tilde{f}(X_1, X_2) = 3 - X_1 + 4X_2 - X_1X_2$:
 $$\tilde{f}(0.4, 0.7) = 3 - 0.4 + 4(0.7) - (0.4)(0.7) = 3 - 0.4 + 2.8 - 0.28 = 5.12 \checkmark$$
 
-**Why does this work?** The key insight is that the Lagrange basis factorizes:
+**Why does this work?** The Lagrange basis polynomial factorizes into independent pieces, one per coordinate:
 $$L_{(b_1, b_2)}(r_1, r_2) = L_{b_1}(r_1) \cdot L_{b_2}(r_2)$$
 
-where $L_0(r) = 1 - r$ and $L_1(r) = r$. So when we compute the weighted sum in Step 1, we're effectively "absorbing" the $L_{b_1}(r_1)$ factor from each term. What remains is a smaller sum over just $b_2$, which we handle in Step 2.
+where $L_0(r) = 1 - r$ and $L_1(r) = r$ are univariate selectors. This factorization holds because the multilinear Lagrange formula is a *product* over coordinates:
+
+$$L_w(X) = \prod_{i=1}^{n} \left( w_i \cdot X_i + (1 - w_i)(1 - X_i) \right)$$
+
+Each factor depends only on one coordinate of $w$ and one coordinate of $X$. So evaluating at $(r_1, r_2)$ gives a product of independent terms.
+
+**How the algorithm exploits this**: The MLE evaluation is:
+$$\tilde{f}(r_1, r_2) = \sum_{b_1, b_2 \in \{0,1\}} f(b_1, b_2) \cdot L_{b_1}(r_1) \cdot L_{b_2}(r_2)$$
+
+Rearranging the sum (grouping by $b_2$):
+$$= \sum_{b_2} L_{b_2}(r_2) \cdot \underbrace{\left( \sum_{b_1} f(b_1, b_2) \cdot L_{b_1}(r_1) \right)}_{T_1(b_2)}$$
+
+The inner sum is exactly what Step 1 computes: for each value of $b_2$, it combines the two $b_1$ cases using weights $L_0(r_1) = 1 - r_1$ and $L_1(r_1) = r_1$. The result $T_1$ has half as many entries. Step 2 then folds in the $r_2$ weights similarly.
 
 **The Tournament Bracket.** Think of a single-elimination tournament with $2^n$ players. In each round, pairs compete and half are eliminated. After $n$ rounds, one champion remains. The streaming algorithm works the same way: $2^n$ table entries enter, each round uses a random weight to combine pairs, and after $n$ rounds a single evaluation emerges. The tournament bracket is the structure of multilinear computation.
 
@@ -317,27 +329,34 @@ The streaming algorithm touches each table entry exactly once. For a table of si
 
 ## Tensor Product Structure
 
-The Lagrange basis has a beautiful factorization that underlies many fast algorithms.
-
-For $w = (w_1, \ldots, w_n) \in \{0,1\}^n$:
+The factorization we used in the streaming algorithm generalizes to any number of variables. For $w = (w_1, \ldots, w_n) \in \{0,1\}^n$:
 
 $$L_w(r_1, \ldots, r_n) = \prod_{i=1}^{n} L_{w_i}(r_i)$$
 
 where $L_0(r_i) = 1 - r_i$ and $L_1(r_i) = r_i$.
 
-This is a **tensor product**: the $n$-variable basis factorizes into a product of $n$ one-variable bases.
+This is a **tensor product** structure. To see what this means concretely, consider $n = 2$. Define the vectors:
 
-**Consequence**: The vector of all $2^n$ Lagrange evaluations $(L_w(r))_{w \in \{0,1\}^n}$ is the tensor product:
+$$\vec{v}_1 = (L_0(r_1), L_1(r_1)) = (1 - r_1, r_1)$$
+$$\vec{v}_2 = (L_0(r_2), L_1(r_2)) = (1 - r_2, r_2)$$
+
+Their tensor product $\vec{v}_1 \otimes \vec{v}_2$ is the $2 \times 2$ matrix (or equivalently, length-4 vector) of all pairwise products:
+
+$$\vec{v}_1 \otimes \vec{v}_2 = \begin{pmatrix} (1-r_1)(1-r_2) & (1-r_1)r_2 \\ r_1(1-r_2) & r_1 r_2 \end{pmatrix}$$
+
+Reading off the entries: $L_{(0,0)}(r), L_{(0,1)}(r), L_{(1,0)}(r), L_{(1,1)}(r)$. The tensor product *is* the vector of Lagrange evaluations.
+
+For general $n$, the vector of all $2^n$ Lagrange evaluations is:
 
 $$(L_0(r_1), L_1(r_1)) \otimes (L_0(r_2), L_1(r_2)) \otimes \cdots \otimes (L_0(r_n), L_1(r_n))$$
 
-Computing this tensor product directly takes $O(2^n)$ operations. The structure enables:
-
-- Fast evaluation via the streaming algorithm above
+**Why this matters**: The streaming algorithm exploits tensor structure. Instead of computing all $2^n$ Lagrange values (expensive), it processes one coordinate at a time, folding the tensor product incrementally. This is why MLE evaluation costs $O(2^n)$ instead of $O(n \cdot 2^n)$. The same tensor structure enables:
 
 - Efficient prover algorithms for sum-check (Chapter 19)
 
 - Recursive proof constructions
+
+- Memory-efficient streaming over large tables
 
 
 
@@ -394,9 +413,9 @@ This means:
 
 - Evaluating at a random point = a linear combination of table entries
 
-- Sum-check over an MLE = reasoning about the table entries
+- Sum-check over an MLE = verifying global properties through local queries
 
-The polynomial structure enables *random access* to compressed representations of the table. That's the source of succinctness.
+The table has $2^n$ entries. The verifier touches $O(n)$ of them. The polynomial is what bridges the gap: it's a compressed representation that can be probed at random points, and those random probes reveal whether the full table satisfies the claimed property. Extension creates redundancy; redundancy enables compression; compression enables succinctness.
 
 ### Polynomial Evaluation as Inner Product
 
@@ -408,7 +427,7 @@ $$\tilde{f}(r) = \sum_{w \in \{0,1\}^n} f(w) \cdot L_w(r) = \langle \vec{f}, \ve
 
 where $\vec{f} = (f(w))_{w \in \{0,1\}^n}$ is the table of values and $\vec{L}(r) = (L_w(r))_{w \in \{0,1\}^n}$ is the vector of Lagrange basis evaluations at $r$.
 
-This linear algebra perspective is surprisingly powerful, and it sparked what researchers call the "Sum-Check Renaissance" in the 2010s. For decades, sum-check was seen as a beautiful theoretical result with limited practical use. Then came the realization: if you express polynomial evaluation as an inner product, and you have efficient inner product arguments, you can build practical proof systems entirely from sum-check and linear algebra. No FFTs, no trusted setups, just vectors and dot products. Systems like Spartan, HyperPlonk, and Lasso all exploit this insight.
+This linear algebra perspective is surprisingly powerful. For decades, sum-check was seen as a beautiful theoretical result with limited practical use. Then came the realization: polynomial evaluation is an inner product, and inner products interact beautifully with commitment schemes. No FFTs, no trusted setups, just vectors and dot products. Systems like Spartan, HyperPlonk, and Lasso all exploit this insight. Chapter 19 tells the full story of this "Sum-Check Renaissance."
 
 The consequences are immediate:
 

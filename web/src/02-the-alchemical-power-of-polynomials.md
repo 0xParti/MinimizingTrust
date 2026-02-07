@@ -157,6 +157,8 @@ Compare this to arbitrary functions. Two functions could agree on 99% of inputs 
 
 This rigidity has a striking consequence: you cannot construct a degree-$d$ polynomial that matches another degree-$d$ polynomial at strategically chosen points while differing elsewhere. If two degree-$d$ polynomials differ at all, they differ almost everywhere. A local patch is impossible; any change propagates globally.
 
+A polynomial cannot lie consistently. It must betray itself almost everywhere.
+
 This property alone is purely mathematical. To turn it into a verification tool, we need one more ingredient: randomness.
 
 

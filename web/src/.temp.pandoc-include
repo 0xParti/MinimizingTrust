@@ -1,0 +1,1 @@
+{"include-entry": {"path": ".", "entered": true}, "current-path": "../web/src", "include-resources": ".", "process-path": "/Users/home/dev/parti/cryptography/book/zkBook/pandoc", "include-order": "natural", "rewrite-path": true, "pandoc-options": ["--filter=pandoc-include"]}
