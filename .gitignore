@@ -1,0 +1,8 @@
+# Build artifacts
+compile/mermaid-filter.err
+
+# macOS
+.DS_Store
+
+# mdBook build output
+web/book/

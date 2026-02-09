@@ -1,12 +1,10 @@
 # Chapter 8: From Circuits to Polynomials
 
-In 1931, Kurt Gödel shattered the foundations of mathematics. He proved that any formal system powerful enough to express arithmetic is "haunted": it contains true statements that cannot be proven. To establish this, Gödel had to solve a technical nightmare: how do you make math talk about itself?
+In 1931, Kurt Gödel shattered the foundations of mathematics. He proved that any formal system powerful enough to express arithmetic is "haunted": it contains true statements that cannot be proven. More precisely: if a formal system $F$ is *consistent* (it cannot prove both a statement and its negation) and capable of expressing basic arithmetic, then $F$ is *incomplete* (there exists a statement $G$ such that neither $G$ nor $\neg G$ is provable in $F$). To establish this, Gödel had to solve a technical nightmare: how do you make math talk about itself?
 
 His solution was Gödel numbering. He assigned a unique integer to every logical symbol ($+$, $=$, $\forall$), turning logical statements into integers and logical proofs into arithmetic relationships between those integers. He turned logic into arithmetic so that arithmetic could reason about logic.
 
-What we do in zero-knowledge proofs is a direct descendant of Gödel's trick. We take the logic of a computer program (loops, jumps, variables) and map it into the rigid algebra of polynomials. This translation process is called **arithmetization**.
-
-But the analogy goes deeper. Once computation is translated into algebra, the verification of that algebra becomes just another computation. And since we can translate any computation into polynomials, we can translate the verifier itself. This closes the loop. Just as Gödel used arithmetic to talk about arithmetic, arithmetization allows ZK proofs to verify ZK proofs. This self-referential capability (recursion) is what allows us to compress hours of computation into a millisecond check. It all starts here, with the translation of thought into number.
+What we do in zero-knowledge proofs is a direct descendant of Gödel's trick. We take the logic of a computer program (loops, conditionals, memory access) and encode it as polynomial equations. This translation is called **arithmetization**, and it's the subject of this chapter.
 
 
 
@@ -16,7 +14,7 @@ Before diving in, we must distinguish two fundamentally different problems:
 
 **Circuit Evaluation**: Given a circuit $C$ and input $x$, prove that $C(x) = y$.
 
-The prover claims they computed the circuit correctly. The verifier could recompute it themselves, but the ZK system just makes verification faster. GKR handles this directly.
+The prover claims they computed the circuit correctly. The verifier could recompute it themselves, but the proof system makes verification faster. GKR handles this directly.
 
 **Circuit Satisfiability**: Given a circuit $C$, public input $x$, and output $y$, prove there exists a secret witness $w$ such that $C(x, w) = y$.
 
@@ -45,7 +43,7 @@ The **witness** is central to zero-knowledge proofs. It's what separates a mere 
 
 ### What Exactly Is a Witness?
 
-A witness is a private input that, together with the public inputs, satisfies the circuit's constraints. In the equation $x^3 + x + 5 = 35$, the witness is $x = 3$. Anyone can verify that $3^3 + 3 + 5 = 35$, but the prover is demonstrating they *know* this solution.
+A witness is an input that, together with the public inputs, satisfies the circuit's constraints. In zero-knowledge proofs, the witness is kept private. In the equation $x^3 + x + 5 = 35$, the witness is $x = 3$. Anyone can verify that $3^3 + 3 + 5 = 35$, but the prover is demonstrating they *know* this solution.
 
 More precisely, for a relation $R$, a witness $w$ for statement $x$ is a value such that $R(x, w) = 1$. The relation encodes the computational problem:
 
@@ -862,3 +860,5 @@ Arithmetization is the bridge between computation and algebra. It's where comput
 8. **Lookup arguments changed everything**: Plookup, LogUp, and Lasso replace expensive bit operations with cheap table membership proofs, enabling efficient zkVMs and non-ZK-friendly operations.
 
 9. **Frontend/backend split**: Frontends handle arithmetization; backends handle proving. They can be mixed and matched.
+
+10. **Constraint cost guides design**: Choose field-friendly operations (hashes, curves) over bit-heavy operations.

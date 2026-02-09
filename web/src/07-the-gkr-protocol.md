@@ -6,7 +6,7 @@ Verifying the computation by re-running it defeats the purpose of outsourcing. Y
 
 In 2008, Shafi Goldwasser, Yael Kalai, and Guy Rothblum published a theoretical solution. They proposed a protocol where a supercomputer could prove a massive calculation to a laptop, and the laptop could verify it in seconds. While it took a decade for hardware and cryptographic engineering to catch up to their math, every modern rollup and scaling solution on Ethereum is spiritually a descendant of that 2008 paper.
 
-The sum-check protocol is extraordinary. It transforms exponentially large sums ($2^n$ terms) into verification that runs in $O(n)$ time, logarithmic in the sum size. But every application we've seen (#SAT, triangle counting, matrix multiplication) requires a custom polynomial tailored to that specific problem. Each new computation demands a new arithmetization.
+The sum-check protocol is extraordinary. It transforms exponentially large sums ($2^n$ terms) into verification that runs in $O(n)$ time, logarithmic in the sum size. But every application we've seen requires a custom polynomial tailored to that specific problem. Each new computation demands a new arithmetization.
 
 What if we want to verify *any* computation, not just counting problems? The GKR protocol provides a *universal* framework for verifying any computation that can be expressed as an arithmetic circuit (which turns out to be everything). Rather than designing a new protocol for each problem, GKR gives us a machine: feed in a circuit, get out an efficient verification protocol.
 
@@ -53,16 +53,29 @@ Any circuit can be transformed into this layered form. If a wire spans multiple 
 
 **Example Circuit**: Let's trace through a simple circuit computing $(x_1 + x_2) \cdot x_3$.
 
-```
-Layer 2 (Inputs):    x_1      x_2      x_3
-                      \       /          |
-                       \     /           |
-Layer 1 (Middle):      [+]           [pass]
-                         \             /
-                          \           /
-Layer 0 (Output):           [*]
-                             |
-                          output
+```mermaid
+flowchart TB
+    subgraph L2["Layer 2 (Inputs)"]
+        x1["x₁"]
+        x2["x₂"]
+        x3["x₃"]
+    end
+
+    subgraph L1["Layer 1 (Middle)"]
+        add["[+]"]
+        pass["[pass]"]
+    end
+
+    subgraph L0["Layer 0 (Output)"]
+        mult["[×]"]
+    end
+
+    x1 --> add
+    x2 --> add
+    x3 --> pass
+    add --> mult
+    pass --> mult
+    mult --> output["output"]
 ```
 
 **Gate labeling**:
@@ -94,15 +107,13 @@ Reading this: "Gate $a=0$ in layer 0 is a multiplication gate whose left input c
 
 The layer has no addition gates, so $\text{add}_0$ is identically zero.
 
-**The key observation**: These predicates depend only on the *circuit structure*, not on the input values. The verifier, who knows the circuit, can compute these predicates efficiently.
-
-**The Switchboard Analogy.** Think of the wiring predicates $\text{add}_i$ and $\text{mult}_i$ as the circuit's switchboard operators. Gate $a$ in layer 0 shouts: "I need inputs!" The switchboard looks up its directory. "Okay, gate $a$, you are a multiplication gate. I am connecting you to gate $b$ and gate $c$ from the previous layer." In the math, $\text{mult}_i(a, b, c) = 1$ is just the switchboard confirming: "Yes, that connection exists." If you ask about a connection that doesn't exist (say, gate 0 to gates 5 and 7), the switchboard says "0." The sum-check protocol essentially asks the switchboard to verify that all the cables are plugged into the right sockets.
+These predicates depend only on the *circuit structure*, not on the input values. The verifier, who knows the circuit, can compute these predicates efficiently.
 
 
 
 ## Gate Values as Polynomials
 
-Let $W_i : \{0,1\}^{k_i} \to \mathbb{F}$ denote the function mapping each gate label in layer $i$ to its output value. The prover, having evaluated the circuit on specific inputs, knows all of $W_0, W_1, \ldots, W_d$.
+For each layer $i$, define $W_i : \{0,1\}^{k_i} \to \mathbb{F}$ as the function mapping each gate label in layer $i$ to its output value. There is exactly one such function per layer (not a family): $W_0$ captures all gate values in the output layer, $W_1$ captures all gate values in layer 1, and so on. The prover, having evaluated the circuit on specific inputs, knows all of $W_0, W_1, \ldots, W_d$.
 
 We extend these to multilinear polynomials $\tilde{W}_i$ over $\mathbb{F}^{k_i}$. Similarly, we extend the wiring predicates to multilinear polynomials $\widetilde{\text{add}}_i$ and $\widetilde{\text{mult}}_i$.
 
@@ -158,6 +169,8 @@ The GKR protocol reduces verification of the entire circuit to a single check on
 
 **Initial Setup**:
 
+The verifier knows three things: (1) the circuit structure, meaning the wiring predicates $\text{add}_i$ and $\text{mult}_i$ for each layer; (2) the inputs to the circuit; and (3) the claimed output. She does *not* know the intermediate gate values. Those are computed by the prover and never directly revealed.
+
 1. The prover evaluates the circuit and sends the claimed output $W_0$ to the verifier
 2. The verifier picks a random point $r_0 \in \mathbb{F}^{k_0}$ and computes $V_0 = \tilde{W}_0(r_0)$
 3. The goal: verify that $V_0$ is correct
@@ -184,7 +197,9 @@ At the start of round $i$, the verifier holds a claim: "$\tilde{W}_i(r_i) = V_i$
    - The verifier checks $q(0) = \tilde{W}_{i+1}(s_b)$ and $q(1) = \tilde{W}_{i+1}(s_c)$ against the prover's earlier claims
    - Set $V_{i+1} = q(\alpha)$, which equals $\tilde{W}_{i+1}(r_{i+1})$
 
-   The key insight: restricting a multilinear polynomial to a line yields a low-degree univariate polynomial. The random $\alpha$ serves double duty: (1) it tests consistency (if the prover lied about either $\tilde{W}_{i+1}(s_b)$ or $\tilde{W}_{i+1}(s_c)$, the polynomial $q$ won't pass through both claimed values); (2) it produces a fresh random point $r_{i+1}$ that combines both claims into one for the next round
+   The key insight: restricting a multilinear polynomial to a line yields a low-degree univariate polynomial. The random $\alpha$ serves double duty: (1) it tests consistency; (2) it produces a fresh random point $r_{i+1}$ that combines both claims into one for the next round.
+
+   Why does this catch inconsistency? If the prover lied about either $\tilde{W}_{i+1}(s_b)$ or $\tilde{W}_{i+1}(s_c)$, they cannot produce a degree-$k_{i+1}$ polynomial $q(t)$ that passes through both false values while also being the restriction of the true $\tilde{W}_{i+1}$ to the line $\ell$. The degree bound is the handcuff: a low-degree polynomial through the wrong points must differ from the true polynomial almost everywhere. By Schwartz-Zippel, the probability that the random $\alpha$ lands on one of the at most $k_{i+1}$ points where a false $q$ happens to agree with the truth is at most $k_{i+1}/|\mathbb{F}|$, which is negligible
 
    *Alternative: random linear combination.* Some implementations (Church-Forbes-Spooner 2017) instead use $V_{i+1} = \alpha_1 \cdot \tilde{W}_{i+1}(s_b) + \alpha_2 \cdot \tilde{W}_{i+1}(s_c)$ for fresh random $\alpha_1, \alpha_2$, verifying via a single combined claim. Both approaches achieve the same goal with similar security.
 
@@ -280,7 +295,7 @@ Now the verifier has two claims to verify. To reduce to one, she picks random $\
 - $q(0) = 2$ matches the claimed $\tilde{W}_1(s_b) = 2$ $\checkmark$
 - $q(1) = 0$ matches the claimed $\tilde{W}_1(s_c) = 0$ $\checkmark$
 
-The next round's claim becomes $r_1 = \ell(\alpha) = 3 + 2(2) = 7$ with value $V_1 = q(\alpha) = 2 - 2(2) = -2$.
+The verifier computes $r_1 = \ell(\alpha) = 3 + 2(2) = 7$ and $V_1 = q(\alpha) = 2 - 2(2) = -2$. She now holds a new claim for the next round: $\tilde{W}_1(7) = -2$.
 
 **Round 1: Reducing Layer 1 to Layer 2**
 
@@ -293,7 +308,7 @@ Another sum-check reduces this to claims about $\tilde{W}_2$ at random points.
 
 **Final Check (Layer 2)**:
 
-Eventually, the verifier holds a claim about $\tilde{W}_2(r_2)$ for some random $r_2$. She computes:
+After the sum-check for layer 1, the verifier holds a claim about $\tilde{W}_2$ at some random point $r_2 = (r_{2,1}, r_{2,2}) \in \mathbb{F}^2$. This point emerged from the sum-check challenges and the two-to-one reduction, just as $r_1 = 7$ emerged in the previous round. She computes:
 $$\tilde{W}_2(r_2) = 2(1-r_{2,1})(1-r_{2,2}) + 3(1-r_{2,1})r_{2,2} + 4 \cdot r_{2,1}(1-r_{2,2})$$
 
 using the known inputs $x_1 = 2$, $x_2 = 3$, $x_3 = 4$. If this matches the prover's claim, she accepts.
@@ -392,22 +407,14 @@ GKR is also transparent (no trusted setup) and plausibly post-quantum when insta
 
 ## Key Takeaways
 
-1. **GKR generalizes sum-check**: Instead of custom polynomials per problem, GKR handles any layered arithmetic circuit.
+1. **Backward propagation**: GKR reduces output verification to input verification by propagating claims backward through layers. Each layer reduction is a sum-check.
 
-2. **Layer-by-layer reduction**: A claim about layer $i$'s output becomes a claim about layer $i+1$'s output, via sum-check.
+2. **Wiring predicates as circuit DNA**: The functions $\text{add}_i$ and $\text{mult}_i$ encode the circuit's structure. The verifier can evaluate these efficiently because she knows the circuit.
 
-3. **Wiring predicates encode structure**: The functions $\text{add}_i$ and $\text{mult}_i$ describe which gates connect to which (known to both prover and verifier).
+3. **Two claims to one**: Without the line-restriction trick, claims would double each layer (exponential blowup). The random $\alpha$ on a line through two points compresses them into one.
 
-4. **The Layer Reduction Lemma**: $\tilde{W}_i(z)$ equals a sum over products of wiring predicates and next-layer values (perfect for sum-check).
+4. **Structure is everything**: GKR verification is polylogarithmic only when wiring predicates have efficient descriptions. Random spaghetti circuits defeat the purpose.
 
-5. **Two claims become one**: Random linear combinations reduce checking two points to checking one, maintaining efficiency.
+5. **Native prover advantage**: Unlike R1CS systems that flatten all structure into uniform constraints, GKR's prover traverses the actual circuit. Repeated patterns, sparse layers, and regular wiring all translate to concrete speedups.
 
-6. **Final check on inputs**: The chain of reductions terminates at the input layer, which the verifier can evaluate directly.
-
-7. **Polylogarithmic verification**: For regular circuits, the verifier runs in time $O(d \log S + n)$ (exponentially faster than evaluating the circuit).
-
-8. **Prover overhead is modest**: The prover works in time $O(S \log S)$, only logarithmically more than circuit evaluation.
-
-9. **Circuits are universal**: Any polynomial-time computation has a polynomial-size circuit representation.
-
-10. **GKR is interactive**: Achieving non-interactive proofs requires additional machinery (polynomial commitments, Fiat-Shamir), covered in later chapters.
+6. **Grounded in inputs**: The reduction chain terminates at the input layer, which the verifier knows. This is what makes the protocol sound: lies cannot hide when the final claim is directly checkable.

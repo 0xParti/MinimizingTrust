@@ -24,14 +24,15 @@ A comprehensive guide to Zero-Knowledge Proofs, covering:
 
 ## Building from Source
 
-### PDF Version
+### PDF/EPUB
 
 ```bash
-cd pandoc
-./build.sh
+cd compile
+./build-pdf.sh      # Build PDF
+./build-epub.sh     # Build EPUB
 ```
 
-Requires: [Pandoc](https://pandoc.org/), [Eisvogel template](https://github.com/Wandmalfarbe/pandoc-latex-template), XeLaTeX
+Requires: [Pandoc](https://pandoc.org/), [Eisvogel template](https://github.com/Wandmalfarbe/pandoc-latex-template), [mermaid-filter](https://github.com/raghur/mermaid-filter), XeLaTeX
 
 ### Web Version
 
@@ -46,10 +47,11 @@ Requires: [mdBook](https://rust-lang.github.io/mdBook/)
 
 ```
 zkBook/
+├── compile/          # PDF/EPUB build scripts
 ├── images/cover/     # Cover images
-├── pandoc/           # PDF compilation source
 ├── web/              # mdBook web version
-└── zkBook.pdf        # Pre-built PDF
+├── zkBook.pdf        # Pre-built PDF
+└── zkBook.epub       # Pre-built EPUB
 ```
 
 ---
