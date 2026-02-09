@@ -8,6 +8,15 @@ What we do in zero-knowledge proofs is a direct descendant of Gödel's trick. We
 
 
 
+## Arithmetic Circuits
+
+An **arithmetic circuit** over a field $\mathbb{F}$ is a directed acyclic graph where each node is either an input, a constant, or a gate (addition or multiplication). Wires carry field elements from gate outputs to gate inputs. The circuit computes a function $f: \mathbb{F}^n \to \mathbb{F}^m$ by propagating values from inputs through gates to outputs.
+
+Think of it as a recipe: inputs enter at the top, flow through a network of additions and multiplications, and produce outputs at the bottom. The recipe is fixed (the circuit structure), but you can run it on different ingredients (input values).
+
+Why circuits? They're the universal language of computation. Any program, any algorithm, any function computable by a computer can be expressed as a (possibly enormous) arithmetic circuit. This universality is what makes circuit-based proof systems so powerful: prove you can verify circuits, and you can verify anything.
+
+
 ## Two Problems, Two Paradigms
 
 Before diving in, we must distinguish two fundamentally different problems:
@@ -53,34 +62,6 @@ More precisely, for a relation $R$, a witness $w$ for statement $x$ is a value s
 
 **The Sudoku Analogy.** Think of a ZK proof as a solved Sudoku puzzle. The *circuit* is the rules of Sudoku: every row, column, and 3×3 square must contain the digits 1 through 9. The *public input* is the pre-filled numbers printed in the newspaper. The *witness* is the numbers you penciled in to solve it. Verifying the solution is easy: check the rows, columns, and squares (the constraints). You don't need to know the order in which the solver filled the numbers, nor the mental logic they used. You just check that the final grid (witness + public input) satisfies the rules.
 
-### The Witness Vector Structure
-
-In constraint systems like R1CS, the witness takes a specific form. The full **witness vector** $Z$ is a concatenation of three parts:
-
-$$Z = \begin{pmatrix} 1 \\ \text{io} \\ W \end{pmatrix}$$
-
-**The constant 1**: Always the first element. This allows encoding constant additions and multiplications easily. To constrain $x = 5$, we can write $x \times 1 = 5 \times 1$.
-
-**The public inputs/outputs (io)**: Values the verifier already knows and agrees upon. For a hash preimage proof, this is the hash value $y$. For a transaction validity proof, this might include the transaction amount and recipient.
-
-**The private witness (W)**: The secret values only the prover knows. This is what the prover is demonstrating knowledge of without revealing.
-
-### A Concrete Example
-
-For our equation $x^3 + x + 5 = 35$ with $x = 3$:
-
-| Index | Value | Description |
-|-------|-------|-------------|
-| $Z_0$ | 1 | Constant |
-| $Z_1$ | 35 | Public output |
-| $Z_2$ | 3 | Private: $x$ |
-| $Z_3$ | 9 | Private: $x^2$ |
-| $Z_4$ | 27 | Private: $x^3$ |
-| $Z_5$ | 30 | Private: $x^3 + x$ |
-| $Z_6$ | 35 | Private: $x^3 + x + 5$ |
-
-Notice that the witness includes not just the input $x$, but all intermediate values computed along the way. This is crucial: the constraint system checks that each step was performed correctly.
-
 
 
 ## The Execution Trace: Witness as Computation History
@@ -91,137 +72,15 @@ Modern arithmetization uses a clever insight: instead of building a circuit that
 
 An **execution trace** is a complete record of a computation's execution: every instruction, every intermediate value, every memory access. Think of it as a detailed log file that captures everything that happened during the computation.
 
-**The Key Insight**: Checking that a trace is *valid* is much easier than *producing* the computation.
+The key insight: checking that a trace is valid is much easier than producing the computation. Validity checking is *local*. To verify a trace, you only need to check that each step follows from the previous one according to the program's rules. The prover does the hard computational work; the circuit does the much easier work of checking consistency.
 
-Why? Because validity checking is *local*. To verify a trace, you only need to check that each step follows from the previous one according to the program's rules. You don't need to understand the whole program's logic, just that each individual transition is correct.
-
-### A Brief Detour: How Computers Execute Programs
-
-Before examining traces, we need a mental model of program execution. A computer at any moment has a **state**: the contents of its memory and a small set of fast storage locations called **registers**. Think of registers as the mathematician's scratch paper, a few variables (typically 8–32) that hold the values currently being manipulated. Memory is the larger workspace, addressed by integers: location 100, location 104, and so on.
-
-The **program counter (PC)** is a special register that holds the address of the current instruction. Each instruction is an **opcode** (the operation: ADD, MUL, LOAD, STORE, JUMP) plus **operands** (which registers or memory addresses to use). Execution proceeds in a loop: fetch the instruction at the PC, execute it, update the PC (usually PC + 1, unless we jumped), repeat.
-
-A LOAD instruction copies a value from memory into a register. A STORE does the reverse. Arithmetic opcodes like ADD or MUL operate on registers. A conditional jump like BEQ ("branch if equal") changes the PC based on a comparison; this is how loops and conditionals are implemented at the machine level.
-
-The key insight for arithmetization: at each time step, the machine's entire state (registers, PC, memory) is just a tuple of field elements. Execution is a sequence of such tuples, and each transition is governed by simple local rules.
-
-### Execution Trace Structure
-
-A trace consists of rows, where each row represents the machine state at one time step:
-
-| Step | PC | Opcode | Operands | Registers | Memory Reads | Memory Writes |
-|------|----|---------|-----------|--------------------|--------------|---------------|
-| 0 | 0 | LOAD | r1, [100] | r1=0, r2=0, r3=0 | [100]=42 | - |
-| 1 | 1 | LOAD | r2, [104] | r1=42, r2=0, r3=0 | [104]=17 | - |
-| 2 | 2 | MUL | r3, r1, r2 | r1=42, r2=17, r3=0 | - | - |
-| 3 | 3 | STORE | r3, [108] | r1=42, r2=17, r3=714 | - | [108]=714 |
-
-Each row includes:
-
-- **Program Counter (PC)**: Which instruction we're executing
-- **Opcode**: What operation is being performed
-- **Operands**: Which registers/memory locations are involved
-- **Register State**: The values of all registers
-- **Memory Operations**: What was read from or written to memory
-
-### The Circuit Doesn't Compute: It Verifies
-
-Here's the paradigm shift: the circuit doesn't actually run the computation. It assumes the prover has already computed the trace (they have; they did the computation) and verifies that:
-
-1. Each transition follows the correct rules
-2. The trace starts with the correct initial state
-3. The trace ends with the claimed output
-
-The prover does the hard computational work. The circuit does the much easier work of checking consistency.
-
-
-
-## What the Circuit Must Check
-
-A trace verification circuit performs two categories of checks:
-
-### Time Consistency (Transition Rules)
-
-For every adjacent pair of rows $(S_t, S_{t+1})$, verify that the state transition follows from the instruction.
-
-The idea is simple: given the current state and the instruction being executed, the next state is completely determined. If the trace claims the machine went from state $A$ to state $B$, we can check whether that transition is legal without needing to know anything about the states before or after.
-
-**Example: Checking an ADD instruction**
-
-If the opcode at step $t$ is ADD with operands r1, r2, r3:
-
-- Check: $\text{PC}_{t+1} = \text{PC}_t + 1$ (we move to the next instruction)
-- Check: $r3_{t+1} = r1_t + r2_t$ (the destination register gets the sum)
-- Check: All other registers unchanged: $r1_{t+1} = r1_t$, $r2_{t+1} = r2_t$
-
-**Example: Checking a conditional jump (BEQ r1, r2, label)**
-
-- If $r1_t = r2_t$: Check $\text{PC}_{t+1} = \text{label}$ (branch taken)
-- If $r1_t \neq r2_t$: Check $\text{PC}_{t+1} = \text{PC}_t + 1$ (branch not taken)
-- Check: All registers unchanged
-
-These checks are **local**: they only look at two adjacent rows. This locality is crucial: checking $n$ transitions requires $n$ independent checks, each involving only $O(1)$ values. The circuit applies the same transition-checking logic at every time step, making it uniform and amenable to polynomial encoding.
-
-### Memory Consistency
-
-This is trickier. A read at time $t$ might depend on a write from much earlier. The naive approach, searching backward through the trace for the most recent write, would be expensive.
-
-**The Problem**: Time consistency is local: step $t+1$ depends only on step $t$. But memory breaks this locality. A read at step 1000 might retrieve a value written at step 3. The dependency spans nearly the entire trace.
-
-Consider: step 0 writes value 42 to address 100. Steps 1 through 99 touch other addresses. Step 100 reads from address 100, and it should get 42. How do we check this without searching back through 100 steps?
-
-**The Permutation Trick**:
-
-The solution is to view the same data from a different angle. Imagine the memory operations as a deck of cards, each labeled with (address, time, operation, value). In the execution trace, these cards appear in time order, shuffled from the perspective of memory addresses. But we can *sort* the deck by address, grouping all operations on address 12 together, all operations on address 18 together, and so on.
-
-Here's the insight: in the sorted view, operations on the same address are adjacent. Checking that a read returns the right value becomes a local check: just compare with the previous card in the sorted deck.
-
-The protocol works as follows:
-
-1. Extract all memory operations from the trace: `(address, time, operation, value)`
-
-2. Create two lists:
-
-   - **Time-ordered** (the original sequence of operations)
-   - **Address-ordered** (sorted by address, then by time within each address)
-
-3. Prove these lists are permutations of each other (same cards, different order). This uses polynomial fingerprinting: encode each list as a polynomial, and check they have the same "signature" at a random point.
-
-4. In the address-ordered list, checking memory consistency is **local**: each read should match the value from the immediately preceding operation at that address.
-
-**Worked Example**:
-
-Time-ordered operations:
-```
-t=1: write(addr=18, val=7)
-t=2: write(addr=12, val=5)
-t=3: read(addr=18) → expects 7
-t=4: write(addr=12, val=9)
-```
-
-Address-ordered (sorted first by address, then by time):
-```
-(addr=12, t=2, write, 5)
-(addr=12, t=4, write, 9)
-(addr=18, t=1, write, 7)
-(addr=18, t=3, read, 7)  ← easy to check: matches the previous row at this address
-```
-
-In the address-ordered view, operations on the same address are consecutive. The read at $t=3$ for address 18 appears immediately after the write at $t=1$ for address 18. Checking correctness is just comparing adjacent rows, with no searching required.
-
-The permutation check ensures the prover didn't fabricate operations or alter values when "sorting." The local consistency check on the sorted list verifies that memory behaves correctly. Together, they reduce a non-local problem to local checks plus a permutation argument.
+For simple computations (evaluating a polynomial, computing a hash), the trace is just the sequence of intermediate values at each gate. For more complex computations like CPU execution, the trace includes registers, program counters, and memory operations. The machinery for handling such traces (time consistency, memory consistency via permutation arguments) is developed in Chapter 20 in the context of efficient proving techniques. Here, we focus on the simpler case: a circuit where the witness captures all intermediate gate values.
 
 
 
 ## R1CS: The Constraint Language
 
 How do we express these checks algebraically? The classic approach is **Rank-1 Constraint System (R1CS)**.
-
-But first, a question: *why this particular algebraic form?*
-
-The answer traces back to pairings. A bilinear map $e: \mathbb{G}_1 \times \mathbb{G}_2 \to \mathbb{G}_T$ has a remarkable property: it can check *one multiplication* "for free." Given commitments to $a$ and $b$, you can verify $a \cdot b = c$ with a single pairing equation. But pairings are expensive, so you want exactly one multiplication per constraint, no more.
-
-This is why R1CS has its peculiar shape. The system was reverse-engineered from the verification equation: *what constraint format lets pairings check everything in one shot?* The answer is a product of two linear combinations.
 
 An R1CS instance consists of:
 
@@ -234,22 +93,50 @@ $$(A_i \cdot Z) \times (B_i \cdot Z) = C_i \cdot Z$$
 
 In words: (linear combination) × (linear combination) = (linear combination).
 
-The matrices encode which wires participate in each constraint; the product structure is the algebraic shape that pairings can verify.
+The matrices encode which wires participate in each constraint. Each row enforces one multiplication gate.
 
-**Why is this form so expressive?** At first glance, "one multiplication per constraint" seems limiting. But here's the key insight: any computation can be broken into steps where each step involves at most one multiplication. Addition is free: you can add as many terms as you want on either side. The constraint $(a + b + c) \times (d + e) = f + g$ is a single R1CS row.
+Why this particular form? The fundamental reason is that degree-2 polynomial constraints are the simplest non-trivial form that's still universal. Linear constraints (degree 1) can't express multiplication. Degree 2 is the minimal step up, and it turns out to be enough: any computation can be decomposed into steps involving at most one multiplication each. Historically, pairings reinforced this choice. A bilinear map can verify one multiplication "for free," so early SNARKs (Groth16, BCTV14) were designed around degree-2 constraints. But the format isn't pairing-specific: modern systems verify R1CS using FRI or IPA, no pairings required.
 
-**Why is addition free?** In R1CS, linear combinations happen inside the matrix multiplication. $A \cdot Z$ computes a weighted sum of the witness variables. Since matrix-vector multiplication is just a series of additions, we can represent $a + b + c + d + \ldots$ in a single row of matrix $A$. We only "pay" (incur a constraint) when we need to multiply the result of matrix $A$ by the result of matrix $B$.
+At first glance, "one multiplication per constraint" seems limiting. What if you need to compute $a \cdot b \cdot c$? That requires two multiplications, not one. What about $x^4$? That's three multiplications. How can a format that allows only one multiplication per constraint express arbitrary computations?
 
-The trick is introducing intermediate variables. Suppose you need to compute $a \cdot b \cdot c$. You can't do this in one R1CS constraint (that would require two multiplications), but you can introduce a helper variable $t = a \cdot b$, then write:
+The answer: introduce intermediate variables. To compute $a \cdot b \cdot c$, define a helper variable $t = a \cdot b$, then write two constraints:
 
 - Constraint 1: $a \times b = t$
 - Constraint 2: $t \times c = \text{result}$
 
-Two constraints, each with one multiplication. This is the general pattern: any polynomial computation of degree $d$ can be flattened into $O(d)$ R1CS constraints by naming intermediate products. The witness grows to include these intermediate values, but that's fine since the prover knows them.
+Each constraint has exactly one multiplication. The witness vector grows to include $t$, but that's fine since the prover computed it anyway. This is the general pattern: any polynomial computation of degree $d$ can be flattened into $O(d)$ R1CS constraints by naming intermediate products.
+
+Addition, by contrast, is free. To constrain $a + b + c = d$, we write $(a + b + c) \times 1 = d$, which costs one constraint but involves no "real" multiplication. More generally, we can pack arbitrary additions into either side of a multiplication: $(a + b + c) \times (d + e) = f + g$ is still a single R1CS row. Why? Because $A \cdot Z$ computes a weighted sum of witness variables. Matrix-vector multiplication is just addition, so combining $a + b + c + \ldots$ into one linear combination costs nothing. We only "pay" when we multiply the result of $A \cdot Z$ by the result of $B \cdot Z$.
 
 This decomposition is why R1CS can encode arbitrary arithmetic circuits. Every gate becomes one constraint. The "one multiplication" rule isn't a limitation; it's a *normal form* that any computation can be converted into.
 
-**Formal claim**: Any arithmetic circuit with $m$ multiplication gates and $a$ addition gates can be expressed as an R1CS with exactly $m$ constraints. The witness vector has length at most $m + a + \text{inputs} + \text{outputs}$. Addition gates require no constraints; they're absorbed into the linear combinations. Each multiplication gate contributes one constraint of the form $(A_i \cdot Z) \times (B_i \cdot Z) = C_i \cdot Z$.
+Any arithmetic circuit with $m$ multiplication gates and $a$ addition gates can be expressed as an R1CS with exactly $m$ constraints. The witness vector has length at most $m + a + \text{inputs} + \text{outputs}$. Addition gates require no constraints; they're absorbed into the linear combinations.
+
+### The Witness Vector in R1CS
+
+The witness vector $Z$ in R1CS has a specific structure. It concatenates three parts:
+
+$$Z = \begin{pmatrix} 1 \\ \text{io} \\ W \end{pmatrix}$$
+
+**The constant 1**: Always the first element. This allows encoding constants and pure additions. To constrain $x = 5$, write $x \times 1 = 5 \times 1$. For addition $a + b = c$, write $(a + b) \times 1 = c$.
+
+**The public inputs/outputs (io)**: Values the verifier knows. For a hash preimage proof, this is the hash value $y$. For a transaction validity proof, it might include the transaction amount and recipient.
+
+**The private witness (W)**: The secret values only the prover knows, plus all intermediate computation values.
+
+For example, proving $x^3 + x + 5 = 35$ with secret $x = 3$:
+
+| Index | Value | Description |
+|-------|-------|-------------|
+| $Z_0$ | 1 | Constant |
+| $Z_1$ | 35 | Public output |
+| $Z_2$ | 3 | Private: $x$ |
+| $Z_3$ | 9 | Private: $x^2$ |
+| $Z_4$ | 27 | Private: $x^3$ |
+| $Z_5$ | 30 | Private: $x^3 + x$ |
+| $Z_6$ | 35 | Private: $x^3 + x + 5$ |
+
+The witness includes not just the input $x$, but all intermediate values. The constraint system checks that each step was performed correctly.
 
 ### Basic Gates in R1CS
 
@@ -353,6 +240,16 @@ Check: $35 \times 1 = 35$
 
 All five constraints are satisfied. The R1CS captures the entire computation.
 
+The complete matrices:
+
+$$A = \begin{pmatrix} 0 & 0 & 1 & 0 & 0 & 0 & 0 \\ 0 & 0 & 0 & 1 & 0 & 0 & 0 \\ 0 & 0 & 1 & 0 & 1 & 0 & 0 \\ 5 & 0 & 0 & 0 & 0 & 1 & 0 \\ 0 & 0 & 0 & 0 & 0 & 0 & 1 \end{pmatrix}$$
+
+$$B = \begin{pmatrix} 0 & 0 & 1 & 0 & 0 & 0 & 0 \\ 0 & 0 & 1 & 0 & 0 & 0 & 0 \\ 1 & 0 & 0 & 0 & 0 & 0 & 0 \\ 1 & 0 & 0 & 0 & 0 & 0 & 0 \\ 1 & 0 & 0 & 0 & 0 & 0 & 0 \end{pmatrix}$$
+
+$$C = \begin{pmatrix} 0 & 0 & 0 & 1 & 0 & 0 & 0 \\ 0 & 0 & 0 & 0 & 1 & 0 & 0 \\ 0 & 0 & 0 & 0 & 0 & 1 & 0 \\ 0 & 0 & 0 & 0 & 0 & 0 & 1 \\ 0 & 35 & 0 & 0 & 0 & 0 & 0 \end{pmatrix}$$
+
+Each row corresponds to one constraint. The columns are indexed by $Z = (1, \text{out}, x, v_1, v_2, v_3, v_4)^T$. Notice the sparsity: most entries are zero. This is typical of R1CS matrices and is why efficient implementations use sparse representations.
+
 
 
 ## Two Ways to Prove R1CS
@@ -361,9 +258,9 @@ Once we have R1CS constraints, how do we prove they're all satisfied? There are 
 
 ### Approach 1: QAP (Quadratic Arithmetic Program)
 
-**Historical context**: QAP was introduced by Gennaro, Gentry, Parno, and Rabin in the **Pinocchio** system (2013), one of the first practical SNARKs. Groth16 (2016) refined and optimized this approach, achieving the smallest proof size known for pairing-based systems. Today, QAP is primarily associated with Groth16. Modern systems have moved to other arithmetizations (PLONKish, AIR, sum-check), but QAP remains important for applications where proof size is paramount.
+QAP was introduced by Gennaro, Gentry, Parno, and Rabin in the Pinocchio system (2013), one of the first practical SNARKs. Groth16 (2016) refined and optimized this approach, achieving the smallest proof size known for pairing-based systems. Today, QAP is primarily associated with Groth16. Modern systems have moved to other arithmetizations (PLONKish, AIR, sum-check), but QAP remains important for applications where proof size is paramount.
 
-**The Key Idea**: Instead of checking $m$ separate constraints, check one polynomial divisibility.
+The key idea: instead of checking $m$ separate constraints, check one polynomial divisibility.
 
 For each column $j$ of the R1CS matrices, define polynomials $A_j(X), B_j(X), C_j(X)$ that interpolate the column values at points $\{1, 2, \ldots, m\}$. (So $A_j(i)$ equals the entry in row $i$, column $j$ of matrix $A$.)
 
@@ -376,22 +273,22 @@ The R1CS is satisfied iff $A(X) \cdot B(X) - C(X) = 0$ at all constraint points 
 
 By the Factor Theorem, this means the vanishing polynomial $Z_H(X) = (X-1)(X-2)\cdots(X-m)$ divides $A(X) \cdot B(X) - C(X)$.
 
-**The QAP Check**: Prover exhibits quotient $H(X)$ such that:
+The prover exhibits a quotient polynomial $H(X)$ such that:
 $$A(X) \cdot B(X) - C(X) = H(X) \cdot Z_H(X)$$
 
 We develop QAP fully in Chapter 12, where Groth16 uses it to achieve the smallest possible pairing-based proofs.
 
 ### Approach 2: Sum-Check on Multilinear Extensions (Spartan)
 
-**Historical context**: Spartan was introduced by Setty in 2019, reviving ideas from the GKR protocol (2008) and sum-check literature. While Groth16 uses univariate polynomials and FFTs, Spartan showed that **multilinear extensions** and the **sum-check protocol** could handle R1CS directly, without Lagrange interpolation, without roots of unity, and with optimal prover time. This "sum-check renaissance" led to systems like Lasso, Jolt, and HyperNova.
+Spartan was introduced by Setty in 2019, reviving ideas from the GKR protocol (2008) and sum-check literature. While Groth16 uses univariate polynomials and FFTs, Spartan showed that multilinear extensions and the sum-check protocol could handle R1CS directly: no Lagrange interpolation, no roots of unity, optimal prover time. This "sum-check renaissance" led to systems like Lasso, Jolt, and HyperNova.
 
-**The Core Insight**: R1CS constraint satisfaction can be expressed as a polynomial sum equaling zero:
+R1CS constraint satisfaction can be expressed as a polynomial sum equaling zero:
 
 $$\sum_{x \in \{0,1\}^k} \tilde{\text{eq}}(x) \cdot \left[\tilde{A}(x) \cdot \tilde{B}(x) - \tilde{C}(x)\right] = 0$$
 
-where $\tilde{A}(x) = \sum_{y \in \{0,1\}^k} \tilde{A}_{\text{matrix}}(x, y) \cdot \tilde{Z}(y)$ is the MLE of the matrix-vector product.
+Here $\tilde{A}(x)$, $\tilde{B}(x)$, $\tilde{C}(x)$ are the MLEs of the matrix-vector products $A \cdot Z$, $B \cdot Z$, $C \cdot Z$ respectively, each viewed as a function from row index $x \in \{0,1\}^{\log m}$ to a field element.
 
-**Why This Matters**:
+This formulation matters for three reasons:
 
 1. **Time-optimal proving**: The prover's work is $O(N)$ where $N$ is the number of constraints, just reading the constraints, no FFTs.
 
@@ -399,7 +296,7 @@ where $\tilde{A}(x) = \sum_{y \in \{0,1\}^k} \tilde{A}_{\text{matrix}}(x, y) \cd
 
 3. **Natural fit with sum-check**: The sum-check protocol (Chapter 3) is designed exactly for this type of problem.
 
-**Comparing QAP and Spartan**:
+Comparing QAP and Spartan:
 
 | Property | QAP (Groth16) | Spartan |
 |----------|---------------|---------|
@@ -408,17 +305,17 @@ where $\tilde{A}(x) = \sum_{y \in \{0,1\}^k} \tilde{A}_{\text{matrix}}(x, y) \cd
 | Prover time | $O(N \log N)$ | $O(N)$ |
 | Setup | Circuit-specific trusted | Transparent |
 
-**When to use each**:
+When to use each:
 
-- **Groth16 (QAP)**: When proof size is the dominant constraint. On-chain verification on Ethereum costs gas proportional to proof size, making Groth16's 128-byte proofs attractive despite the circuit-specific setup. Use when your circuit is stable and you can afford a trusted ceremony.
+- **When proof size matters most**: Use QAP-based systems (Groth16, BCTV14, Pinocchio). On-chain verification on Ethereum costs gas proportional to proof size, making Groth16's ~200-byte proofs attractive despite the circuit-specific setup. Groth16 is the most optimized of this family and dominates in practice.
 
-- **Spartan / sum-check systems**: When prover time matters most. The $O(N)$ prover (vs $O(N \log N)$ for FFT-based systems) becomes significant at scale. Transparent setup avoids trust assumptions entirely. Natural fit for recursive composition and folding schemes (Nova, HyperNova). The tradeoff: larger proofs and more expensive verification.
+- **When prover time matters most**: Use Spartan or other sum-check systems. The $O(N)$ prover (vs $O(N \log N)$ for FFT-based systems) becomes significant at scale. Transparent setup avoids trust assumptions entirely. Natural fit for recursive composition and folding schemes (Nova, HyperNova). The tradeoff: larger proofs and more expensive verification.
 
 
 
 ## PLONKish Arithmetization
 
-R1CS isn't the only way to encode computations. **PLONKish** takes a fundamentally different approach, one that's become so influential it dominates modern ZK applications.
+R1CS isn't the only way to encode computations. **PLONKish** takes a fundamentally different approach, one that has become widely adopted in production ZK systems.
 
 **Historical context**: PLONK (Permutations over Lagrange-bases for Oecumenical Noninteractive arguments of Knowledge) was introduced by Gabizon, Williamson, and Ciobotaru in 2019. It addressed Groth16's main limitation, circuit-specific trusted setup, by providing a **universal** setup: one ceremony works for any circuit up to a given size. PLONK spawned a family of "PLONKish" systems (Halo 2, Plonky2, HyperPlonk) that now power most production ZK applications.
 
@@ -442,25 +339,26 @@ The same equation handles all gate types!
 
 PLONK's gate equation only relates wires *within* a single gate. It doesn't enforce that the output of gate 1 feeds into the input of gate 5.
 
-This is where the **permutation argument** enters. The circuit's wiring defines a permutation $\sigma$ on wire positions. Copy constraints are satisfied if:
+This is where the **permutation argument** enters. Number all wire positions in the circuit as $1, 2, 3, \ldots, n$. Some positions must hold equal values (because one gate's output connects to another's input). We encode these equalities as a permutation $\sigma$: positions that must be equal form cycles under $\sigma$. The constraint "all wiring is respected" becomes:
 
-$$\text{value at position } i = \text{value at position } \sigma(i)$$
+$$f(i) = f(\sigma(i)) \quad \text{for all } i$$
 
-PLONK proves this via a grand product check: with random challenges $\beta, \gamma$, verify:
+where $f(i)$ is the value at position $i$. PLONK proves this via a grand product check. With random challenges $\beta, \gamma$:
 
 $$\prod_i \frac{f(i) + \beta \cdot i + \gamma}{f(i) + \beta \cdot \sigma(i) + \gamma} = 1$$
 
-If copy constraints hold, corresponding terms cancel. A mismatch disrupts the product.
+The intuition: each fraction pairs a value with its position. If copy constraints hold, the numerators and denominators rearrange to cancel. If any constraint fails, the random $\beta, \gamma$ ensure the product differs from 1 with overwhelming probability. We develop the full permutation argument in Chapter 13.
 
 ### When to Use PLONKish
 
 PLONKish shines when you need **flexibility without sacrificing succinctness**:
 
-- **Universal setup**: One ceremony covers all circuits up to a size bound, so you can deploy new circuits without new ceremonies
+- **Universal setup** (vs Groth16's circuit-specific): One ceremony covers all circuits up to a size bound
 - **Custom gates**: Optimize specific operations (hash functions, range checks, elliptic curve arithmetic)
-- **Mature tooling**: The PLONKish ecosystem (Halo 2, Plonky2) offers production-ready implementations
 
-The tradeoff versus Groth16: slightly larger proofs (~2-3x), but no circuit-specific ceremony.
+The tradeoff versus Groth16 (which uses R1CS + QAP): slightly larger proofs (~2-3x), but no circuit-specific ceremony.
+
+Note: Sum-check systems like Spartan go further with fully transparent setup (no ceremony at all), but with larger proofs.
 
 
 
@@ -482,6 +380,14 @@ The insight: many computations are naturally described as "apply the same transi
 - Boundary constraint: $s_0 = 0$ (start at zero)
 
 This single transition constraint, applied to $n$ rows, proves correct execution of $n$ steps.
+
+The algebraic formulation uses a clever trick. Interpolate each trace column as a polynomial $P(X)$ over a domain $H = \{1, \omega, \omega^2, \ldots, \omega^{T-1}\}$ where $\omega$ is a $T$-th root of unity. Now $P(\omega^i)$ gives the value at step $i$, and $P(\omega \cdot \omega^i) = P(\omega^{i+1})$ gives the value at step $i+1$. So the "next step" value is $P(\omega X)$.
+
+The transition constraint $s_{i+1} - s_i - 1 = 0$ becomes the polynomial identity:
+
+$$P(\omega X) - P(X) - 1 = 0 \quad \text{for all } X \in H' = \{1, \omega, \ldots, \omega^{T-2}\}$$
+
+If this holds, the constraint polynomial $C(X) = P(\omega X) - P(X) - 1$ vanishes on $H'$, so the quotient $Q(X) = C(X) / Z_{H'}(X)$ is a polynomial (not a rational function with poles). The prover commits to $Q(X)$ and proves it's low-degree via FRI. Boundary constraints work similarly: $P(1) = 0$ becomes $(P(X) - 0)/(X - 1)$ being a polynomial.
 
 AIR is the native format for **STARKs**, which we develop fully in **Chapter 15**. The combination of AIR's repetitive structure with FRI's hash-based commitments yields transparent, plausibly post-quantum proofs.
 
@@ -506,9 +412,7 @@ In practice:
 
 We now have three constraint formats (R1CS, PLONKish, AIR) each with distinct strengths. But this proliferation creates fragmentation: tools, optimizations, and folding schemes must be reimplemented for each format.
 
-**Why CCS? The Folding Era.** You might wonder why we need yet another format when we have R1CS and PLONK. The answer is folding (Chapter 21). Newer protocols like Nova and HyperNova work by "folding" two proof instances into one. It turns out that R1CS folds easily, but PLONKish constraints do not. CCS was invented to give us the best of both worlds: the expressiveness of PLONK's custom gates with the foldability of R1CS's matrix structure.
-
-**CCS (Customizable Constraint Systems)** provides a unifying abstraction that captures all three formats without overhead.
+Why do we need yet another format? The answer is folding (Chapter 21). Newer protocols like Nova and HyperNova work by "folding" two proof instances into one. R1CS folds easily, but PLONKish constraints do not. **Customizable Constraint Systems (CCS)** was invented to give us both: the expressiveness of PLONK's custom gates with the foldability of R1CS's matrix structure. CCS provides a unifying abstraction that captures all three formats without overhead.
 
 ### The CCS Framework
 
@@ -519,32 +423,25 @@ A CCS instance consists of:
 
 The key insight: any constraint system can be expressed as:
 
-$$\sum_i c_i \cdot \bigcirc_{j \in S_i} M_j \cdot z = 0$$
+$$\sum_i c_i \cdot \bigcirc_{j \in S_i} (M_j \cdot z) = 0$$
 
 where:
 
 - $z$ is the witness vector (including public inputs and the constant 1)
 - $S_i$ specifies which matrices participate in term $i$
-- $\bigcirc$ is the Hadamard (element-wise) product
+- $\bigcirc$ is the Hadamard (element-wise) product: $(a_1, a_2, a_3) \circ (b_1, b_2, b_3) = (a_1 b_1, a_2 b_2, a_3 b_3)$
 - $c_i$ are scalar coefficients
 
-**Reading this formula**: Each term $i$ in the sum works as follows:
+The notation $\bigcirc_{j \in S_i}$ means: for each matrix index $j$ in the set $S_i$, compute the vector $M_j \cdot z$, then Hadamard-multiply all those vectors together. If $S_i = \{1, 2\}$, you get $(M_1 \cdot z) \circ (M_2 \cdot z)$. If $S_i = \{3\}$ (a single matrix), you just get $M_3 \cdot z$ with no Hadamard.
 
-1. Take some subset of matrices $\{M_j : j \in S_i\}$
-2. Multiply each matrix by the witness vector $z$, getting vectors $M_j \cdot z$
-3. Hadamard-multiply these vectors together (element-wise): $\bigcirc_{j \in S_i} (M_j \cdot z)$
-4. Scale the result by coefficient $c_i$
+Each term $i$ in the sum takes a subset of matrices $\{M_j : j \in S_i\}$, multiplies each by the witness vector $z$, Hadamard-multiplies the results together, and scales by $c_i$. The constraint is satisfied when all terms sum to zero.
 
-The constraint is satisfied when all these terms sum to zero.
+Every constraint format we've seen boils down to two operations: (1) selecting and summing witness values (matrix-vector products), and (2) multiplying those sums together (Hadamard products). CCS makes these two operations explicit and composable:
 
-**Why Hadamard products?** The Hadamard product is what lets CCS express multiplication. In R1CS, the constraint $(A \cdot z) \circ (B \cdot z) = C \cdot z$ involves multiplying two linear combinations element-wise, which is a Hadamard product. In PLONKish, the term $Q_M \cdot a \cdot b$ multiplies wire values, again element-wise across all gates. The Hadamard product is the "multiplication primitive" that CCS builds from.
-
-**Why this generalizes everything**: The formula is a sum of scaled Hadamard products of matrix-vector products. This captures:
-
-- **Linear constraints**: Use a single matrix in $S_i$ (no Hadamard needed)
-- **Quadratic constraints**: Hadamard-multiply two matrix-vector products
-- **Higher-degree constraints**: Hadamard-multiply more matrices
-- **Multiple constraint types**: Different terms $i$ can have different structures
+- **Linear constraints**: A single matrix-vector product, no Hadamard
+- **Quadratic constraints**: Hadamard of two matrix-vector products
+- **Higher-degree constraints**: Hadamard of more products
+- **Mixed constraints**: Different terms can have different degrees
 
 ### Recovering Standard Formats
 
@@ -576,6 +473,8 @@ Each term in PLONK's gate equation maps to one term in the CCS sum.
 
 **AIR as CCS:**
 
+Recall from the AIR section that the transition constraint $s_{i+1} - s_i - 1 = 0$ becomes the polynomial identity $P(\omega X) - P(X) - 1 = 0$. CCS captures this same structure with matrices instead of the $\omega X$ shift.
+
 A transition constraint like $s_{i+1} = 2 \cdot s_i + 1$ becomes:
 
 - Matrices: $M_{\text{curr}}$ (extracts current-row values), $M_{\text{next}}$ (extracts next-row values), $M_{\text{const}}$ (constant column)
@@ -583,17 +482,13 @@ A transition constraint like $s_{i+1} = 2 \cdot s_i + 1$ becomes:
 
 $$1 \cdot (M_{\text{next}} \cdot z) + (-2) \cdot (M_{\text{curr}} \cdot z) + (-1) \cdot (M_{\text{const}} \cdot z) = 0$$
 
+The matrix $M_{\text{next}}$ plays the role of the $\omega X$ shift: it extracts "next step" values from the witness vector, just as $P(\omega X)$ evaluates the polynomial at the next domain point.
+
 Here all terms have $|S_i| = 1$ (no Hadamard products), so the constraint is purely linear in state variables. Quadratic AIR constraints (like $s' = s^2$) would use Hadamard: $(M_{\text{next}} \cdot z) - (M_{\text{curr}} \cdot z) \circ (M_{\text{curr}} \cdot z) = 0$.
 
 ### Why CCS Matters
 
-**1. Unified tooling.** Compilers, analyzers, and optimizers can target CCS once. The specific frontend (Circom, Cairo, Noir) produces CCS; the backend (Spartan, Nova, HyperNova) consumes it.
-
-**2. Folding scheme compatibility.** HyperNova folds CCS instances directly. Any constraint format expressible as CCS inherits folding for free, with no separate construction needed.
-
-**3. Format-agnostic optimization.** Matrix sparsity, constraint reordering, and parallel proving apply uniformly regardless of the original constraint format.
-
-**4. Research unification.** Theoretical results about CCS apply to all formats it subsumes.
+CCS enables unified tooling: compilers, analyzers, and optimizers can target CCS once. The specific frontend (Circom, Cairo, Noir) produces CCS; the backend (Spartan, Nova, HyperNova) consumes it. HyperNova folds CCS instances directly, so any constraint format expressible as CCS inherits folding for free. Matrix sparsity, constraint reordering, and parallel proving apply uniformly regardless of the original constraint format. Theoretical results about CCS apply to all formats it subsumes.
 
 ### CCS in Practice
 
@@ -640,9 +535,9 @@ Here's where things get expensive. Let's count constraints for common operations
 | SHA256 hash | ~20,000 | Many bitwise operations |
 | Poseidon hash | ~250 | Field-native design |
 
-**The Takeaway**: Bitwise operations are roughly 100x more expensive than field operations. This is why:
+Bitwise operations are roughly 100x more expensive than field operations. This is why:
 
-- ZK-friendly hash functions (Poseidon, Rescue) exist because they avoid bit operations
+- ZK-friendly hash functions (Poseidon, Rescue) exist: they avoid bit operations
 - zkVMs are expensive because they must handle arbitrary CPU instructions
 - Custom circuits beat general-purpose approaches for specific computations
 
@@ -700,91 +595,31 @@ The pattern is clear: anything involving bits is expensive. For years, circuit d
 
 
 
-## Lookup Tables: The Modern Approach
+## Lookup Arguments: Breaking the Bit Decomposition Wall
 
-Lookup arguments represent the most significant optimization technique in modern ZK systems. They sidestep bit decomposition entirely by replacing computation with table membership.
+The constraint costs above create a fundamental problem. A silicon CPU executes `a XOR b` in one cycle. In R1CS, that same XOR costs ~25 constraints: decompose both operands into bits, check bitness, compute per-bit XOR, reconstruct. For a 64-bit instruction set, every operation explodes into hundreds of constraints. Building a zkVM this way is like simulating a Ferrari using wooden gears.
 
-### The Core Idea
+**Lookup arguments** solve this by replacing *computation* with *table membership*. Instead of proving *how* you computed a result, prove *that* the result appears in a precomputed table.
 
-Instead of proving *how* you computed a result, prove *that* the result appears in a precomputed table.
+To prove an 8-bit XOR:
 
-**Example**: To prove XOR of two 8-bit values:
+- **Bit decomposition**: 16 bitness checks + 8 XOR computations + reconstruction ≈ 25 constraints
+- **Lookup**: Precompute all $256 \times 256 = 65,536$ valid XOR triples $(a, b, a \oplus b)$. Prove $(a, b, c)$ is in the table ≈ 3 constraints
 
-**Traditional approach** (bit decomposition):
+The savings compound. A 64-bit XOR via bit decomposition costs ~130 constraints. Via lookups on 8-bit chunks: 8 lookups × 3 constraints = 24 constraints.
 
-1. Decompose both inputs into 8 bits each (16 bitness constraints)
-2. Compute XOR per bit: $c_i = a_i + b_i - 2a_i b_i$ (8 multiplication constraints)
-3. Reconstruct output (1 constraint)
-4. Total: ~25 constraints
+This changes what's feasible:
 
-**Lookup approach**:
+| Operation | Without Lookups | With Lookups |
+|-----------|-----------------|--------------|
+| 16-bit range check | 17 constraints | ~3 constraints |
+| 8-bit XOR | ~25 constraints | ~3 constraints |
+| 64-bit XOR | ~130 constraints | ~24 constraints |
+| SHA-256 (via chunks) | ~20,000 constraints | ~2,000 constraints |
 
-1. Precompute a table of all $256 \times 256 = 65,536$ XOR results: $(a, b, a \oplus b)$
-2. Prove the triple $(a, b, c)$ appears in this table
-3. Total: ~3 constraints (regardless of operation complexity!)
+The "how" of lookup arguments (Plookup's grand products, LogUp's logarithmic derivatives, Lasso's decomposition for huge tables) is developed in **Chapter 14**. The key insight for arithmetization is architectural: non-field-native operations that would otherwise dominate constraint counts can be handled via table membership at roughly constant cost per lookup.
 
-The savings compound. A 64-bit XOR via bit decomposition costs ~130 constraints. Via lookups on 8-bit chunks: 8 lookups × 3 constraints = 24 constraints, a 5x improvement.
-
-### Why This Isn't Crazy
-
-At first glance, "prove membership in a 65,536-entry table" sounds worse than bit decomposition. Checking 65,536 possibilities naively would be astronomical. The key insight is that we don't check membership directly; we use *polynomial identity testing*.
-
-The table becomes a polynomial. If $T = [t_1, \ldots, t_N]$, encode it as:
-$$T(X) = \prod_{i=1}^{N} (X - t_i)$$
-
-A value $v$ is in the table if and only if $T(v) = 0$. But evaluating this polynomial at a random point, or checking divisibility relationships between polynomials, costs $O(\log N)$ work, not $O(N)$.
-
-The magic: polynomials let you reason about *all* table entries simultaneously via a single random evaluation. A table of size $2^{16}$ doesn't require $2^{16}$ checks; it requires one polynomial identity that holds only if every lookup is valid. The Schwartz-Zippel lemma guarantees that a cheating prover gets caught with overwhelming probability.
-
-This is the same principle underlying all polynomial-based SNARKs: compress exponentially many checks into a constant number of random evaluations. Lookups are just a particularly clean application of this principle.
-
-### How Lookup Arguments Work
-
-The prover has a table $T = [t_1, t_2, \ldots, t_N]$ and claims that values $f_1, \ldots, f_m$ all appear in $T$.
-
-**Plookup** (2020, Gabizon and Williamson): Uses a grand product argument. Sort the lookup values and table together, then check that adjacent elements satisfy a relationship that's only possible if every lookup value came from the table.
-
-**LogUp** (2022, Haböck): Reformulates the product check as a sum of logarithmic derivatives:
-$$\sum_i \frac{1}{X - f_i} = \sum_j \frac{m_j}{X - t_j}$$
-where $m_j$ is the multiplicity of table element $t_j$ among the lookups. This is more efficient for tables with repeated accesses.
-
-**Lasso** (2023, Setty et al.): Combines lookups with sum-check, achieving prover time proportional to the number of lookups rather than the table size. This enables tables of size $2^{128}$ or larger, covering operations like full 64-bit multiplication in a single lookup.
-
-### What Lookups Enable
-
-**Range proofs without bit decomposition**: A table $[0, 1, 2, \ldots, 2^{16}-1]$ proves 16-bit range with one lookup instead of 16 bitness constraints.
-
-**Efficient hash functions**: Even non-ZK-friendly hashes become tractable. SHA-256's bitwise operations can be replaced by table lookups on chunks.
-
-**zkVMs at scale**: Systems like Jolt prove CPU instruction execution via lookups. Each instruction (ADD, XOR, MUL, etc.) becomes a table lookup. The instruction's semantics are "baked into" the table; the circuit just checks membership.
-
-**Memory operations**: Read-write memory can be verified via sorted lookup arguments, proving that memory accesses are consistent without encoding RAM semantics in constraints.
-
-### The Lookup Landscape
-
-| Protocol | Prover Cost | Table Size Limit | Best For |
-|----------|-------------|------------------|----------|
-| Plookup | $O(N \log N)$ | ~$2^{20}$ | Moderate tables, PLONKish |
-| LogUp | $O(N \log N)$ | ~$2^{20}$ | Repeated accesses |
-| Lasso | $O(m \log m)$ | ~$2^{128}$ | Huge tables, zkVMs |
-
-Here $N$ is the circuit size and $m$ is the number of lookups.
-
-### Design Implications
-
-Lookups shift circuit design philosophy:
-
-**Before lookups**: Minimize bit operations. Use ZK-friendly primitives. Accept that some operations are inherently expensive.
-
-**After lookups**: Think in terms of table design. Any function with a reasonable domain can become a lookup. The question becomes: what's the optimal table decomposition?
-
-For a 64-bit operation, you might:
-
-- Use 8 lookups into $2^{16}$-entry tables (8-bit chunks, twice per operand)
-- Use 4 lookups into $2^{32}$-entry tables (16-bit chunks)
-- Use 1 lookup into a $2^{128}$-entry virtual table (Lasso-style)
-
-The optimal choice depends on table construction costs, lookup argument efficiency, and memory constraints.
+This is why modern zkVMs are practical. Cairo, RISC-Zero, SP1, and Jolt prove instruction execution not by encoding CPU semantics in constraints, but by verifying that each instruction's behavior matches a precomputed table. The paradigm shifted from encoding *logic* to referencing *data*.
 
 
 
@@ -815,50 +650,18 @@ The choice depends on your use case. Verifying a hash? A custom circuit is faste
 
 
 
-## The Big Picture
-
-We've traced the path from programs to proofs:
-
-1. **Program** → A computation we want to prove
-
-2. **Execution trace** → The witness, capturing every intermediate state (registers, memory, etc.)
-
-3. **Constraint system** → Algebraic rules the trace must satisfy:
-
-   - R1CS: $(A \cdot Z) \circ (B \cdot Z) = C \cdot Z$
-   - PLONK: Universal gate + permutation
-   - AIR: Transition polynomials (STARKs)
-
-4. **Polynomial representation** → The constraints become polynomial identities:
-
-   - QAP: Divisibility by vanishing polynomial
-   - Sum-check: Sum over hypercube equals zero
-   - PIOP: Polynomial oracle proofs
-
-5. **Proof system** → Polynomial commitments + algebraic checks verify the identity
-
-Arithmetization is the bridge between computation and algebra. It's where computer science meets cryptography, and where clever encoding can save orders of magnitude in proof cost.
-
-
-
 ## Key Takeaways
 
-1. **Circuit satisfiability vs. evaluation**: Most applications prove knowledge of a secret witness, not just correct evaluation.
+1. **The pipeline**: Program → execution trace (witness) → constraint system → polynomial identity → proof. Arithmetization is the bridge between computation and algebra.
 
-2. **The witness is everything**: It's the complete set of values (public, private, and intermediate) that satisfies the constraints.
+2. **Circuit satisfiability vs. evaluation**: Most applications prove knowledge of a secret witness, not just correct evaluation.
 
-3. **Execution trace as witness**: The prover records their entire computation; the circuit verifies the recording.
+3. **The witness is everything**: It's the complete set of values (public, private, and intermediate) that satisfies the constraints.
 
-4. **Time and memory consistency**: The trace must follow transition rules (local checks) and memory rules (permutation checks).
+4. **Three constraint formats**: R1CS (sparse matrices, $(A \cdot Z) \times (B \cdot Z) = C \cdot Z$), PLONKish (universal gate + permutation), AIR (transition polynomials). CCS unifies them all.
 
-5. **R1CS**: Expresses constraints as $(A \cdot Z) \times (B \cdot Z) = C \cdot Z$. Universal but can be verbose.
+5. **Bit decomposition is expensive**: A 64-bit operation costs ~65-200 constraints via traditional encoding. Lookup arguments (Chapter 14) reduce this to ~3 constraints per table lookup.
 
-6. **Three constraint formats**: R1CS (sparse matrices), PLONKish (gates + selectors), AIR (transition constraints). CCS unifies them all.
+6. **Frontend/backend split**: Frontends handle arithmetization; backends handle proving. They can be mixed and matched.
 
-7. **Bit decomposition is expensive**: A 64-bit operation costs ~65-200 constraints via traditional encoding.
-
-8. **Lookup arguments changed everything**: Plookup, LogUp, and Lasso replace expensive bit operations with cheap table membership proofs, enabling efficient zkVMs and non-ZK-friendly operations.
-
-9. **Frontend/backend split**: Frontends handle arithmetization; backends handle proving. They can be mixed and matched.
-
-10. **Constraint cost guides design**: Choose field-friendly operations (hashes, curves) over bit-heavy operations.
+7. **Constraint cost guides design**: Choose field-friendly operations (hashes, curves) over bit-heavy operations.
