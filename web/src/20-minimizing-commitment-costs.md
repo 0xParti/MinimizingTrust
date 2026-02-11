@@ -478,7 +478,6 @@ The difference between a 10-second prover and a 2-second prover often lies in th
 
 ## Key Takeaways
 
-**The core insight:**
 Commitment is the bottleneck. A single elliptic curve exponentiation costs ~3,000 field multiplications. An MSM over $N$ points costs $\approx N/\log N$ exponentiations. In most SNARKs, the prover spends more time committing to polynomials than proving claims about them.
 
 **The design principle:**

@@ -96,10 +96,6 @@ Groth16 is best understood through the lens of **Linear PCPs** (Probabilisticall
 
 In a standard PCP, the verifier queries specific positions of a proof string. In a Linear PCP, the "proof" is a linear function $\pi: \mathbb{F}^k \to \mathbb{F}$, and the verifier queries $\pi(q)$ for chosen query vectors $q$.
 
-**The Shadow Puppet Intuition.** Imagine you want to prove your hands are tied in a specific knot, but you cannot show your hands directly (zero-knowledge). In a Linear PCP, the trusted setup is a light source placed at a very specific, secret angle ($\tau$). You hold up your "polynomial" hands. The verifier only sees the shadow on the wall (the group elements).
-
-Because the light source is fixed and secret, you cannot fake the shadow. If the shadow looks like a knot, your hands must be tied. The linearity comes from the fact that you can move your fingers (add group elements), and the shadow moves exactly in sync. But you cannot create shadows that don't correspond to real hand positions.
-
 The critical insight: if the prover must respond with $\pi(q)$ for a linear function $\pi$, and the queries are encrypted as $g^q$, then the response $g^{\pi(q)}$ can be computed homomorphically without knowing $q$.
 
 Groth16's trusted setup embeds carefully chosen query vectors into group elements. The prover computes responses using only scalar multiplication: linear operations on the encrypted queries. The verifier checks a quadratic relation using a single pairing equation.

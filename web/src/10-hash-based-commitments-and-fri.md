@@ -41,7 +41,7 @@ For polynomial commitments, we commit to the polynomial's evaluations over a dom
 
 Suppose the prover commits to a function $f: D \to \mathbb{F}$ by Merkle-committing its evaluations on a domain $D$ of size $n$. The prover claims $f$ is a low-degree polynomial (say degree less than $d$).
 
-**The key mental model: a polynomial evaluation vector IS a Reed-Solomon codeword.** If you have a polynomial $f(X)$ of degree $d-1$ and you evaluate it at $n$ points (where $n > d$), the resulting vector $(f(x_1), f(x_2), \ldots, f(x_n))$ is a codeword of the Reed-Solomon code with parameters $[n, d]$. The polynomial's coefficients are the "message"; its evaluations are the "codeword." The extra evaluations beyond the $d$ needed to specify the polynomial are the "redundancy" that lets us detect errors. FRI is fundamentally a test that asks: does this committed vector look like a valid codeword, or has it been corrupted?
+A polynomial evaluation vector *is* a Reed-Solomon codeword. If you have a polynomial $f(X)$ of degree $d-1$ and you evaluate it at $n$ points (where $n > d$), the resulting vector $(f(x_1), f(x_2), \ldots, f(x_n))$ is a codeword of the Reed-Solomon code with parameters $[n, d]$. The polynomial's coefficients are the "message"; its evaluations are the "codeword." The extra evaluations beyond the $d$ needed to specify the polynomial are the "redundancy" that lets us detect errors. FRI is fundamentally a test that asks: does this committed vector look like a valid codeword, or has it been corrupted?
 
 **Concrete example**: Say $f(X) = 3 + 2X + 5X^2$ over $\mathbb{F}_{17}$, and we choose domain $D = \{1, 2, 4, 8\}$ (powers of 2 mod 17). The prover evaluates $f$ at each point:
 
@@ -73,7 +73,7 @@ This is why we rely on the *soundness error*. We tune the parameters (rate, numb
 
 FRI transforms the low-degree testing problem through a beautiful recursive technique.
 
-**The key observation**: Any polynomial $f(X)$ can be decomposed into even and odd parts:
+Any polynomial $f(X)$ can be decomposed into even and odd parts:
 
 $$f(X) = f_E(X^2) + X \cdot f_O(X^2)$$
 

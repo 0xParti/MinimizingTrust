@@ -130,7 +130,7 @@ Because PLONK's witness consists of three separate vectors $(a, b, c)$, nothing 
 
 **Copy constraints** are the explicit assertions: wire $i$ equals wire $j$. The challenge is proving all copy constraints efficiently (potentially thousands of equality assertions) without enumerating them individually.
 
-**A note on terminology**: The name "copy constraint" is slightly misleading. We aren't copying data from one location to another. We are enforcing *equality*: two wire slots that happen to hold the same logical variable must contain identical values. Think of it as a wormhole connecting two distant parts of the circuit instantaneously. The value at $c_1$ doesn't "flow" to $a_2$; rather, they are the same point in the circuit's logical topology, temporarily given different addresses for bookkeeping. The permutation argument detects whether these "same points" actually hold the same value.
+The name "copy constraint" is slightly misleading. We aren't copying data from one location to another. We are enforcing *equality*: two wire slots that happen to hold the same logical variable must contain identical values. Think of it as a wormhole connecting two distant parts of the circuit instantaneously. The value at $c_1$ doesn't "flow" to $a_2$; rather, they are the same point in the circuit's logical topology, temporarily given different addresses for bookkeeping. The permutation argument detects whether these "same points" actually hold the same value.
 
 ## The Permutation Argument
 
@@ -183,8 +183,6 @@ $$\prod_{i=1}^{3n} (v_i + \gamma) = \prod_{i=1}^{3n} (v_{\sigma(i)} + \gamma)$$
 The multiset check has a flaw. A cheating prover could satisfy copy constraints on some wires by *violating* them on others, as long as they swap equal amounts. The overall multiset remains unchanged even though specific equalities fail.
 
 **Example**: Circuit requires $c_1 = a_2$. Honest values: $c_1 = 5$, $a_2 = 5$. Cheating prover sets $c_1 = 5$, $a_2 = 99$, but compensates by swapping some other wire that should be $99$ to $5$. The multiset of all values is preserved.
-
-**The ID Badge Analogy.** Imagine a room full of people (values) wearing ID badges (locations). You want to check that everyone is present after they swap seats according to a seating chart (the permutation). If you only check names, people could swap identities. But if each person's badge is permanently fused to their chair number, any swap becomes detectable. The value "5" at position $c_1$ wears a badge reading "5 at $c_1$"; after permutation, it should match "5 at $a_2$." If the values differ, the badges don't match, and the product check fails.
 
 The fix: bind each value to its **location** using a second challenge $\beta$:
 

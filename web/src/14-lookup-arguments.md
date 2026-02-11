@@ -24,7 +24,7 @@ Given a multiset $f = \{f_1, \ldots, f_n\}$ of witness values (the "lookups") an
 
 **Why "lookup"?** Imagine you're proving a circuit that computes XOR. The table $t$ contains all valid XOR triples: $(0,0,0), (0,1,1), (1,0,1), (1,1,0)$. Your circuit claims $a \oplus b = c$ for some witness values. Rather than encoding XOR algebraically, you "look up" the triple $(a,b,c)$ in the table. If it's there, the XOR is correct. The multiset $f$ collects all the triples your circuit needs to verify; the subset claim $f \subseteq t$ says every lookup found a valid entry.
 
-**The Dictionary Analogy.** Imagine you want to prove you spelled "Cryptography" correctly. The *arithmetic approach* would be to write down the rules of English grammar and phonetics, then derive the spelling from first principles. Slow, complex, error-prone. The *lookup approach* would be to open the Oxford English Dictionary to page 412, point to the word "Cryptography," and say "there." The lookup argument is simply proving that your tuple (the word you claim) exists in the set (all valid English words). You don't need to understand *why* it's valid; you just need to show it's in the book.
+Imagine you want to prove you spelled "Cryptography" correctly. The *arithmetic approach* would be to write down the rules of English grammar and phonetics, then derive the spelling from first principles. Slow, complex, error-prone. The *lookup approach* would be to open the Oxford English Dictionary to page 412, point to the word "Cryptography," and say "there." The lookup argument is simply proving that your tuple (the word you claim) exists in the set (all valid English words). You don't need to understand *why* it's valid; you just need to show it's in the book.
 
 A naive approach might compare products: if $\prod (f_i + \gamma) = \prod (t_j + \gamma)$, the multisets are equal. But subset is weaker than equality, since $f$ may use only some table entries, possibly with repetition.
 
@@ -91,7 +91,7 @@ Where does this come from? Think about what $s$ looks like when $f \subseteq t$.
 
 $F$ is the fingerprint of *exactly these pairs*, the table backbone plus $n$ valid duplicate insertions. If $G$ (the actual fingerprint of $s$) equals $F$, then $s$ has the right structure: no "bad" transitions like $(7, 9)$ that would appear if some $f_j \notin t$.
 
-**Tiny example**: Let's use a 3-element table to see the algebra concretely.
+Let's use a 3-element table to see the algebra concretely.
 
 - Table: $t = \{0, 1, 2\}$ (so $d = 3$)
 - Lookups: $f = \{1\}$ (so $n = 1$)
@@ -167,7 +167,7 @@ where $m$ depends on how many lookups occur per gate (typically 1 or 2).
 
 **Sorting check**: Adjacent elements of $s$ satisfy $s_{i+1} \geq s_i$, typically enforced via a small range check on differences.
 
-**Wait, why isn't sorting enough?** If $s$ is sorted, doesn't that prove $f \subseteq t$? Not quite. We also need to prove that $s$ contains *exactly* the elements of $f$ and $t$, no more, no less. This is the role of the permutation argument.
+If $s$ is sorted, doesn't that prove $f \subseteq t$? Not quite. We also need to prove that $s$ contains *exactly* the elements of $f$ and $t$, no more, no less. This is the role of the permutation argument.
 
 The complete logic is:
 

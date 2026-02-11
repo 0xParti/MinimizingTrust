@@ -79,7 +79,7 @@ The remarkable discovery of the 1980s and 1990s was that cheap verification *is*
 
 ## Interactive Proofs: The Breakthrough
 
-The key insight came from complexity theory, and it involved a conceptual leap: *interaction* and *randomness* together can create verification power that neither possesses alone.
+The insight came from complexity theory, and it involved a conceptual leap: *interaction* and *randomness* together can create verification power that neither possesses alone.
 
 A computationally unbounded prover claims to have solved a problem. A polynomially bounded verifier wants to check this claim. The verifier cannot solve the problem themselves (that's the whole point), but they can engage in a conversation with the prover.
 

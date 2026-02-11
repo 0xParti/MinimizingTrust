@@ -52,13 +52,11 @@ $$e(aP, bQ) = e(P, Q)^{ab}$$
 
 for all scalars $a, b$ and group elements $P \in G_1$, $Q \in G_2$.
 
-This seemingly simple equation has profound consequences. It allows us to check multiplicative relationships *in the exponent*. Given commitments $g^a$ and $g^b$, we cannot compute $g^{ab}$ (that would break CDH). But we can *verify* that $g^c = g^{ab}$ by checking:
+This seemingly simple equation has profound consequences. It allows us to check multiplicative relationships *in the exponent*. Given commitments $g^a$ and $g^b$, we cannot compute $g^{ab}$ (that would break CDH). But if someone claims to know $c = ab$, we can *verify* their claim by checking:
 
 $$e(g^a, g^b) = e(g^c, g)$$
 
 One multiplication check "for free" in the hidden exponent world. This is exactly what polynomial evaluation needs.
-
-**The Laser Pointer Intuition.** Imagine $G_1$ and $G_2$ as two flashlights with polarized lenses at different angles. You can shine each one on a wall ($G_T$) and see a spot. But if you shine *both* through the same point, the interaction of their polarizations creates a unique interference pattern. Knowing the two individual spots, you can predict what the combined pattern should be. This lets you *verify* multiplicative relationships (did these two beams combine correctly?) even though you can never *extract* the individual beam settings from looking at the wall alone. That one-way verification is the cryptographic leverage that makes KZG possible.
 
 ### The Trusted Setup
 
@@ -68,9 +66,7 @@ KZG requires a **structured reference string (SRS)**: a set of public parameters
 2. Compute the SRS: $(g, g^\tau, g^{\tau^2}, \ldots, g^{\tau^D})$
 3. **Destroy** $\tau$
 
-The SRS encodes powers of the secret $\tau$ "in the exponent." Anyone can use these elements without knowing $\tau$ itself.
-
-**The critical security requirement**: If anyone learns $\tau$, they can forge proofs for false statements. The setup must ensure $\tau$ is never known to any party. In practice, this is done via multi-party computation ceremonies where many participants contribute randomness, and security holds as long as *any one* participant is honest.
+The SRS encodes powers of the secret $\tau$ "in the exponent." Anyone can use these elements without knowing $\tau$ itself. But if anyone learns $\tau$, they can forge proofs for false statements, so the setup must ensure $\tau$ is never known to any party. In practice, this is done via multi-party computation ceremonies where many participants contribute randomness, and security holds as long as *any one* participant is honest.
 
 ### Commitment
 
@@ -96,7 +92,13 @@ To prove $f(z) = v$ for a public point $z$:
 
 ### Why Verification Works
 
-The pairing check verifies that the polynomial identity holds at $\tau$:
+The verification equation $e(\pi, g^\tau \cdot g^{-z}) = e(C \cdot g^{-v}, g)$ is equivalent to the polynomial identity $w(\tau)(\tau - z) = f(\tau) - v$. To see this, substitute the definitions:
+
+- $\pi = g^{w(\tau)}$
+- $g^\tau \cdot g^{-z} = g^{\tau - z}$
+- $C \cdot g^{-v} = g^{f(\tau)} \cdot g^{-v} = g^{f(\tau) - v}$
+
+This gives:
 
 $$e(g^{w(\tau)}, g^{\tau - z}) = e(g^{f(\tau) - v}, g)$$
 
@@ -110,8 +112,6 @@ This holds iff $w(\tau)(\tau - z) = f(\tau) - v$, which is exactly the polynomia
 $$w'(\tau)(\tau - z) = f(\tau) - v$$
 
 But the prover doesn't know $\tau$; it's hidden in the SRS. From their perspective, $\tau$ is a random field element. Two distinct degree-$d$ polynomials agree on at most $d$ points (Schwartz-Zippel), so the probability that a "wrong" $w'$ accidentally satisfies the check at the unknown $\tau$ is at most $d/|\mathbb{F}|$ (negligible for large fields).
-
-The logic: if you can pass the check at a *random* point without knowing which point, you must have the correct polynomial identity.
 
 **Formal soundness statement**: Let $f(X)$ be the committed polynomial of degree at most $d$. For any adversary $\mathcal{A}$ that outputs $(z, v, \pi)$ with $f(z) \neq v$:
 $$\Pr[\text{Verify}(C, z, v, \pi) = \text{accept}] \leq \frac{d}{|\mathbb{F}|}$$
@@ -148,7 +148,9 @@ $$C = g^{f(5)} = g^{25 + 10 + 3} = g^{38}$$
 
 Both sides equal. The verification passes.
 
-### Managing Toxic Waste: Powers of Tau Ceremonies
+
+
+## Managing Toxic Waste: Powers of Tau Ceremonies
 
 The trusted setup creates a serious practical problem: someone must generate τ, compute the powers, and then *verifiably destroy* τ. How do you convince the world that the toxic waste is truly gone?
 

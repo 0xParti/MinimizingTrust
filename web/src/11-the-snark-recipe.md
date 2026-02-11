@@ -191,7 +191,7 @@ The verifier reconstructs challenges from the transcript and performs all checks
 
 The interactive protocol's soundness rests on *unpredictability*: the prover commits to $C_1$ without knowing what challenge $r_1$ will be. This prevents the prover from crafting commitments that exploit specific challenges.
 
-**The Time Travel Intuition.** In an interactive proof, the verifier sends a random challenge *after* the prover commits. The prover cannot change the past. In a non-interactive proof, the prover generates the challenge themselves. What stops them from cheating?
+In an interactive proof, the verifier sends a random challenge *after* the prover commits. The prover cannot change the past. In a non-interactive proof, the prover generates the challenge themselves. What stops them from cheating?
 
 Fiat-Shamir forces the prover to use the *future* (the hash of their commitment) to determine the *present* (the challenge). If they try to change the commitment to cheat, the future changes, giving them a different challenge that likely fails. They are trapped in a causal loop where every attempt to cheat changes the lock they are trying to pick. The only way out is to find a commitment whose hash happens to yield a favorable challenge, and that requires brute-force search through an astronomically large space.
 

@@ -78,7 +78,7 @@ The verifier performs two checks:
 
 If either check fails, the verifier rejects. Otherwise, she samples a random field element $r_1 \leftarrow \mathbb{F}$ and sends it to the prover.
 
-**The implicit claim**: The verifier now evaluates the prover's polynomial at this random point, computing $V_1 = g_1(r_1)$. This value represents what the prover is *implicitly* asserting about a reduced sum. The verifier doesn't compute this sum herself; she simply records what the prover's polynomial claims it to be. This $V_1$ becomes the target for round 2: the prover must now justify that the sum over $2^{\nu-1}$ points, with the first variable fixed to $r_1$, actually equals $V_1$.
+The verifier now evaluates the prover's polynomial at this random point, computing $V_1 = g_1(r_1)$. This value represents what the prover is *implicitly* asserting about a reduced sum. The verifier doesn't compute this sum herself; she simply records what the prover's polynomial claims it to be. This $V_1$ becomes the target for round 2: the prover must now justify that the sum over $2^{\nu-1}$ points, with the first variable fixed to $r_1$, actually equals $V_1$.
 
 The key observation: the verifier has now *reduced* the original claim about a sum over $2^\nu$ points to a new claim about a sum over $2^{\nu-1}$ points. Specifically, the prover is now implicitly claiming that:
 

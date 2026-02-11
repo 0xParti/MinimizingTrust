@@ -57,7 +57,7 @@ In Chapter 2, we used univariate polynomials (Reed-Solomon). Why switch to multi
 
 A polynomial in $n$ variables has terms like $X_1^{a_1} X_2^{a_2} \cdots X_n^{a_n}$ with various exponents. The **degree** in variable $X_i$ is the maximum exponent of $X_i$ across all terms.
 
-A polynomial is **multilinear** if its degree in every variable is at most 1. Every term looks like a product of distinct variables (or subsets thereof):
+A polynomial is **multilinear** if its degree in every variable is at most 1. Every term looks like a product of distinct variables (or subsets thereof). We write $\tilde{f}$ (with a tilde) to denote the multilinear extension of a function $f$:
 
 $$\tilde{f}(X_1, \ldots, X_n) = \sum_{S \subseteq \{1,\ldots,n\}} c_S \prod_{i \in S} X_i$$
 
