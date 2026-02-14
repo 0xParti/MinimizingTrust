@@ -80,7 +80,8 @@ for chapter in \
     ../web/src/26-zk-in-the-cryptographic-landscape.md \
     ../web/src/appendix-a-cryptographic-primitives.md \
     ../web/src/appendix-b-historical-timeline.md \
-    ../web/src/appendix-c-field-equations-cheat-sheet.md
+    ../web/src/appendix-c-field-equations-cheat-sheet.md \
+    ../web/src/appendix-d-advanced-polynomial-commitment-schemes.md
 do
     echo "" >> /tmp/zkBook_pdf.md
     # Convert ```mermaid to ```{.mermaid format=pdf width=600} for proper PDF sizing
