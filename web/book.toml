@@ -18,3 +18,9 @@ site-url = "/zkBook/"
 [output.html.fold]
 enable = true
 level = 1
+
+# Custom icon links in the top-right corner
+[[output.html.icons]]
+icon = "fa-x-twitter"
+url = "https://x.com/0xParticle"
+title = "Follow on X"
