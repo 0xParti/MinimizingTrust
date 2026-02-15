@@ -20,7 +20,7 @@ HEADER
 # Append all chapters
 for chapter in \
     ../web/src/01-the-trust-problem.md \
-    ../web/src/02-the-alchemical-power-of-polynomials.md \
+    ../web/src/02-the-power-of-polynomials.md \
     ../web/src/03-the-sum-check-protocol.md \
     ../web/src/04-multilinear-extensions.md \
     ../web/src/05-univariate-polynomials-and-finite-fields.md \
@@ -28,7 +28,7 @@ for chapter in \
     ../web/src/07-the-gkr-protocol.md \
     ../web/src/08-from-circuits-to-polynomials.md \
     ../web/src/09-polynomial-commitment-schemes.md \
-    ../web/src/10-hash-based-commitments-and-fri.md \
+    ../web/src/10-hash-based-poly-commitments-and-fri.md \
     ../web/src/11-the-snark-recipe.md \
     ../web/src/12-groth16.md \
     ../web/src/13-plonk.md \

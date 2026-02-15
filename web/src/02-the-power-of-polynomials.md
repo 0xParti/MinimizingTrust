@@ -1,4 +1,4 @@
-# Chapter 2: The Alchemical Power of Polynomials
+# Chapter 2: The Power of Polynomials
 
 In 1960, Irving Reed and Gustave Solomon were trying to solve a practical problem: how do you send data through space?
 
