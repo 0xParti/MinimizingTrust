@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="images/frontLandscape.png" alt="zkBook Cover">
+  <img src="images/zkBookLand.png" alt="zkBook Cover">
 </p>
 
-# Minimizing Trust, Maximizing Truth
+# Minimizing Trust
 
 *The Architecture of Verifiable Secrets*
 

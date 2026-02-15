@@ -9,7 +9,7 @@ cd "$(dirname "$0")"
 cat > /tmp/zkBook_pdf.md << 'HEADER'
 ---
 titlepage: true
-titlepage-background: "../images/cover/zkBookCover.png"
+titlepage-background: "../web/src/images/zkBookCover.png"
 titlepage-text-color: "FFFFFF00"
 titlepage-rule-height: 0
 toc: false
@@ -25,7 +25,7 @@ header-includes:
 <!-- Page 2: Anverse image (full page like cover) -->
 \newpage
 \thispagestyle{empty}
-\AddToShipoutPictureBG*{\includegraphics[width=\paperwidth,height=\paperheight]{../images/cover/zkBookAnverse.png}}
+\AddToShipoutPictureBG*{\includegraphics[width=\paperwidth,height=\paperheight]{../web/src/images/zkBookAnverse.png}}
 \null
 
 <!-- Page 3: Title page -->
@@ -33,7 +33,7 @@ header-includes:
 \thispagestyle{empty}
 \begin{center}
 \vspace*{3cm}
-{\Huge\bfseries Minimizing Trust, Maximizing Truth}\\[1cm]
+{\Huge\bfseries Minimizing Trust}\\[1cm]
 {\Large\itshape The Architecture of Verifiable Secrets}\\[2cm]
 {\large particle}\\[4cm]
 \vfill

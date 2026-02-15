@@ -8,7 +8,7 @@ cd "$(dirname "$0")"
 # Create combined markdown (no LaTeX frontmatter for EPUB)
 cat > /tmp/zkBook_epub.md << 'HEADER'
 ---
-title: "Minimizing Trust, Maximizing Truth"
+title: "Minimizing Trust"
 subtitle: "The Architecture of Verifiable Secrets"
 author: "particle"
 toc: true
@@ -58,7 +58,7 @@ done
 
 # Build EPUB with MathML for proper math rendering
 MERMAID_FILTER_WIDTH=600 pandoc /tmp/zkBook_epub.md \
-    --epub-cover-image=../images/cover/zkBookCover.png \
+    --epub-cover-image=../web/src/images/zkBookCover.png \
     --mathml \
     -F mermaid-filter \
     -o ../zkBook.epub

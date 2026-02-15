@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="images/others/frontLandscape.png" alt="zkBook Cover">
+  <img src="web/src/images/frontLandscape.png" alt="zkBook Cover">
 </p>
 
-<h1 align="center">Minimizing Trust, Maximizing Truth</h1>
+<h1 align="center">Minimizing Trust</h1>
 <p align="center"><em>The Architecture of Verifiable Secrets</em></p>
 <p align="center">by <strong>particle</strong></p>
 
@@ -48,7 +48,7 @@ Requires: [mdBook](https://rust-lang.github.io/mdBook/)
 ```
 zkBook/
 ├── compile/          # PDF/EPUB build scripts
-├── images/cover/     # Cover images
+├── web/src/images/   # All images (shared by web, PDF, EPUB)
 ├── web/              # mdBook web version
 ├── zkBook.pdf        # Pre-built PDF
 └── zkBook.epub       # Pre-built EPUB
@@ -57,5 +57,5 @@ zkBook/
 ---
 
 <p align="center">
-  <img src="images/others/backLandscape.png" alt="zkBook Back Cover">
+  <img src="web/src/images/backLandscape.png" alt="zkBook Back Cover">
 </p>

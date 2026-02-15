@@ -1,5 +1,5 @@
 [book]
-title = "Minimizing Trust, Maximizing Truth"
+title = "Minimizing Trust"
 authors = ["particle"]
 description = "The Architecture of Verifiable Secrets - A comprehensive guide to Zero-Knowledge Proofs"
 src = "src"
