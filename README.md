@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="web/src/images/frontLandscape.png" alt="zkBook Cover">
+  <img src="web/src/images/zkBookLand.png" alt="zkBook Cover">
 </p>
 
 <h1 align="center">Minimizing Trust</h1>
