@@ -1,50 +1,30 @@
 # Chapter 13: PLONK: Universal SNARKs and the Permutation Argument
 
-By 2018, Zcash had proven SNARKs worked, but at a terrible logistical cost.
-
-Every time they wanted to upgrade the protocol, they had to run a new Trusted Setup Ceremony. This meant renting secure facilities, coordinating participants across continents, and asking each one to generate randomness, contribute to a multi-party computation, then physically destroy their hardware. The "Powers of Tau" ceremony for the Sapling upgrade involved 87 participants over 10 months. One participant literally put his laptop in a blender. The process worked, but it didn't scale. The cryptographic world needed a setup you could perform once and use forever.
+By 2018, Groth16 had proven SNARKs worked in production. Zcash was live, proofs were 128 bytes, verification was fast. But every protocol upgrade required a new trusted setup ceremony—a multi-party computation specific to that circuit. For a project planning rapid iteration, this was a bottleneck. The cryptographic world wanted a setup you could perform once and reuse for any circuit.
 
 Ariel Gabizon, Zachary Williamson, and Oana Ciobotaru found the path. Their insight was *permutations*: instead of encoding circuit structure directly into the setup, separate two concerns: what each gate computes (local) and how gates connect (global). The wiring could be encoded as a permutation, checked with a polynomial argument that worked identically for any circuit.
 
-The result was PLONK (2019): **P**ermutations over **L**agrange-bases for **O**ecumenical **N**oninteractive arguments of **K**nowledge. "Oecumenical" signals universality: one ceremony suffices for all circuits up to a maximum size. The setup is also **updatable**: new participants can strengthen its security at any time, without coordination with previous contributors.
+The result was PLONK (2019): **P**ermutations over **L**agrange-bases for **O**ecumenical **N**oninteractive arguments of **K**nowledge. "Oecumenical" signals universality: one ceremony suffices for all circuits up to a maximum size. Since PLONK needs only powers of tau (no circuit-specific Phase 2), the entire setup is **updatable**: anyone can strengthen security by adding a contribution, without coordinating with previous participants.
 
 PLONK's modularity extends to the commitment scheme. The core is a **Polynomial IOP**: an interactive protocol where the prover sends polynomials and the verifier queries evaluations. Compile it with KZG for constant-size proofs with trusted setup. Compile with FRI for larger proofs without trust assumptions. The IOP is unchanged; only the cryptographic layer differs.
 
-The cost of universality is larger proofs (~400-500 bytes versus 128) and more verification work (~10 pairings versus 3). For most applications, this is an acceptable trade. The ecosystem has voted: PLONK and its descendants dominate production deployments.
+The cost of universality is larger proofs (~400-500 bytes versus 128) and more verification work (~10 pairings versus 3). Whether this trade-off makes sense depends on deployment constraints: Groth16 remains preferred when proof size or verification cost is critical; PLONK variants dominate when development velocity or custom gates matter more.
 
 ## Architecture: Gates and Copy Constraints
 
-PLONK's arithmetization differs fundamentally from R1CS. Where R1CS flattens the entire computation into a single witness vector with implicit wiring, PLONK separates two concerns:
+Chapter 8 introduced PLONKish arithmetization: the universal gate equation $Q_L \cdot a + Q_R \cdot b + Q_O \cdot c + Q_M \cdot ab + Q_C = 0$ and the permutation argument for copy constraints. Here we develop the full protocol.
 
-**Gate constraints**: Each gate satisfies a polynomial equation relating its input and output wires.
+The key architectural distinction from R1CS: PLONK separates gate constraints (each gate satisfies a polynomial equation relating its wires) from copy constraints (wires at different positions carry equal values when the circuit's topology demands it).
 
-**Copy constraints**: Wires at different positions carry equal values when the circuit's topology demands it.
-
-This separation has profound consequences. Gate logic becomes uniform: one equation for all gates. Wiring becomes explicit: a permutation argument proves all copy constraints simultaneously. The result is a cleaner architecture that generalizes naturally to custom gates and lookup arguments.
+This separation has consequences for extensibility. Gate logic becomes uniform: one equation for all gates. Wiring becomes explicit: a permutation argument proves all copy constraints simultaneously. Because gate definitions and wiring are independent, adding custom gates or lookup arguments doesn't require rethinking the copy constraint mechanism.
 
 ### The Gate Equation
 
-Every gate in PLONK has three wires: left input $a_i$, right input $b_i$, output $c_i$. The gate's behavior is specified by **selectors**: public field elements fixed at circuit compilation.
-
-The universal gate equation:
+Recall from Chapter 8: every gate has three wires ($a_i$, $b_i$, $c_i$) and the universal gate equation
 
 $$Q_L \cdot a + Q_R \cdot b + Q_O \cdot c + Q_M \cdot ab + Q_C = 0$$
 
-Different selector values program different operations:
-
-**Addition** $(a + b = c)$: Set $Q_L = 1$, $Q_R = 1$, $Q_O = -1$, others zero.
-
-- Check: $1 \cdot a + 1 \cdot b + (-1) \cdot c + 0 + 0 = a + b - c = 0$
-
-**Multiplication** $(ab = c)$: Set $Q_M = 1$, $Q_O = -1$, others zero.
-
-- Check: $0 + 0 + (-1) \cdot c + 1 \cdot ab + 0 = ab - c = 0$
-
-**Constant assignment** $(a = k)$: Set $Q_L = 1$, $Q_C = -k$, others zero.
-
-- Check: $1 \cdot a + 0 + 0 + 0 + (-k) = a - k = 0$
-
-The equation's generality is its power. One algebraic form handles arbitrary gate types. Modern variants extend to more wires (5+ instead of 3) and higher-degree terms ($a^5$ for Poseidon S-boxes).
+where selectors $Q_L, Q_R, Q_O, Q_M, Q_C$ are public constants that program each gate's operation. Addition sets $Q_L = Q_R = 1, Q_O = -1$; multiplication sets $Q_M = 1, Q_O = -1$; constant assignment sets $Q_L = 1, Q_C = -k$. Modern variants extend to more wires (5+ instead of 3) and higher-degree terms ($a^5$ for Poseidon S-boxes).
 
 ### From Discrete Checks to Polynomial Identity
 
@@ -52,15 +32,13 @@ The circuit has $n$ gates. We want to verify all $n$ gate equations simultaneous
 
 Define a domain $H = \{1, \omega, \omega^2, \ldots, \omega^{n-1}\}$ where $\omega$ is a primitive $n$-th root of unity. The $i$-th gate corresponds to domain point $\omega^i$.
 
-**Selector polynomials**: For each selector (e.g., $Q_L$), interpolate its values across gates to obtain polynomial $Q_L(X)$ satisfying $Q_L(\omega^i) = Q_{L,i}$.
+Each selector has one value per gate. For $Q_L$, we have a vector $(Q_{L,0}, Q_{L,1}, \ldots, Q_{L,n-1})$ where $Q_{L,i}$ is the left-wire selector at gate $i$. Interpolation finds the unique polynomial $Q_L(X)$ of degree $< n$ passing through the points $(\omega^0, Q_{L,0}), (\omega^1, Q_{L,1}), \ldots, (\omega^{n-1}, Q_{L,n-1})$. The result: $Q_L(\omega^i) = Q_{L,i}$ for all $i$. We do the same for $Q_R, Q_O, Q_M, Q_C$, and for the witness polynomials $a(X), b(X), c(X)$ (where $a(\omega^i) = a_i$, the left input at gate $i$).
 
-**Witness polynomials**: Interpolate wire values. Polynomial $a(X)$ satisfies $a(\omega^i) = a_i$ (the left input at gate $i$).
-
-**Witness structure differs from R1CS.** In R1CS (Chapter 7), the witness is a single flattened vector $Z = (1, \text{public inputs}, \text{private inputs}, \text{intermediate values})$. Each wire has exactly one index in $Z$. When two constraints reference the same wire, they use the same index; wiring is implicit in the indexing scheme.
+The witness structure differs from R1CS. In R1CS (Chapter 8), the witness is a single flattened vector $Z = (1, \text{public inputs}, \text{private inputs}, \text{intermediate values})$. Each wire has exactly one index in $Z$. When two constraints reference the same wire, they use the same index; wiring is implicit in the indexing scheme.
 
 PLONK structures the witness differently: three separate vectors $(a, b, c)$, each of length $n$ (the number of gates). Entry $a_i$ is gate $i$'s left input; $b_i$ is its right input; $c_i$ is its output. When the same value appears in multiple positions (say, a variable feeding two different gates) it occupies multiple slots in these vectors. This has a crucial consequence: PLONK needs explicit "copy constraints" to enforce that slots holding the same logical wire actually contain the same value. We'll see how this works shortly.
 
-**Concrete example: the same circuit in both formats.** Consider $y = (x + z) \cdot z$ with $x = 3$, $z = 2$, so $y = 10$.
+To make this concrete, consider $y = (x + z) \cdot z$ with $x = 3$, $z = 2$, so $y = 10$.
 
 *R1CS representation* (2 constraints, 5 wires):
 
@@ -99,11 +77,18 @@ $0 + 0 + (-1) \cdot 10 + 1 \cdot 5 \cdot 2 + 0 = 0$ $\checkmark$ (multiplication
 
 Notice: $z = 2$ appears twice ($b_1$ and $b_2$), and $v_1 = 5$ appears twice ($c_1$ and $a_2$). The gate equations don't enforce $b_1 = b_2$ or $c_1 = a_2$; a cheating prover could use different values. Copy constraints will enforce these equalities.
 
-**The structural difference**: R1CS has matrices that *select* from a shared witness vector (same wire, same column, automatic equality). PLONK has vectors where each gate slot is independent (same value, different slots, explicit copy constraints needed).
+The structural difference: R1CS matrices *select* from a shared witness vector (same wire, same column, automatic equality). PLONK has vectors where each gate slot is independent (same value, different slots, explicit copy constraints needed).
 
-**Contrast with QAP (Chapter 12)**: QAP interpolates *column-wise*: for each wire $j$, create polynomials encoding how that wire participates across all constraints. The witness appears as coefficients weighting basis polynomials. PLONK interpolates *row-wise*: wire values are directly the polynomial evaluations, and selectors are separate polynomials encoding gate types. This is why QAP bakes circuit structure into the SRS (changing the circuit changes the basis polynomials), while PLONK's SRS is universal (selectors are just committed data, independent of the setup).
+How does this compare to QAP (Chapter 12)? In QAP, each wire $j$ gets basis polynomials $A_j(X), B_j(X), C_j(X)$ encoding how that wire participates across all constraints. The witness appears as coefficients weighting these basis polynomials: $A(X) = \sum_j z_j A_j(X)$. The basis polynomials encode the circuit structure.
 
-The gate equation becomes a polynomial identity:
+PLONK separates these concerns differently:
+
+- **Selector polynomials** ($Q_L, Q_R, Q_O, Q_M, Q_C$): Define the circuit. Fixed once the circuit is designed. Different circuits have different selectors.
+- **Witness polynomials** ($a, b, c$): Computed fresh by the prover for each proof. Different inputs produce different witness values, interpolated into different polynomials.
+
+Circuit structure lives in the selector polynomials, which are ordinary polynomials—not special objects requiring circuit-specific setup. This separation is what enables universality: the same trusted setup works for any circuit, because it doesn't need to "know" about selectors in advance.
+
+With all these polynomials defined, the per-gate equation $Q_L \cdot a + Q_R \cdot b + Q_O \cdot c + Q_M \cdot ab + Q_C = 0$ becomes a polynomial identity:
 
 $$Q_L(X) \cdot a(X) + Q_R(X) \cdot b(X) + Q_O(X) \cdot c(X) + Q_M(X) \cdot a(X) \cdot b(X) + Q_C(X) = 0$$
 
@@ -160,7 +145,7 @@ The circuit's wiring defines a permutation $\sigma$ on wire identities. If wire 
 
 **Example**: For our circuit $y = (x + z) \cdot z$ with 2 gates, label the 6 wire slots as $a_1, b_1, c_1, a_2, b_2, c_2$. The copy constraints are $c_1 = a_2$ (output of gate 1 feeds gate 2) and $b_1 = b_2$ (variable $z$ used twice). The permutation $\sigma$ encodes this: $\sigma(c_1) = a_2$, $\sigma(a_2) = c_1$ (a 2-cycle), and $\sigma(b_1) = b_2$, $\sigma(b_2) = b_1$ (another 2-cycle). Wires $a_1$ and $c_2$ aren't copied anywhere, so $\sigma(a_1) = a_1$ and $\sigma(c_2) = c_2$ (fixed points).
 
-**The key insight**: All copy constraints hold if and only if every wire's value equals the value at its connected position. Here $\sigma(w)$ denotes the *position* that wire $w$ is connected to (not a transformed value):
+The key insight: all copy constraints hold if and only if every wire's value equals the value at its connected position. Here $\sigma(w)$ denotes the *position* that wire $w$ is connected to (not a transformed value):
 
 $$\text{value at position } w = \text{value at position } \sigma(w) \quad \forall w$$
 
@@ -176,7 +161,7 @@ Given random challenge $\gamma$:
 
 $$\prod_{i=1}^{3n} (v_i + \gamma) = \prod_{i=1}^{3n} (v_{\sigma(i)} + \gamma)$$
 
-**Formal soundness**: If the multisets differ (some value appears with different multiplicities), then the polynomials $\prod_{i=1}^{3n} (X + v_i)$ and $\prod_{i=1}^{3n} (X + v_{\sigma(i)})$ are distinct. By Schwartz-Zippel, distinct degree-$3n$ polynomials agree on at most $3n$ points, so a random $\gamma$ satisfies the equality with probability at most $3n/|\mathbb{F}|$ (negligible for cryptographic fields).
+Why is this sound? If the multisets differ (some value appears with different multiplicities), then the polynomials $\prod_{i=1}^{3n} (X + v_i)$ and $\prod_{i=1}^{3n} (X + v_{\sigma(i)})$ are distinct. By Schwartz-Zippel, distinct degree-$3n$ polynomials agree on at most $3n$ points, so a random $\gamma$ satisfies the equality with probability at most $3n/|\mathbb{F}|$ (negligible for cryptographic fields).
 
 ### Binding Values to Locations
 
@@ -397,7 +382,7 @@ The prover:
 2. **Blinds** each polynomial for zero-knowledge: $a(X) \leftarrow a(X) + (b_1 X + b_2) Z_H(X)$, where $b_1, b_2$ are random field elements
 3. Commits: sends $[a]_1, [b]_1, [c]_1$
 
-**Why blinding works**: The term $(b_1 X + b_2) Z_H(X)$ is zero on $H$ (since $Z_H(\omega^i) = 0$ for all $\omega^i \in H$), so adding it doesn't change the polynomial's values at gate positions; correctness is preserved. But outside $H$, this random term "scrambles" the polynomial, hiding information about the original witness values. The verifier will later query the polynomial at a random point $\zeta \notin H$; without blinding, these evaluations could leak witness information.
+Why does blinding work? The term $(b_1 X + b_2) Z_H(X)$ is zero on $H$ (since $Z_H(\omega^i) = 0$ for all $\omega^i \in H$), so adding it doesn't change the polynomial's values at gate positions; correctness is preserved. But outside $H$, this random term "scrambles" the polynomial, hiding information about the original witness values. The verifier will later query the polynomial at a random point $\zeta \notin H$; without blinding, these evaluations could leak witness information.
 
 ### Round 2: Commit to Accumulator
 
@@ -712,4 +697,4 @@ Wires $b_1$ and $b_2$ form a cycle. Wires $a_2$ and $b_3$ form a cycle. Wires $c
 
 9. **Verification structure**: Two batched KZG proofs. Constant work regardless of circuit size.
 
-10. **Ecosystem dominance**: PLONK derivatives power most production ZK systems. The universal setup won the deployment battle.
+10. **Deployment patterns**: PLONK derivatives are widely adopted for their development flexibility, while Groth16 persists where minimal proof size is paramount.
