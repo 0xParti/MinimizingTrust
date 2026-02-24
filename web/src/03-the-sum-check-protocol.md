@@ -347,7 +347,7 @@ Full formula: $g_\phi(x_1, x_2) = (x_1 + x_2 - x_1 x_2)(1 - x_1 + x_1 x_2)$
 
 **Step 3: Count.**
 
-$$\#SAT(\phi) = \sum_{(b_1, b_2) \in \{0,1\}^2} g_\phi(b_1, b_2) = 0 + 1 + 0 + 1 = 2$$
+$$\text{\#}SAT(\phi) = \sum_{(b_1, b_2) \in \{0,1\}^2} g_\phi(b_1, b_2) = 0 + 1 + 0 + 1 = 2$$
 
 The formula has exactly 2 satisfying assignments: $(0,1)$ and $(1,1)$ (both require $x_2 = 1$).
 
