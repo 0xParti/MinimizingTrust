@@ -871,26 +871,28 @@ Streaming provers differ from recursive SNARKs. Recursion proves proofs of proof
 
 2. **Folding relies on the hybrid evaluation property.** For multilinear $\tilde{f}$: evaluating at $(r, x_2, \ldots, x_n)$ is a linear combination of evaluations at $(0, x_2, \ldots)$ and $(1, x_2, \ldots)$. This lets the prover collapse a table of size $N$ into size $N/2$ with $O(N)$ field operations.
 
-3. **Sparse sums via prefix-suffix decomposition.** Factor $\widetilde{\text{eq}}(\tau, x) = \widetilde{\text{eq}}(\tau_{\text{prefix}}, x_{\text{prefix}}) \cdot \widetilde{\text{eq}}(\tau_{\text{suffix}}, x_{\text{suffix}})$. Precompute suffix contributions, then stream through non-zero terms. Cost: $O(T + \sqrt{N})$ for $T$ non-zeros with two passes and $O(\sqrt{N})$ memory.
+3. **Sum-check is cache-friendly.** The halving trick scans memory linearly: adjacent pairs combine, then adjacent pairs of results combine, and so on. Contrast with FFT's butterfly operations, which shuffle data non-locally (element $i$ interacts with element $i + N/2$, then $i + N/4$, ...), causing cache misses. For large $N$, this memory access pattern often matters more than the arithmetic.
 
-4. **Batching avoids linear blowup.** When sum-check produces $k$ evaluation queries, don't run $k$ separate protocols. Combine with random coefficients: $\sum_i \rho_i \cdot \text{claim}_i$. One sum-check suffices; soundness follows from Schwartz-Zippel.
+4. **Sparse sums via prefix-suffix decomposition.** Factor $\widetilde{\text{eq}}(\tau, x) = \widetilde{\text{eq}}(\tau_{\text{prefix}}, x_{\text{prefix}}) \cdot \widetilde{\text{eq}}(\tau_{\text{suffix}}, x_{\text{suffix}})$. Precompute suffix contributions, then stream through non-zero terms. Cost: $O(T + \sqrt{N})$ for $T$ non-zeros with two passes and $O(\sqrt{N})$ memory.
+
+5. **Batching avoids linear blowup.** When sum-check produces $k$ evaluation queries, don't run $k$ separate protocols. Combine with random coefficients: $\sum_i \rho_i \cdot \text{claim}_i$. One sum-check suffices; soundness follows from Schwartz-Zippel.
 
 ### Spartan's Architecture
 
-5. **Zero-on-hypercube reduction.** To prove $g(x) = 0$ for all $x \in \{0,1\}^n$, prove instead that $\sum_x \widetilde{\text{eq}}(\tau, x) \cdot g(x) = 0$ for random $\tau$. The $\widetilde{\text{eq}}$ polynomial acts as a random linear combination of the constraints: if any constraint fails, the sum is nonzero with high probability (Schwartz-Zippel).
+6. **Zero-on-hypercube reduction.** To prove $g(x) = 0$ for all $x \in \{0,1\}^n$, prove instead that $\sum_x \widetilde{\text{eq}}(\tau, x) \cdot g(x) = 0$ for random $\tau$. The $\widetilde{\text{eq}}$ polynomial acts as a random linear combination of the constraints: if any constraint fails, the sum is nonzero with high probability (Schwartz-Zippel).
 
-6. **R1CS reduces to two sum-checks.** Outer sum-check handles the zero-on-hypercube claim (prover: $O(m)$, halving trick). Inner sum-check handles matrix-vector products (prover: $O(n)$, halving trick + batching). Total: $O(m + n)$ for the interactive protocol.
+7. **R1CS reduces to two sum-checks.** Outer sum-check handles the zero-on-hypercube claim (prover: $O(m)$, halving trick). Inner sum-check handles matrix-vector products (prover: $O(n)$, halving trick + batching). Total: $O(m + n)$ for the interactive protocol.
 
-7. **SPARK achieves $O(T)$ for sparse matrices.** Precompute $\widetilde{\text{eq}}(i, r)$ tables for all row/column indices in $O(m + n)$. Then each of $T$ non-zero entries requires only table lookups, with no per-entry logarithmic cost. Memory-checking fingerprints verify correctness.
+8. **SPARK achieves $O(T)$ for sparse matrices.** Precompute $\widetilde{\text{eq}}(i, r)$ tables for all row/column indices in $O(m + n)$. Then each of $T$ non-zero entries requires only table lookups, with no per-entry logarithmic cost. Memory-checking fingerprints verify correctness.
 
 ### The Full Pipeline
 
-8. **Sum-check reduces verification to evaluation.** After $\log N$ rounds, the verifier holds a random point $z$ and a claimed value $v$. All that remains: check that $f(z) = v$ for the polynomial $f$ being summed.
+9. **Sum-check reduces verification to evaluation.** After $\log N$ rounds, the verifier holds a random point $z$ and a claimed value $v$. All that remains: check that $f(z) = v$ for the polynomial $f$ being summed.
 
-9. **Polynomial commitments handle evaluations.** The prover opens the committed polynomial at $z$; the verifier checks the opening proof. This is where cryptographic hardness enters, since sum-check itself is information-theoretic.
+10. **Polynomial commitments handle evaluations.** The prover opens the committed polynomial at $z$; the verifier checks the opening proof. This is where cryptographic hardness enters, since sum-check itself is information-theoretic.
 
-10. **Streaming provers trade passes for memory.** With $c$ passes, memory drops to $O(N^{1/c})$. At $c = 2$: two passes, $O(\sqrt{N})$ memory. This exploits sum-check's algebraic structure directly, without recursive proof composition.
+11. **Streaming provers trade passes for memory.** With $c$ passes, memory drops to $O(N^{1/c})$. At $c = 2$: two passes, $O(\sqrt{N})$ memory. This exploits sum-check's algebraic structure directly, without recursive proof composition.
 
 ### Historical Perspective
 
-11. **The PCP detour cost two decades.** The path IP → PCP → Kilian → Fiat-Shamir removes interaction, reintroduces it, then removes it again. The direct path (sum-check + Fiat-Shamir) skips the redundant steps. Modern systems (Spartan, Lasso, Jolt, Binius) follow the direct path and achieve prover times within small constants of witness computation.
+12. **The PCP detour cost two decades.** The path IP → PCP → Kilian → Fiat-Shamir removes interaction, reintroduces it, then removes it again. The direct path (sum-check + Fiat-Shamir) skips the redundant steps. Modern systems (Spartan, Lasso, Jolt, Binius) follow the direct path and achieve prover times within small constants of witness computation.

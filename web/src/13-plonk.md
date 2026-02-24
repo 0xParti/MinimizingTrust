@@ -115,49 +115,41 @@ Because PLONK's witness consists of three separate vectors $(a, b, c)$, nothing 
 
 **Copy constraints** are the explicit assertions: wire $i$ equals wire $j$. The challenge is proving all copy constraints efficiently (potentially thousands of equality assertions) without enumerating them individually.
 
-The name "copy constraint" is slightly misleading. We aren't copying data from one location to another. We are enforcing *equality*: two wire slots that happen to hold the same logical variable must contain identical values. Think of it as a wormhole connecting two distant parts of the circuit instantaneously. The value at $c_1$ doesn't "flow" to $a_2$; rather, they are the same point in the circuit's logical topology, temporarily given different addresses for bookkeeping. The permutation argument detects whether these "same points" actually hold the same value.
+The name "copy constraint" is slightly misleading. We aren't copying data from one location to another. We are enforcing *equality*: two wire slots that represent the same logical variable must contain identical values. The permutation argument detects whether slots that should hold the same value actually do.
 
 ## The Permutation Argument
 
 PLONK's central innovation is reducing all copy constraints to a single polynomial identity via a **permutation argument**, building on techniques from Bayer and Groth (Eurocrypt 2012).
 
-### From Gates to Cycles: The Conceptual Shift
+### From Gates to Cycles
 
 Before diving into the mechanism, understand the key mental shift. So far, we've thought of circuits as *gates*: local computational units that take inputs and produce outputs. Copy constraints seem like *connections between gates*: wire $c_1$ connects to wire $a_2$.
 
 The permutation argument reframes this. Instead of "connections," think of *equivalence classes*. All wires that should hold the same value belong to the same class. Within each class, the wires form a *cycle* under a permutation: $c_1 \to a_2 \to c_1$ (a 2-cycle), or longer chains like $a_1 \to b_3 \to c_5 \to a_1$ (a 3-cycle). Wires with no copy constraints form trivial 1-cycles (fixed points).
 
-The grand product argument then asks: if we traverse each cycle, do all the values match? If wire $c_1$ maps to wire $a_2$ and they share the same value, their contributions to the product cancel. If every cycle closes properly (all values match within the equivalence class), the entire product equals 1.
-
-This shift from "gates and wires" to "values and cycles" is why the permutation argument works. We're not checking connections one by one; we're verifying that the entire wiring topology is consistent in one algebraic stroke.
+If we traverse each cycle, do all the values match? This shift from "gates and wires" to "values and cycles" is what makes efficient verification possible—we're not checking connections one by one, but verifying that the entire wiring topology is consistent in one algebraic test.
 
 ### Representing Wiring as a Permutation
 
-Give each wire slot a unique identity (think of it as an "index" or "address"):
+The circuit's wiring defines a permutation $\sigma$ on wire slots. If two wires must hold the same value, $\sigma$ maps one to the other (and vice versa, forming a cycle). Unconnected wires map to themselves: $\sigma(w) = w$.
 
-- Gate $i$'s left wire: $\text{id}(a_i) = \omega^i$
-- Gate $i$'s right wire: $\text{id}(b_i) = k_1 \omega^i$
-- Gate $i$'s output wire: $\text{id}(c_i) = k_2 \omega^i$
+All copy constraints hold if and only if every wire's value equals the value at the position $\sigma$ maps it to:
 
-where $k_1, k_2$ are distinct constants separating the three wire "columns." The identity function $\text{id}$ maps wire slots to field elements; it's just a naming scheme.
-
-The circuit's wiring defines a permutation $\sigma$ on wire identities. If wire $c_1$ connects to wire $a_2$, then $\sigma$ maps $c_1$'s identity to $a_2$'s identity (and vice versa; connected wires form cycles under $\sigma$). Unconnected wires map to themselves.
+$$\text{value}(w) = \text{value}(\sigma(w)) \quad \forall w$$
 
 **Example**: For our circuit $y = (x + z) \cdot z$ with 2 gates, label the 6 wire slots as $a_1, b_1, c_1, a_2, b_2, c_2$. The copy constraints are $c_1 = a_2$ (output of gate 1 feeds gate 2) and $b_1 = b_2$ (variable $z$ used twice). The permutation $\sigma$ encodes this: $\sigma(c_1) = a_2$, $\sigma(a_2) = c_1$ (a 2-cycle), and $\sigma(b_1) = b_2$, $\sigma(b_2) = b_1$ (another 2-cycle). Wires $a_1$ and $c_2$ aren't copied anywhere, so $\sigma(a_1) = a_1$ and $\sigma(c_2) = c_2$ (fixed points).
-
-The key insight: all copy constraints hold if and only if every wire's value equals the value at its connected position. Here $\sigma(w)$ denotes the *position* that wire $w$ is connected to (not a transformed value):
-
-$$\text{value at position } w = \text{value at position } \sigma(w) \quad \forall w$$
 
 ### The Grand Product Check
 
 How do we verify this equality-under-permutation efficiently?
 
-Consider two multisets: the wire values $\{v_1, v_2, \ldots, v_{3n}\}$ and the same values permuted according to $\sigma$. If copy constraints hold, these multisets are identical; they contain the same elements, just in different order.
+For a circuit with $n$ gates, there are $3n$ wire slots (each gate has wires $a$, $b$, $c$). Consider two multisets: the wire values $\{v_1, v_2, \ldots, v_{3n}\}$ and the same values permuted according to $\sigma$. If copy constraints hold, these multisets are identical; they contain the same elements, just in different order.
 
-Testing multiset equality via products fails: $\{1, 6\}$ and $\{2, 3\}$ have equal products but differ. A randomized check succeeds with overwhelming probability.
+A naive approach checks whether the products match:
 
-Given random challenge $\gamma$:
+$$\prod_{i=1}^{3n} v_i \stackrel{?}{=} \prod_{i=1}^{3n} v_{\sigma(i)}$$
+
+This fails: $\{1, 6\}$ and $\{2, 3\}$ have equal products but differ. Adding a random challenge $\gamma$ fixes this:
 
 $$\prod_{i=1}^{3n} (v_i + \gamma) = \prod_{i=1}^{3n} (v_{\sigma(i)} + \gamma)$$
 
@@ -173,15 +165,41 @@ The fix: bind each value to its **location** using a second challenge $\beta$:
 
 $$\text{randomized value} = v_i + \beta \cdot \text{id}_i + \gamma$$
 
-where $\text{id}_i$ is the wire's identity (its domain point).
+Each wire slot gets a unique identity $\text{id}$:
+
+- Gate $i$'s left wire: $\text{id}(a_i) = \omega^i$
+- Gate $i$'s right wire: $\text{id}(b_i) = k_1 \omega^i$
+- Gate $i$'s output wire: $\text{id}(c_i) = k_2 \omega^i$
+
+where $k_1, k_2$ are distinct constants separating the three wire columns.
 
 The grand product check becomes:
 
 $$\prod_{w \in \text{wires}} \left( \text{value}(w) + \beta \cdot \text{id}(w) + \gamma \right) = \prod_{w \in \text{wires}} \left( \text{value}(w) + \beta \cdot \sigma(\text{id}(w)) + \gamma \right)$$
 
-**Why this works (mini-example)**: Suppose we have just two wires that should be equal: wire $A$ at position 1 with value $v$, and wire $B$ at position 2 with value $v$. The permutation swaps their positions: $\sigma(1) = 2$, $\sigma(2) = 1$. Left side: $(v + \beta \cdot 1 + \gamma)(v + \beta \cdot 2 + \gamma)$. Right side: $(v + \beta \cdot 2 + \gamma)(v + \beta \cdot 1 + \gamma)$. Same factors, just reordered; products match. But if wire $B$ had value $v' \neq v$, the right side would be $(v + \beta \cdot 2 + \gamma)(v' + \beta \cdot 1 + \gamma)$; different factors, products don't match. The $\beta$ term "tags" each value with its location, so swapping positions only works if the values actually match.
-
 The left side combines each wire's value with its own identity. The right side combines each wire's value with its *permuted* identity.
+
+To see why this works, consider two wires that should be equal: $c_1$ (output of gate 1, identity $k_2\omega^1$) and $a_2$ (left input of gate 2, identity $\omega^2$), both holding value $v$. The permutation swaps their identities: $\sigma(k_2\omega^1) = \omega^2$, $\sigma(\omega^2) = k_2\omega^1$.
+
+Left side:
+
+$$(v + \beta \cdot k_2\omega^1 + \gamma)(v + \beta \cdot \omega^2 + \gamma)$$
+
+Right side (using $\sigma(k_2\omega^1) = \omega^2$ and $\sigma(\omega^2) = k_2\omega^1$):
+
+$$(v + \beta \cdot \sigma(k_2\omega^1) + \gamma)(v + \beta \cdot \sigma(\omega^2) + \gamma) = (v + \beta \cdot \omega^2 + \gamma)(v + \beta \cdot k_2\omega^1 + \gamma)$$
+
+Same factors, just reordered, so the products match.
+
+Now suppose a cheating prover violates the copy constraint by putting value $v$ at $c_1$ but value $v' \neq v$ at $a_2$. The left side becomes:
+
+$$(v + \beta \cdot k_2\omega^1 + \gamma)(v' + \beta \cdot \omega^2 + \gamma)$$
+
+The right side becomes:
+
+$$(v + \beta \cdot \omega^2 + \gamma)(v' + \beta \cdot k_2\omega^1 + \gamma)$$
+
+These are different factors, so the products don't match. The $\beta$ term tags each value with its location, so the check detects when two positions that should hold equal values actually don't.
 
 If $c_1 = a_2$ (copy constraint holds), the term for $c_1$ on the right equals the term for $a_2$ on the left; they cancel in the product. If $c_1 \neq a_2$, no cancellation occurs; the products differ.
 
@@ -189,7 +207,9 @@ If $c_1 = a_2$ (copy constraint holds), the term for $c_1$ on the right equals t
 
 Computing a product over $3n$ terms naively requires $O(n)$ work per verification query, which is not succinct. PLONK encodes the product as a polynomial.
 
-Define the **accumulator polynomial** $Z(X)$ recursively:
+The **accumulator polynomial** $Z(X)$ computes a running product across all gates. It starts at 1, and at each gate multiplies in a ratio: numerator terms use the wire's own identity, denominator terms use the permuted identity. If all copy constraints hold, numerators and denominators cancel across the full circuit, and the accumulator returns to 1.
+
+Define $Z(X)$ recursively:
 
 **Initialization**: $Z(\omega) = 1$
 
@@ -197,19 +217,36 @@ Define the **accumulator polynomial** $Z(X)$ recursively:
 
 $$Z(\omega^{i+1}) = Z(\omega^i) \cdot \frac{(a_i + \beta \omega^i + \gamma)(b_i + \beta k_1\omega^i + \gamma)(c_i + \beta k_2\omega^i + \gamma)}{(a_i + \beta S_{\sigma_1}(\omega^i) + \gamma)(b_i + \beta S_{\sigma_2}(\omega^i) + \gamma)(c_i + \beta S_{\sigma_3}(\omega^i) + \gamma)}$$
 
-where $S_{\sigma_1}, S_{\sigma_2}, S_{\sigma_3}$ are **permutation polynomials** encoding $\sigma$ for the three wire columns.
+The **permutation polynomials** $S_{\sigma_1}, S_{\sigma_2}, S_{\sigma_3}$ encode where $\sigma$ maps each wire's identity. For each gate $i$:
 
-The accumulator starts at 1 and multiplies through all gates. Each step contributes: numerator terms for "original" identities, denominator terms for "permuted" identities. If copy constraints hold, terms cancel across the cycle, and the accumulator returns to 1 at the end.
+- $S_{\sigma_1}(\omega^i) = \sigma(\omega^i)$: where the left wire of gate $i$ maps to
+- $S_{\sigma_2}(\omega^i) = \sigma(k_1\omega^i)$: where the right wire of gate $i$ maps to
+- $S_{\sigma_3}(\omega^i) = \sigma(k_2\omega^i)$: where the output wire of gate $i$ maps to
+
+If wire $c_1$ (identity $k_2\omega^1$) connects to wire $a_2$ (identity $\omega^2$), then $S_{\sigma_3}(\omega^1) = \omega^2$. Unconnected wires map to themselves: if $a_1$ has no copy constraint, $S_{\sigma_1}(\omega^1) = \omega^1$.
 
 **The permutation constraints**:
 
 1. **Initialization**: $Z(\omega) = 1$
 
-   Enforced by: $(Z(X) - 1) \cdot L_1(X) = 0$ where $L_1(X)$ is the first Lagrange basis polynomial.
+   We need this constraint to hold only at the first domain point, not everywhere. Recall from Chapter 5 that $L_1(X)$ is the Lagrange basis polynomial that equals 1 at $\omega$ and 0 at all other roots of unity. Multiplying by $L_1(X)$ "activates" the constraint only where we want it:
+
+   $$(Z(X) - 1) \cdot L_1(X) = 0$$
+
+   At $X = \omega$: $(Z(\omega) - 1) \cdot 1 = 0$, so $Z(\omega) = 1$ is enforced.
+   At other $X = \omega^i$: $(Z(\omega^i) - 1) \cdot 0 = 0$, satisfied regardless of $Z(\omega^i)$.
 
 2. **Recursion**: The step-by-step product relation holds across the domain.
 
-   Enforced by a polynomial identity involving $Z(X)$ and $Z(X\omega)$ (the "shifted" evaluation).
+   At each gate $i$, the accumulator must satisfy:
+
+   $$Z(\omega^{i+1}) = Z(\omega^i) \cdot \frac{(a_i + \beta \omega^i + \gamma)(b_i + \beta k_1\omega^i + \gamma)(c_i + \beta k_2\omega^i + \gamma)}{(a_i + \beta S_{\sigma_1}(\omega^i) + \gamma)(b_i + \beta S_{\sigma_2}(\omega^i) + \gamma)(c_i + \beta S_{\sigma_3}(\omega^i) + \gamma)}$$
+
+   As a polynomial identity, this becomes:
+
+   $$Z(X\omega) \cdot \text{(denominator terms)} = Z(X) \cdot \text{(numerator terms)}$$
+
+   Evaluating at $X = \omega^i$ gives the recurrence: $Z(X\omega)$ evaluated at $\omega^i$ equals $Z(\omega^{i+1})$.
 
 Both constraints, like the gate constraint, reduce to divisibility by $Z_H(X)$.
 
@@ -312,37 +349,25 @@ Substituting:
 
 **Denominator** = $(5 + \beta k_2 + \gamma)(3 + \beta k_1 + \gamma)(15 + \beta k_2\omega + \gamma)$
 
-### The Cancellation
+The $(15 + \beta k_2\omega + \gamma)$ term appears in both numerator and denominator of step 2, so it cancels immediately (wire $c_2$ is a fixed point).
 
-Now examine the full product $Z(\omega^2) = Z(1) \cdot [\text{fraction}_1] \cdot [\text{fraction}_2]$.
+The interesting cancellations happen across steps. Consider wire $c_1$ (value 5, identity $k_2$):
 
-The copy constraint $c_1 = a_2 = 5$ means:
+- Step 1 numerator: $(5 + \beta k_2 + \gamma)$: the value plus its own identity
+- Step 2 denominator: $(5 + \beta \cdot S_{\sigma_1}(\omega) + \gamma) = (5 + \beta k_2 + \gamma)$
 
-- Numerator of fraction 1 contains $(5 + \beta k_2 + \gamma)$
-- Denominator of fraction 2 contains $(5 + \beta k_2 + \gamma)$
+Why does step 2's denominator have $k_2$? Because $S_{\sigma_1}(\omega)$ asks "where does wire $a_2$ map under $\sigma$?" Since $c_1 = a_2$ is a copy constraint, $\sigma$ maps $a_2$'s identity ($\omega$) to $c_1$'s identity ($k_2$). So $S_{\sigma_1}(\omega) = k_2$.
 
-These cancel.
+Similarly for wire $b_1 = b_2$ (value 3):
 
-The copy constraint $b_1 = b_2 = 3$ means:
+- Step 1 numerator: $(3 + \beta k_1 + \gamma)$
+- Step 2 denominator: $(3 + \beta \cdot S_{\sigma_2}(\omega) + \gamma) = (3 + \beta k_1 + \gamma)$
 
-- Numerator of fraction 1 contains $(3 + \beta k_1 + \gamma)$
-- Denominator of fraction 2 contains $(3 + \beta k_1 + \gamma)$
+Here $S_{\sigma_2}(\omega) = k_1$ because $\sigma$ maps $b_2$'s identity ($k_1\omega$) to $b_1$'s identity ($k_1$).
 
-These cancel.
+The converse cancellations work the same way: step 1's denominator terms match step 2's numerator terms because the permutation is symmetric (if $\sigma$ maps $a \to b$, it also maps $b \to a$).
 
-And conversely:
-
-- Denominator of fraction 1 contains $(5 + \beta\omega + \gamma)$
-- Numerator of fraction 2 contains $(5 + \beta\omega + \gamma)$
-
-These cancel.
-
-- Denominator of fraction 1 contains $(3 + \beta k_1\omega + \gamma)$
-- Numerator of fraction 2 contains $(3 + \beta k_1\omega + \gamma)$
-
-These cancel.
-
-**Every term in the numerator has a matching term in the denominator across the full cycle.** The product collapses to $Z(\omega^2) = 1$.
+Every term cancels. The result: $Z(\omega^2) = 1$.
 
 Since $\omega^2 = 1$ for $n = 2$, we have $Z(1) = 1$ as required. The accumulator returns to its starting value, confirming all copy constraints hold.
 
@@ -356,7 +381,7 @@ The random challenges $\beta, \gamma$ ensure this failure is detectable with ove
 
 ## The Full Protocol
 
-We now specify the complete PLONK protocol with KZG commitments.
+The core ideas are now in place: the gate equation checks local correctness, the permutation argument enforces wiring via a grand product, and the accumulator polynomial encodes this product for efficient verification. This section specifies the complete protocol with KZG commitments. It can be skipped on first reading without losing the conceptual thread.
 
 ### Preprocessed Data (Circuit-Specific)
 
@@ -402,7 +427,7 @@ The prover:
 
 $$P(X) = \text{(gate constraint)} + \alpha \cdot \text{(permutation recursion)} + \alpha^2 \cdot \text{(permutation initialization)}$$
 
-   The **permutation recursion** is the constraint that forces the accumulator to update correctly at each step: the polynomial form of "$Z(\omega^{i+1}) = Z(\omega^i) \cdot \frac{\text{numerator}}{\text{denominator}}$" from the grand product. The **permutation initialization** is the boundary condition: the accumulator must start at 1, encoded as $(Z(X) - 1) \cdot L_1(X)$ where $L_1$ is the Lagrange polynomial that equals 1 at $\omega$ and 0 elsewhere.
+   The **gate constraint** is $Q_L(X)a(X) + Q_R(X)b(X) + Q_O(X)c(X) + Q_M(X)a(X)b(X) + Q_C(X)$, the polynomial identity from earlier that encodes all gate equations. The **permutation recursion** forces the accumulator to update correctly at each step: the polynomial form of "$Z(\omega^{i+1}) = Z(\omega^i) \cdot \frac{\text{numerator}}{\text{denominator}}$" from the grand product. The **permutation initialization** is the boundary condition: the accumulator must start at 1, encoded as $(Z(X) - 1) \cdot L_1(X)$ where $L_1$ is the Lagrange polynomial that equals 1 at $\omega$ and 0 elsewhere.
 
 3. Computes quotient: $t(X) = P(X) / Z_H(X)$
 4. Splits $t(X)$ into lower-degree pieces for commitment (since $\deg(t) > n$)
@@ -419,7 +444,7 @@ The prover:
    - Accumulator: $Z(\zeta)$, and crucially $Z(\zeta\omega)$ (the shifted evaluation)
    - Permutation: $S_{\sigma_1}(\zeta), S_{\sigma_2}(\zeta)$
 3. Sends evaluations to verifier
-4. Computes batched opening proofs (linearization optimization)
+4. Computes batched opening proofs (we explain the linearization trick in the verification section below)
 
 ### Round 5: Batched Opening Proofs
 
@@ -447,15 +472,17 @@ All challenges are deterministic functions of the transcript via Fiat-Shamir.
 
 **2. Compute the Linearization Polynomial Commitment**
 
-The verifier computes a commitment $[r]_1$ to the "linearization polynomial": a carefully constructed combination that, when evaluated at $\zeta$, should equal zero if all constraints hold.
+The combined constraint polynomial $P(X)$ contains products like $Q_M(X) \cdot a(X) \cdot b(X)$. The verifier has commitments $[Q_M]_1$, $[a]_1$, $[b]_1$ but cannot compute $[Q_M \cdot a \cdot b]_1$ from these—there's no way to multiply group elements to get a commitment to a product of polynomials.
 
-The linearization includes:
+The linearization trick solves this. Once the prover sends evaluations $a(\zeta), b(\zeta)$ as field elements, these become scalars. The verifier can compute:
+
+$$[Q_M]_1 \cdot a(\zeta) \cdot b(\zeta)$$
+
+This scalar multiplication is possible and gives the right contribution at point $\zeta$. The verifier constructs the linearized commitment $[r]_1$:
 
 - **Gate constraint**: $[Q_L]_1 \cdot a(\zeta) + [Q_R]_1 \cdot b(\zeta) + [Q_O]_1 \cdot c(\zeta) + [Q_M]_1 \cdot a(\zeta)b(\zeta) + [Q_C]_1$
 - **Permutation recursion** (scaled by $\alpha$): Terms involving $[Z]_1$, the permutation polynomials, and the evaluated witness values
 - **Permutation initialization** (scaled by $\alpha^2$): $(Z(\zeta) - 1) \cdot L_1(\zeta)$
-
-The key insight: most terms are linear combinations of known evaluations and committed polynomials. The verifier can compute $[r]_1$ using only the commitments received from the prover and the evaluation values.
 
 **3. Compute the Expected Evaluation**
 
@@ -513,54 +540,33 @@ This is 4-5× larger than Groth16's 128 bytes. The cost buys universality: one s
 
 ## Why Roots of Unity?
 
-PLONK's use of roots of unity (multiplicative subgroup of order $2^k$) is not arbitrary.
+PLONK's use of roots of unity (multiplicative subgroup of order $2^k$) is not arbitrary. Three properties make them essential:
 
-**FFT efficiency**: Polynomial operations (interpolation, multiplication, division) run in $O(n \log n)$ via FFT. Without roots of unity, these operations cost $O(n^2)$.
-
-**Simple vanishing polynomial**: $Z_H(X) = X^n - 1$. Compact representation, efficient evaluation.
-
-**Shift structure**: The accumulator's recursive relation compares $Z(X)$ and $Z(X\omega)$. Multiplication by $\omega$ shifts through the domain cyclically. This algebraic structure is essential for encoding the step-by-step product check.
+- Polynomial operations (interpolation, multiplication, division) run in $O(n \log n)$ via FFT. Without roots of unity, these cost $O(n^2)$.
+- The vanishing polynomial has a simple form: $Z_H(X) = X^n - 1$. Compact representation, efficient evaluation.
+- The accumulator's recursive relation compares $Z(X)$ and $Z(X\omega)$. Multiplication by $\omega$ shifts through the domain cyclically, which is essential for encoding the step-by-step product check.
 
 Groth16 uses an arithmetic progression $\{1, 2, \ldots, m\}$ because its prover doesn't interpolate; it computes linear combinations of precomputed basis polynomials. The FFT advantage doesn't apply.
 
 ## Comparison: PLONK vs. Groth16
 
-The systems embody different engineering philosophies.
-
-### Witness Treatment
-
-**Groth16**: Witness values are *coefficients*. The setup computes basis polynomials $A_j(X), B_j(X), C_j(X)$ for each wire. The prover forms $A(X) = \sum_j z_j A_j(X)$ as a linear combination.
-
-**PLONK**: Witness values are *evaluations*. The prover interpolates to find polynomials passing through $(ω^i, a_i)$ for each gate.
-
-This distinction explains why Groth16's setup is circuit-specific (it precomputes basis polynomials for the specific circuit) while PLONK's is universal (the prover does interpolation at proving time using generic powers of $\tau$).
-
-### Wiring Mechanism
-
-**Groth16**: Copy constraints are implicit. The R1CS matrices reference the same witness index for connected wires. No separate mechanism needed.
-
-**PLONK**: Copy constraints are explicit via the permutation argument. This separation enables the universal setup: wiring information lives in circuit-specific preprocessed polynomials, not in the SRS.
-
-### Constraint Expressiveness
-
-**Groth16/R1CS**: Each constraint has form $(a \cdot w)(b \cdot w) = c \cdot w$, a single multiplication with linear combinations. High fan-in additions compress into one constraint.
-
-**PLONK**: The gate equation handles one multiplication or addition per gate. But custom gates and lookup arguments extend expressiveness far beyond R1CS for complex operations.
-
-### Trade-off Summary
+The preceding sections developed these architectural differences in detail. Here's a side-by-side summary:
 
 | Aspect | Groth16 | PLONK |
 |--------|---------|-------|
-| Setup | Circuit-specific | Universal |
+| Witness role | Coefficients weighting basis polynomials | Evaluations interpolated into polynomials |
+| Copy constraints | Implicit (R1CS matrix reuses indices) | Explicit (permutation argument) |
+| Setup | Circuit-specific (basis polynomials in SRS) | Universal (only powers of $\tau$) |
+| Constraint form | $(a \cdot w)(b \cdot w) = c \cdot w$ | $Q_L a + Q_R b + Q_O c + Q_M ab + Q_C = 0$ |
 | Proof size | 128 bytes | ~500 bytes |
-| Verification | 3 pairings | ~10 pairings |
+| Verification | 3 pairings | 2 pairings + ~15 scalar muls |
 | Prover work | MSM-dominated | FFT + MSM |
 | Extensibility | Fixed | Custom gates, lookups |
 
 
 ## Custom Gates and Extensions
 
-PLONK's gate equation generalizes naturally.
+PLONK's gate equation generalizes naturally. Custom gates aren't exclusive to PLONKish systems—Spartan's CCS (Customizable Constraint Systems) also supports arbitrary polynomial constraints, generalizing both R1CS and PLONKish arithmetization. But PLONK variants were the first to deploy custom gates widely in production.
 
 ### More Wires
 
@@ -599,17 +605,9 @@ Chapter 14 develops lookup arguments in detail.
 
 ## UltraPLONK
 
-"UltraPLONK" denotes PLONK variants combining custom gates and lookup arguments. These systems achieve dramatic efficiency gains for real-world circuits.
+"UltraPLONK" denotes PLONK variants combining custom gates and lookup arguments. These systems achieve dramatic efficiency gains for real-world circuits: composite gates encode multiple operations simultaneously (e.g., $a + b = c$ and $d \cdot e = f$ in one gate), the permutation argument extends to prove set membership in lookup tables, and Poseidon-specific gates reduce hash computation by 10-20× compared to vanilla PLONK. The architecture remains a polynomial IOP compiled with KZG (or alternatives)—the IOP grows more sophisticated, but the verification structure persists.
 
-**Composite gates**: A single gate encoding multiple operations (e.g., $a + b = c$ AND $d \cdot e = f$ simultaneously).
-
-**Lookup integration**: The permutation argument extends to prove set membership in lookup tables.
-
-**Optimized hashing**: Poseidon-specific gates reduce hash computation by 10-20× compared to vanilla PLONK.
-
-The architecture remains: polynomial IOP compiled with KZG (or alternatives). The IOP grows more sophisticated, but the verification structure persists.
-
-**Aztec's evolution**: Aztec Labs, co-founded by Zac Williamson (one of PLONK's creators), developed UltraPLONK in their Barretenberg library. Their system has since evolved to **Honk**, which replaces the univariate polynomial IOP with sum-check over multilinear polynomials (similar to Spartan's approach). Honk retains PLONKish arithmetization but gains the memory efficiency of sum-check. For on-chain verification, Aztec compresses Honk proofs into UltraPLONK proofs; UltraPLONK's simpler verifier (fewer selector polynomials, no multilinear machinery) reduces gas costs. Their **Goblin PLONK** technique further optimizes recursive proof composition by deferring expensive elliptic curve operations rather than computing them at each recursion layer.
+Aztec Labs, co-founded by Zac Williamson (one of PLONK's creators), developed UltraPLONK in their Barretenberg library. Their system has since evolved to Honk, which replaces the univariate polynomial IOP with sum-check over multilinear polynomials (similar to Spartan's approach). Honk retains PLONKish arithmetization but gains the memory efficiency of sum-check (Chapter 21 explains why: sum-check's linear memory access pattern is cache-friendly, unlike FFT's butterfly shuffles). For on-chain verification, Aztec compresses Honk proofs into UltraPLONK proofs; UltraPLONK's simpler verifier (fewer selector polynomials, no multilinear machinery) reduces gas costs. Their Goblin PLONK technique further optimizes recursive proof composition by deferring expensive elliptic curve operations rather than computing them at each recursion layer.
 
 
 ## Security Considerations
@@ -622,79 +620,24 @@ The SRS still encodes secret $\tau$. If known, proofs can be forged. The advanta
 
 Production deployments (Aztec, zkSync, Scroll) run multi-party ceremonies with hundreds of participants. The 1-of-N trust model, where security holds if any participant is honest, provides strong guarantees.
 
-### Random Oracle Model
-
-Fiat-Shamir security assumes hash functions behave as random oracles. Real hash functions are deterministic algorithms with structure.
-
-No practical attacks are known. The gap between model and reality is a persistent concern across all Fiat-Shamir-compiled protocols.
-
 ### Soundness Assumptions
 
-With KZG:
+PLONK's security depends on the polynomial commitment scheme used:
 
-- **q-SDH**: Given powers of $\tau$, cannot produce $(c, g^{1/(\tau+c)})$
-- **Discrete log**: Cannot compute $\tau$ from $g^\tau$
-
-Without KZG (FRI compilation):
-
-- **Collision resistance**: Hash function security
-
-The assumption stack is well-studied. Pairing-based systems carry more algebraic structure (and assumption weight) than hash-based alternatives.
-
-
-## Worked Example: Three-Gate Circuit
-
-Consider proving knowledge of $x$ such that $(x + 1) \cdot x = 6$.
-
-**Circuit**:
-
-- Gate 1: Constant assignment, $b_1 = 1$
-- Gate 2: Addition, $c_2 = a_2 + b_2$
-- Gate 3: Multiplication, $c_3 = a_3 \cdot b_3$, constrained to equal 6
-
-**Witness** (with $x = 2$):
-
-- Gate 1: $a_1 = 0$, $b_1 = 1$, $c_1 = 0$ (unused output)
-- Gate 2: $a_2 = 2$, $b_2 = 1$, $c_2 = 3$
-- Gate 3: $a_3 = 3$, $b_3 = 2$, $c_3 = 6$
-
-**Copy constraints**:
-
-- $b_1 = b_2$ (constant 1 reused)
-- $a_2 = b_3$ (input $x$ reused)
-- $c_2 = a_3$ (addition output feeds multiplication)
-
-**Permutation**:
-Wires $b_1$ and $b_2$ form a cycle. Wires $a_2$ and $b_3$ form a cycle. Wires $c_2$ and $a_3$ form a cycle. Remaining wires are fixed points.
-
-**Selector polynomials**: Interpolate selector values over domain $H = \{1, \omega, \omega^2\}$.
-
-**Witness polynomials**: Interpolate $(a_1, a_2, a_3)$, $(b_1, b_2, b_3)$, $(c_1, c_2, c_3)$.
-
-**Accumulator**: Starts at 1. After processing all gates, if copy constraints hold, returns to 1.
-
-**Verification**: Evaluate combined constraint polynomial at random $\zeta$. If constraints satisfied, the evaluation is zero. Verify via KZG opening proofs.
-
+- **With KZG**: Security relies on pairing-based assumptions (q-SDH, discrete log). These are well-studied but would break under quantum computers.
+- **With FRI**: Security relies only on collision-resistant hashing. Fewer assumptions, and potentially quantum-resistant, but larger proofs.
 
 
 ## Key Takeaways
 
-1. **Universal setup**: One ceremony, all circuits up to a size bound. Updateable security model.
+1. **Universal setup**: One ceremony works for all circuits up to a size bound. This comes from treating witness values as polynomial evaluations (interpolated at proving time) rather than coefficients (baked into setup).
 
-2. **Separation of concerns**: Gate constraints (local correctness) separate from copy constraints (global wiring). Each has its own polynomial mechanism.
+2. **Separation of concerns**: Gate constraints check local correctness (each gate's equation holds). Copy constraints check global wiring (connected wires hold equal values). Each has its own polynomial mechanism.
 
-3. **The permutation argument**: Reduces all copy constraints to one polynomial identity via randomized grand product check.
+3. **The permutation argument**: All copy constraints reduce to one polynomial identity. The accumulator polynomial computes a running product; if all constraints hold, it returns to 1.
 
-4. **Witness as evaluations**: PLONK interpolates witness values. Groth16 uses them as coefficients. This architectural choice enables universality.
+4. **Roots of unity**: FFT enables $O(n \log n)$ polynomial operations. The shift structure ($Z(X)$ vs $Z(X\omega)$) encodes the accumulator's step-by-step recursion.
 
-5. **Roots of unity**: FFT efficiency for polynomial operations. Shift structure for accumulator recursion. Not cosmetic but essential.
+5. **The linearization trick**: The verifier can't compute commitments to polynomial products. Linearization uses the prover's evaluation values to turn polynomial multiplications into scalar multiplications of commitments.
 
-6. **Custom gates**: The framework generalizes. More wires, higher degrees, specialized operations. UltraPLONK extends vanilla PLONK dramatically.
-
-7. **Lookup arguments**: Prove table membership instead of computation. Game-changing for non-arithmetic operations.
-
-8. **Proof size trade-off**: ~500 bytes vs. Groth16's 128. Universality has a cost.
-
-9. **Verification structure**: Two batched KZG proofs. Constant work regardless of circuit size.
-
-10. **Deployment patterns**: PLONK derivatives are widely adopted for their development flexibility, while Groth16 persists where minimal proof size is paramount.
+6. **Proof size vs setup trade-off**: ~500 bytes (vs Groth16's 128 bytes) buys universality. Whether this trade-off makes sense depends on deployment constraints.
