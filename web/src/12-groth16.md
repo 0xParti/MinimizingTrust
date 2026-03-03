@@ -62,7 +62,7 @@ This is the **QAP (Quadratic Arithmetic Program) identity**. It compresses $m$ c
 
 ### Worked Example: Continuing $x^3 + x + 5 = 35$
 
-From Chapter 8, we have 5 constraints and 7 witness positions. Let the evaluation points be $\{1, 2, 3, 4, 5\}$.
+From Chapter 8, we have 5 constraints encoding the circuit: $v_1 = x \cdot x$, $v_2 = v_1 \cdot x$, $v_3 = v_2 + x$, $v_4 = v_3 + 5$, and output $= v_4$. This gives 7 witness positions. Let the evaluation points be $\{1, 2, 3, 4, 5\}$.
 
 The witness is $Z = (1, 35, 3, 9, 27, 30, 35)$ representing $(1, \text{output}, x, x^2, x^3, x^3+x, x^3+x+5)$.
 

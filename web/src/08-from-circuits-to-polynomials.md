@@ -187,10 +187,10 @@ The witness contains:
 - The secret input $x$
 - All intermediate values
 
-$$Z = (1, \; 35, \; x, \; v_1, \; v_2, \; v_3, \; v_4)$$
+$$Z = (1, 35, x, v_1, v_2, v_3, v_4)$$
 
 With $x = 3$:
-$$Z = (1, \; 35, \; 3, \; 9, \; 27, \; 30, \; 35)$$
+$$Z = (1, 35, 3, 9, 27, 30, 35)$$
 
 ### Step 3: Build the Constraint Matrices
 
@@ -242,11 +242,11 @@ All five constraints are satisfied. The R1CS captures the entire computation.
 
 The complete matrices:
 
-$$A = \begin{pmatrix} 0 & 0 & 1 & 0 & 0 & 0 & 0 \\ 0 & 0 & 0 & 1 & 0 & 0 & 0 \\ 0 & 0 & 1 & 0 & 1 & 0 & 0 \\ 5 & 0 & 0 & 0 & 0 & 1 & 0 \\ 0 & 0 & 0 & 0 & 0 & 0 & 1 \end{pmatrix}$$
+$$A = \begin{bmatrix} 0 & 0 & 1 & 0 & 0 & 0 & 0 \\\\ 0 & 0 & 0 & 1 & 0 & 0 & 0 \\\\ 0 & 0 & 1 & 0 & 1 & 0 & 0 \\\\ 5 & 0 & 0 & 0 & 0 & 1 & 0 \\\\ 0 & 0 & 0 & 0 & 0 & 0 & 1 \end{bmatrix}$$
 
-$$B = \begin{pmatrix} 0 & 0 & 1 & 0 & 0 & 0 & 0 \\ 0 & 0 & 1 & 0 & 0 & 0 & 0 \\ 1 & 0 & 0 & 0 & 0 & 0 & 0 \\ 1 & 0 & 0 & 0 & 0 & 0 & 0 \\ 1 & 0 & 0 & 0 & 0 & 0 & 0 \end{pmatrix}$$
+$$B = \begin{bmatrix} 0 & 0 & 1 & 0 & 0 & 0 & 0 \\\\ 0 & 0 & 1 & 0 & 0 & 0 & 0 \\\\ 1 & 0 & 0 & 0 & 0 & 0 & 0 \\\\ 1 & 0 & 0 & 0 & 0 & 0 & 0 \\\\ 1 & 0 & 0 & 0 & 0 & 0 & 0 \end{bmatrix}$$
 
-$$C = \begin{pmatrix} 0 & 0 & 0 & 1 & 0 & 0 & 0 \\ 0 & 0 & 0 & 0 & 1 & 0 & 0 \\ 0 & 0 & 0 & 0 & 0 & 1 & 0 \\ 0 & 0 & 0 & 0 & 0 & 0 & 1 \\ 0 & 35 & 0 & 0 & 0 & 0 & 0 \end{pmatrix}$$
+$$C = \begin{bmatrix} 0 & 0 & 0 & 1 & 0 & 0 & 0 \\\\ 0 & 0 & 0 & 0 & 1 & 0 & 0 \\\\ 0 & 0 & 0 & 0 & 0 & 1 & 0 \\\\ 0 & 0 & 0 & 0 & 0 & 0 & 1 \\\\ 0 & 35 & 0 & 0 & 0 & 0 & 0 \end{bmatrix}$$
 
 Each row corresponds to one constraint. The columns are indexed by $Z = (1, \text{out}, x, v_1, v_2, v_3, v_4)^T$. Notice the sparsity: most entries are zero. This is typical of R1CS matrices and is why efficient implementations use sparse representations.
 

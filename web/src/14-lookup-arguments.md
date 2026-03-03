@@ -2,15 +2,15 @@
 
 In 2019, ZK engineers hit a wall.
 
-They wanted to verify standard computer programs, things like SHA-256 or ECDSA signatures, but the circuits were exploding in size. The culprit was the *bitwise operation*. In a silicon CPU, checking `a XOR b` takes one cycle. In R1CS arithmetic, it took roughly 30 constraints to decompose the numbers into bits, check the bits, and reassemble them. Trying to verify a 64-bit CPU instruction set was like trying to simulate a Ferrari using only gears made of wood.
+They wanted to verify standard computer programs, things like SHA-256 or ECDSA signatures, but the circuits were exploding in size. The culprit was *bit decomposition*. Operations that are trivial in silicon (bitwise XOR, range checks, comparisons) require decomposing values into individual bits, processing each bit, and reassembling. A single XOR takes roughly 30 constraints. A range check proving $x < 2^{32}$ costs 32 boolean constraints. Verifying a 64-bit CPU instruction set was like simulating a Ferrari using only wooden gears.
 
-Ariel Gabizon and Zachary Williamson realized they didn't need to simulate the gears. They just needed to check the answer key. This realization, that you can replace *computation* with *table lookups*, broke the 64-bit wall. It allowed circuits to stop "thinking" about XORs and start "remembering" them.
+Ariel Gabizon and Zachary Williamson realized they didn't need to simulate the gears. They just needed to check the answer key. This realization, that you can replace *computation* with *table lookups*, broke the bottleneck. Instead of decomposing values into bits, just look up the answer in a precomputed table.
 
-The insight built on earlier work (Bootle et al.'s 2018 "Arya" paper had explored lookup-style arguments), but Plookup made it practical by repurposing PLONK's permutation machinery. The 65,536 valid 16-bit integers become a table. The $2^{16}$ XOR triples become a table. Membership in these tables costs three constraints, regardless of what the table encodes. The architecture shifted, and complexity moved from constraint logic to precomputed data.
+The insight built on earlier work (Bootle et al.'s 2018 "Arya" paper had explored lookup-style arguments), but Plookup made it practical by repurposing PLONK's permutation machinery. Range checks become a lookup into a table of valid values. Bitwise operations become a lookup into a table of valid input-output triples. Membership in these tables costs a few constraints, regardless of what the table encodes. The architecture shifted, and complexity moved from constraint logic to precomputed data.
 
 The field accelerated. Haböck's **LogUp** (2022) replaced grand products with sums of logarithmic derivatives, eliminating sorting overhead and enabling cleaner multi-table arguments. Setty, Thaler, and Wahby's **Lasso** (2023) achieved prover costs scaling with lookups performed rather than table size, enabling tables of size $2^{128}$, large enough to hold the evaluation table of any 64-bit instruction. The "lookup singularity" emerged: a vision of circuits that do nothing but look things up in precomputed tables.
 
-Today, every major zkVM relies on lookups. Cairo, RISC-Zero, SP1, and Jolt prove instruction execution not by encoding CPU semantics in constraints, but by verifying that each instruction's behavior matches its entry in a precomputed table. The paradigm shift is complete: **from logic to data**.
+Today, every major zkVM relies on lookups. Cairo, RISC-Zero, SP1, and Jolt prove instruction execution not by encoding CPU semantics in constraints, but by verifying that each instruction's behavior matches its entry in a precomputed table. Complexity moves from constraint logic to precomputed data.
 
 ---
 
@@ -22,15 +22,34 @@ The formal problem:
 
 Given a multiset $f = \{f_1, \ldots, f_n\}$ of witness values (the "lookups") and a public multiset $t = \{t_1, \ldots, t_d\}$ (the "table"), prove $f \subseteq t$.
 
-**Why "lookup"?** Imagine you're proving a circuit that computes XOR. The table $t$ contains all valid XOR triples: $(0,0,0), (0,1,1), (1,0,1), (1,1,0)$. Your circuit claims $a \oplus b = c$ for some witness values. Rather than encoding XOR algebraically, you "look up" the triple $(a,b,c)$ in the table. If it's there, the XOR is correct. The multiset $f$ collects all the triples your circuit needs to verify; the subset claim $f \subseteq t$ says every lookup found a valid entry.
+The name "lookup" comes from how these proofs work in practice. Imagine you're proving a circuit that computes XOR. The table $t$ contains all valid XOR triples: $(0,0,0), (0,1,1), (1,0,1), (1,1,0)$. Your circuit claims $a \oplus b = c$ for some witness values. Rather than encoding XOR algebraically, you "look up" the triple $(a,b,c)$ in the table. If it's there, the XOR is correct. The multiset $f$ collects all the triples your circuit needs to verify; the subset claim $f \subseteq t$ says every lookup found a valid entry.
 
-Imagine you want to prove you spelled "Cryptography" correctly. The *arithmetic approach* would be to write down the rules of English grammar and phonetics, then derive the spelling from first principles. Slow, complex, error-prone. The *lookup approach* would be to open the Oxford English Dictionary to page 412, point to the word "Cryptography," and say "there." The lookup argument is simply proving that your tuple (the word you claim) exists in the set (all valid English words). You don't need to understand *why* it's valid; you just need to show it's in the book.
+A dictionary example makes this concrete. Imagine you want to prove you spelled "Cryptography" correctly. The *arithmetic approach* would be to write down the rules of English grammar and phonetics, then derive the spelling from first principles. Slow, complex, error-prone. The *lookup approach* would be to open the Oxford English Dictionary to page 412, point to the word "Cryptography," and say "there." The lookup argument is proving that your tuple (the word you claim) exists in the set (all valid English words). You don't need to understand *why* it's valid; you just need to show it's in the book.
 
-A naive approach might compare products: if $\prod (f_i + \gamma) = \prod (t_j + \gamma)$, the multisets are equal. But subset is weaker than equality, since $f$ may use only some table entries, possibly with repetition.
+### The Naive Approach: Product of Roots
 
-Different lookup protocols solve this problem in different ways. We'll detail **Plookup**'s approach first because it builds directly on PLONK's permutation machinery from Chapter 13. Later sections cover alternatives: LogUp uses logarithmic derivatives (sums instead of products), Lasso exploits table decomposition for sublinear prover costs.
+A natural idea: two multisets are equal iff the polynomials having those elements as roots are equal. If every lookup $f_i$ appears in the table $t$, we can write:
 
-**Plookup's insight**: Transform the subset claim into a permutation claim. The construction involves three objects:
+$$\prod_{i=1}^{n} (X - f_i) = \prod_{j=1}^{d} (X - t_j)^{m_j}$$
+
+where $m_j$ counts how many times table entry $t_j$ appears among the lookups.
+
+**Example**: Lookups $f = \{2, 2, 5\}$ into table $t = \{1, 2, 3, 4, 5\}$.
+
+- Left side: $(X - 2)(X - 2)(X - 5) = (X-2)^2(X-5)$
+- Right side: $(X-1)^0(X-2)^2(X-3)^0(X-4)^0(X-5)^1 = (X-2)^2(X-5)$
+
+The polynomials match because the multisets match: $f$ contains two 2s and one 5, which is exactly what the multiplicities $m_2 = 2$, $m_5 = 1$ encode.
+
+This identity is mathematically valid, but expensive to verify in a circuit. Computing $(X - t_j)^{m_j}$ requires the binary decomposition of each multiplicity $m_j$. If lookups can repeat up to $n$ times, each multiplicity needs $\log n$ bits, blowing up the circuit inputs.
+
+Different lookup protocols avoid this cost in different ways. **Plookup** sidesteps multiplicities entirely by using a sorted merge. **LogUp** transforms the product into a sum where multiplicities become simple coefficients rather than exponents.
+
+---
+
+## Plookup
+
+Plookup's insight is to transform the subset claim into a permutation claim. The construction involves three objects:
 
 - **$f$**: the lookup values (what you're looking up, your witness data)
 - **$t$**: the table (all valid values, public and precomputed)
@@ -44,16 +63,16 @@ Define $s = \text{sort}(f \cup t)$, the concatenation of lookup values and table
 
 If $f \subseteq t$, then every element of $f$ appears somewhere in $t$. In the sorted vector $s$, elements from $f$ "slot in" next to their matching elements from $t$.
 
-**Key observation**: For every adjacent pair $(s_i, s_{i+1})$ in $s$, either:
+For every adjacent pair $(s_i, s_{i+1})$ in $s$, either:
 
 1. $s_i = s_{i+1}$ (a repeated value, meaning some $f_j$ was inserted next to its matching $t_k$), or
 2. $(s_i, s_{i+1})$ is also an adjacent pair in the sorted table $t$
 
 If some $f_j \notin t$, then $s$ contains a transition that doesn't exist in $t$, and the check fails.
 
-**Example**:
+**Example** (3-bit range check):
 
-- Lookups: $f = \{2, 5\}$
+- Lookups: $f = \{2, 5\}$ (prover claims both are in $[0, 7]$)
 - Table: $t = \{0, 1, 2, 3, 4, 5, 6, 7\}$
 - Sorted: $s = \{0, 1, 2, 2, 3, 4, 5, 5, 6, 7\}$
 
@@ -64,14 +83,14 @@ The pairs $(2,2)$ and $(5,5)$ are repeats; these correspond to the lookups. All 
 If instead $f = \{2, 9\}$:
 
 - Sorted: $s = \{0, 1, 2, 2, 3, 4, 5, 6, 7, 9\}$
-- The pair $(7, 9)$ is not an adjacent pair in $t$
+- The pair $(7, 9)$ is neither a repeat nor an adjacent pair in $t$
 - The subset claim fails
 
 ### Plookup's Grand Product Check
 
 The adjacent-pair property translates to a polynomial identity via a grand product. The construction is clever, so let's build it step by step.
 
-**The core idea**: Encode each adjacent pair $(s_i, s_{i+1})$ as a single field element $\gamma(1+\beta) + s_i + \beta s_{i+1}$. The term $\beta$ acts as a "separator": different pairs map to different field elements (with high probability over random $\beta$). If we multiply all these pair-encodings together, we get a fingerprint of the multiset of adjacent pairs.
+The core idea is to encode each adjacent pair $(s_i, s_{i+1})$ as a single field element $\gamma(1+\beta) + s_i + \beta s_{i+1}$. The term $\beta$ acts as a "separator": different pairs map to different field elements (with high probability over random $\beta$). Multiplying all these pair-encodings together gives a fingerprint of the multiset of adjacent pairs.
 
 **$G(\beta, \gamma)$**, the fingerprint of $s$'s adjacent pairs:
 
@@ -85,9 +104,9 @@ $$F(\beta, \gamma) = (1 + \beta)^n \cdot \prod_{i=1}^{n} (\gamma + f_i) \cdot \p
 
 Where does this come from? Think about what $s$ looks like when $f \subseteq t$. The sorted merge contains the table $t$ as a "backbone," with lookup values from $f$ inserted as duplicates next to their matches. So the adjacent pairs in $s$ fall into two categories:
 
-1. **Pairs from $t$**: The $d-1$ consecutive pairs $(t_i, t_{i+1})$ from the original table. These appear in $s$ regardless of what $f$ contains; they're the skeleton that $f$ gets merged into.
+1. **Pairs from $t$**: The $d-1$ consecutive pairs $(t_i, t_{i+1})$ from the original table. These appear in $s$ regardless of what $f$ contains; they're the skeleton that $f$ gets merged into. In $F$, these correspond to the last product $\prod_{i=1}^{d-1}(\gamma(1+\beta) + t_i + \beta t_{i+1})$, which doesn't factorize.
 
-2. **Repeated pairs from inserting $f$**: When a lookup value $f_j$ slots into $s$ next to its matching table entry, we get a repeated pair $(f_j, f_j)$. The encoding of $(v, v)$ is $\gamma(1+\beta) + v + \beta v = (\gamma + v)(1+\beta)$. So each valid lookup contributes $(\gamma + f_j)$ and $(1+\beta)$ to the product.
+2. **Repeated pairs from inserting $f$**: When a lookup value $f_j$ slots into $s$ next to its matching table entry, we get a repeated pair $(f_j, f_j)$. The encoding of $(v, v)$ is $\gamma(1+\beta) + v + \beta v = (\gamma + v)(1+\beta)$. This *does* factorize. So the $n$ repeated pairs contribute $(1+\beta)^n \cdot \prod(\gamma + f_i)$ to $F$.
 
 $F$ is the fingerprint of *exactly these pairs*, the table backbone plus $n$ valid duplicate insertions. If $G$ (the actual fingerprint of $s$) equals $F$, then $s$ has the right structure: no "bad" transitions like $(7, 9)$ that would appear if some $f_j \notin t$.
 
@@ -120,139 +139,7 @@ $$= (1+\beta)(\gamma + 1) \cdot (\gamma(1+\beta) + \beta) \cdot (\gamma(1+\beta)
 
 **Soundness**: If some $f_j \notin t$, then when sorted into $s$, $f_j$ creates an adjacent pair $(a, f_j)$ or $(f_j, b)$ where neither $a$ nor $b$ equals $f_j$. This "bad transition" doesn't appear in $F$'s table backbone, and can't factor as $(1+\beta)(\gamma + f_j)$ either. For random $\beta, \gamma$, the probability that $F = G$ despite this mismatch is at most $2(n+d)/|\mathbb{F}|$ by Schwartz-Zippel (the products have total degree at most $2(n+d)$ in $(\beta, \gamma)$).
 
-## The Plookup Protocol
-
-The grand product machinery above is **Plookup**, the 2020 protocol by Gabizon and Williamson that launched the lookup paradigm. It's not the only way to build lookup arguments. LogUp replaces grand products with logarithmic derivatives (sums instead of products), eliminating the need for the sorted vector $s$ and enabling cleaner multi-table arguments. Lasso restructures the problem entirely, achieving prover costs that scale with lookups performed rather than table size. We focus on Plookup because it builds directly on PLONK's permutation machinery from Chapter 13, making the connection between copy constraints and lookup arguments explicit.
-
-We now formalize Plookup as integrated with PLONK.
-
-### Setup
-
-**Public table**: Polynomial $t(X)$ encoding table values, preprocessed into selector commitments.
-
-**Witness values**: The prover has values $\{f_1, \ldots, f_n\}$ to look up.
-
-### Prover Computation
-
-1. **Construct $s$**: Sort $f \cup t$ to obtain the $(f,t)$-sorted vector.
-
-2. **Split $s$ into $h_1, h_2$**: The sorted vector $s$ has length $n + d$ (lookups plus table), but PLONK's domain has size $n$. We can't fit $s$ into a single polynomial over this domain. So split $s$ into two halves: $h_1$ encodes the first half, $h_2$ the second. The constraint system will check adjacent pairs *within* each half and *across* the boundary where they meet.
-
-3. **Commit**: Send $[h_1]_1, [h_2]_1$ to the verifier.
-
-4. **Receive challenges**: After Fiat-Shamir, obtain $\beta, \gamma$.
-
-5. **Build accumulator**: Construct $Z(X)$ satisfying:
-   - $Z(\omega) = 1$
-   - Recursive relation linking $Z(X\omega)$ to $Z(X)$ via the $F/G$ terms
-
-6. **Commit**: Send $[Z]_1$.
-
-### Constraints
-
-The following polynomial identities are added to the PLONK quotient polynomial:
-
-**Accumulator initialization**:
-$$(Z(X) - 1) \cdot L_1(X) = 0$$
-
-**Accumulator recursion**:
-$$Z(X\omega) \cdot \prod_{j \in \{1,2\}} (\gamma(1+\beta) + h_j(X) + \beta h_j(X\omega))$$
-$$= Z(X) \cdot (1+\beta)^m \cdot (\gamma + f(X)) \cdot (\gamma(1+\beta) + t(X) + \beta t(X\omega))$$
-
-where $m$ depends on how many lookups occur per gate (typically 1 or 2).
-
-**Accumulator finalization**: The accumulator returns to 1 at the end of the domain (enforced implicitly by the product structure).
-
-**Permutation check**: $h_1$ and $h_2$ contain exactly the elements of $f \cup t$, verified via a standard PLONK permutation argument.
-
-**Sorting check**: Adjacent elements of $s$ satisfy $s_{i+1} \geq s_i$, typically enforced via a small range check on differences.
-
-If $s$ is sorted, doesn't that prove $f \subseteq t$? Not quite. We also need to prove that $s$ contains *exactly* the elements of $f$ and $t$, no more, no less. This is the role of the permutation argument.
-
-The complete logic is:
-
-1. $s$ is a permutation of $(f \cup t)$. (So no new numbers appeared out of thin air.)
-2. $s$ is sorted. (So duplicates are adjacent.)
-3. Every adjacent pair in $s$ is valid (either a repeat, or a step that exists in the table).
-
-If all three hold, then every element in $f$ must have found a matching buddy in $t$. A cheating prover cannot slip in a value that's not in the table, because it would create an invalid adjacent pair that neither repeats nor exists as a table step.
-
-### Verification
-
-The verifier checks the batched PLONK constraints. No table-size-dependent work: verification cost is independent of $d$.
-
-
-## Worked Example: Plookup 3-Bit Range Check
-
-Let's trace through a complete Plookup proof.
-
-**Statement**: Prover knows $f_1 = 2$ and $f_2 = 5$, both in $[0, 7]$.
-
-**Table**: $t = \{0, 1, 2, 3, 4, 5, 6, 7\}$, size $d = 8$.
-
-**Lookups**: $f = \{2, 5\}$, size $n = 2$.
-
-### Step 1: Construct $s$
-
-$$s = \text{sort}(\{2, 5\} \cup \{0, 1, 2, 3, 4, 5, 6, 7\}) = \{0, 1, 2, 2, 3, 4, 5, 5, 6, 7\}$$
-
-Length: $n + d = 10$.
-
-### Step 2: Adjacent Pairs
-
-Pairs in $s$:
-$(0,1), (1,2), (2,2), (2,3), (3,4), (4,5), (5,5), (5,6), (6,7)$
-
-Nine pairs total.
-
-Pairs in sorted $t$:
-$(0,1), (1,2), (2,3), (3,4), (4,5), (5,6), (6,7)$
-
-Seven pairs.
-
-The pairs $(2,2)$ and $(5,5)$ are repeats from inserting $f$ values. All others match $t$.
-
-### Step 3: Grand Product Identity
-
-Using challenges $\beta, \gamma$:
-
-**$F(\beta, \gamma)$**, the expected fingerprint:
-
-$$F = (1+\beta)^2 \cdot (\gamma + 2)(\gamma + 5) \cdot \prod_{i=0}^{6} (\gamma(1+\beta) + t_i + \beta t_{i+1})$$
-
-The three parts: $(1+\beta)^2$ for two lookups, $(\gamma + 2)(\gamma + 5)$ for the lookup values, and the seven table pairs $(0,1), (1,2), \ldots, (6,7)$.
-
-**$G(\beta, \gamma)$**, the actual fingerprint of $s$'s nine adjacent pairs:
-
-$$G = \prod_{i=0}^{8} (\gamma(1+\beta) + s_i + \beta s_{i+1})$$
-
-Writing out the pairs from $s = \{0,1,2,2,3,4,5,5,6,7\}$:
-
-$$(0,1), (1,2), (2,2), (2,3), (3,4), (4,5), (5,5), (5,6), (6,7)$$
-
-The key observation: the repeated pairs $(2,2)$ and $(5,5)$ factor specially.
-
-- $(2,2)$ encodes as $\gamma(1+\beta) + 2 + 2\beta = \gamma(1+\beta) + 2(1+\beta) = (\gamma + 2)(1+\beta)$
-- $(5,5)$ encodes as $(\gamma + 5)(1+\beta)$
-
-So $G$ contains the factors $(\gamma + 2)(1+\beta) \cdot (\gamma + 5)(1+\beta) = (1+\beta)^2 (\gamma+2)(\gamma+5)$.
-
-The remaining seven pairs in $G$, namely $(0,1), (1,2), (2,3), (3,4), (4,5), (5,6), (6,7)$, are exactly the table pairs in $F$.
-
-Therefore $F = G$. The lookup succeeds.
-
-### Step 4: Accumulator Trace
-
-The accumulator $Z(X)$ starts at 1 and processes one fraction per domain point.
-
-At each step:
-$$Z(\omega^{i+1}) = Z(\omega^i) \cdot \frac{\text{$F$ terms at position $i$}}{\text{$G$ terms at position $i$}}$$
-
-If $f \subseteq t$, the numerator and denominator terms are permutations of each other across the full domain. The product telescopes to 1.
-
-### Code: Plookup Grand Product Check
-
-The following Python demonstrates the core Plookup identity. When lookups are valid, $F = G$. When a lookup is invalid, the fingerprints diverge.
+The following implementation computes $F$ and $G$ for the 3-bit range check example above:
 
 ```python
 def encode_pair(a, b, beta, gamma):
@@ -260,16 +147,7 @@ def encode_pair(a, b, beta, gamma):
     return gamma * (1 + beta) + a + beta * b
 
 def plookup_check(lookups, table, beta=2, gamma=5):
-    """
-    Verify lookups is a subset of table via Plookup grand product.
-
-    Args:
-        lookups: List of values being looked up
-        table: Sorted list of valid table entries
-
-    Returns: (F, G, valid) where F and G are the fingerprints
-    """
-    # Construct the sorted merge s = sort(lookups union table)
+    """Verify lookups subset of table via Plookup grand product."""
     s = sorted(lookups + table)
 
     # G: fingerprint of s's adjacent pairs
@@ -277,129 +155,99 @@ def plookup_check(lookups, table, beta=2, gamma=5):
     for i in range(len(s) - 1):
         G *= encode_pair(s[i], s[i+1], beta, gamma)
 
-    # F: expected fingerprint if lookups subset of table
-    # F = (1+beta)^n * product of (gamma + f_i) * product of table pairs
-    n = len(lookups)
-    F = (1 + beta) ** n
-
+    # F: expected fingerprint = (1+beta)^n * prod(gamma + f_i) * prod(table pairs)
+    F = (1 + beta) ** len(lookups)
     for f in lookups:
         F *= (gamma + f)
-
     for i in range(len(table) - 1):
         F *= encode_pair(table[i], table[i+1], beta, gamma)
 
     return F, G, (F == G)
 
-# Example 1: Valid lookups {2, 5} into table {0,1,2,3,4,5,6,7}
-F, G, valid = plookup_check([2, 5], list(range(8)))
-print(f"Valid lookups:   F={F}, G={G}, F==G: {valid}")
+# 3-bit range check: {2, 5} in [0, 7]
+plookup_check([2, 5], list(range(8)))  # (563374005, 563374005, True)
 
-# Example 2: Invalid lookup (9 not in table)
-F, G, valid = plookup_check([2, 9], list(range(8)))
-print(f"Invalid lookups: F={F}, G={G}, F==G: {valid}")
-
-# Example 3: Repeated valid lookups
-F, G, valid = plookup_check([3, 3, 3], list(range(8)))
-print(f"Repeated valid:  F={F}, G={G}, F==G: {valid}")
+# Invalid: 9 not in table
+plookup_check([2, 9], list(range(8)))  # F != G, returns False
 ```
 
-Output:
-```
-Valid lookups:   F=563374005, G=563374005, F==G: True
-Invalid lookups: F=614965890, G=447828498, F==G: False
-Repeated valid:  F=12754584, G=12754584, F==G: True
-```
+### Integrating with PLONK
 
-The identity holds for valid lookups (including repetitions) and fails for invalid ones. In the real protocol, the check happens via polynomial commitments over a finite field, but the algebraic structure is identical.
+The grand product check $F = G$ is the mathematical core of Plookup (Gabizon-Williamson 2020). But to use it in a SNARK, we need to encode the check as polynomial constraints that PLONK can verify. This means:
 
+- The table $t$ becomes a polynomial committed during setup
+- The sorted vector $s$ becomes polynomials the prover commits to
+- The $F = G$ check becomes an accumulator that the verifier checks via a single polynomial identity
 
-## Plookup Cost Analysis
+#### Setup
 
-**Without lookups** (bit decomposition for two 3-bit range checks):
+The table is public and fixed before any proof. Encode it as a polynomial $t(X)$ where $t(\omega^i) = t_i$ for each table entry. This polynomial is committed once and reused across all proofs; the verifier never touches the full table during verification.
 
-- 6 bitness constraints + 2 reconstruction = 8 constraints
+The prover holds witness values $\{f_1, \ldots, f_n\}$ to look up. These are private.
 
-**With lookups**:
+#### Prover Computation
 
-- 2 lookups, each ~3 constraints (the Plookup overhead)
-- Table of size 8 adds no verification cost
+The prover's job is to construct the sorted vector $s$ and prove $F = G$ without revealing the witness values.
 
-For small ranges, the savings are modest. The power appears at scale.
+1. **Construct $s$**: Merge $f$ and $t$, then sort. This is the $(f,t)$-sorted vector from the theory above.
 
-**16-bit range check**:
+2. **Split $s$ into $h_1, h_2$**: The sorted vector has length $n + d$ (lookups plus table), but PLONK's evaluation domain has size matching the circuit. To fit $s$ into the constraint system, split it into two polynomials $h_1$ and $h_2$. The constraints will check adjacent pairs *within* each half and *across* the boundary.
 
-- Without: 17 constraints per check
-- With: ~3 constraints per check
+3. **Commit to sorted polynomials**: Send $[h_1]_1, [h_2]_1$ to the verifier.
 
-**8-bit XOR**:
+4. **Receive challenges**: After Fiat-Shamir, obtain $\beta, \gamma$. These randomize the fingerprint encoding, making it infeasible for a cheating prover to forge a valid $F = G$.
 
-- Without: ~25 constraints
-- With: ~3 constraints (one lookup into a $256 \times 256$ table)
+5. **Build accumulator**: Construct $Z(X)$, the polynomial that computes the running $F/G$ ratio. It starts at 1, accumulates one ratio term per domain point, and returns to 1 if the lookup is valid.
 
-The table size ($65,536$ entries for 16-bit range or 8-bit XOR) is precomputed and committed once. Lookups against it are cheap.
+6. **Commit to accumulator**: Send $[Z]_1$.
 
+#### Constraints
 
-## Multiple Tables and Structured Lookups
+Recall the goal: prove $F(\beta, \gamma) = G(\beta, \gamma)$, where $F$ is the expected fingerprint and $G$ is the actual fingerprint of $s$'s adjacent pairs. In PLONK, we encode this as polynomial identities checked via the quotient polynomial.
 
-Real circuits need multiple lookup tables:
+The accumulator $Z(X)$ computes a running ratio of $F$ and $G$ terms. If $F = G$, the ratio telescopes to 1 over the full domain.
 
-- Range tables of various sizes
-- XOR tables for different bit widths
-- Opcode tables for VM verification
-- Custom function tables (e.g., $\sin$, $\exp$ approximations)
+**Initialization**: $Z$ starts at 1.
+$$(Z(X) - 1) \cdot L_1(X) = 0$$
 
-**Multi-table extensions**: Modern systems (cq, Halo2 lookups) support multiple tables efficiently. The prover specifies which table each lookup targets; the grand product extends to handle the multiplexing.
+**Recursion**: At each domain point, $Z$ accumulates one step of the $F/G$ ratio. The left side encodes adjacent pairs from $s$ (split across $h_1, h_2$); the right side encodes the expected $F$ terms (table pairs and lookup duplicates):
 
-**Structured tables**: Some tables have algebraic structure (e.g., $\{0, 1, \ldots, 2^{16}-1\}$ is an arithmetic sequence). Specialized arguments exploit this structure for better performance.
+$$Z(X\omega) \cdot \underbrace{\prod_{j \in \{1,2\}} (\gamma(1+\beta) + h_j(X) + \beta h_j(X\omega))}_{\text{$G$ terms: actual pairs in } s}$$
+$$= Z(X) \cdot \underbrace{(1+\beta)^m \cdot (\gamma + f(X))}_{\text{repeated pairs}} \cdot \underbrace{(\gamma(1+\beta) + t(X) + \beta t(X\omega))}_{\text{table pairs}}$$
+
+The parameter $m$ is the number of lookups per gate (typically 1 or 2).
+
+If $F = G$, then $Z$ returns to 1 at the end of the domain as the product telescopes. We don't add an explicit finalization constraint for this. Instead, the recursion constraint forces $Z(\omega^{n}) = Z(\omega^0) \cdot \prod(\text{ratio terms})$. Since $Z(\omega^0) = 1$ by initialization, and we're working over a cyclic domain, the constraint system implicitly checks that the final value is 1.
+
+The accumulator alone isn't sufficient. It verifies that adjacent pairs in $s$ are valid, but what if the prover constructs a fake $s$ that doesn't actually contain the lookup values $f$? The grand product equality handles this: the left side of the recursion constraint multiplies over pairs from $h_1, h_2$, while the right side multiplies over $f$ and $t$. For the products to match, the multisets must be equal. This is the same principle as the permutation argument in Chapter 13, but here it's embedded directly in the accumulator constraint rather than as a separate check.
+
+The constraint assumes $s$ is sorted, since that's what makes duplicates land next to their matches. Plookup enforces this implicitly rather than with an explicit sorting check. The adjacent-pair encoding $(s_i + \beta s_{i+1})$ captures ordering information: since $s$ must be "sorted by $t$" (elements appear in the same order as in $t$), each adjacent pair in $t$ must appear exactly once as an adjacent pair in $s$. If the prover reorders $s$, the adjacent pairs change, and the grand product fails. The randomness $\beta$ prevents the prover from constructing a fake $s$ that happens to produce the same product despite having different pairs.
+
+Both properties are enforced by the single recursion constraint:
+1. The grand product equality ensures $s$ contains exactly $(f \cup t)$, with no values conjured from thin air.
+2. The adjacent-pair encoding ensures every consecutive pair is valid (either a repeat or a table step).
+3. The same encoding implicitly enforces sorting: reordering $s$ changes its adjacent pairs, breaking the grand product.
+
+If all hold, every element in $f$ found a matching entry in $t$. A cheating prover cannot slip in a value outside the table since it would create an invalid pair that breaks the accumulator.
+
+#### Verification
+
+The verifier checks the polynomial identities (initialization, recursion) via the standard PLONK batched evaluation. Crucially, the verifier never touches the table directly. The table polynomial $t(X)$ was committed during setup, and the verifier only checks openings at random evaluation points. Verification cost is independent of table size $d$: a lookup into a 256-entry table costs the same as a lookup into a million-entry table.
 
 
 ## Comparison: Custom Gates vs. Lookup Tables
 
-Both mechanisms extend PLONK beyond vanilla gates. They address different problems.
+Both custom gates and lookup tables extend PLONK beyond vanilla arithmetic, but they solve fundamentally different problems.
 
-### Custom Gates
-
-A custom gate adds terms to the universal gate equation:
+Custom gates add terms to the universal gate equation. For example, adding a selector $Q_{\text{pow5}}$ enables $a^5$ computation in a single constraint:
 
 $$Q_L a + Q_R b + Q_O c + Q_M ab + Q_{\text{pow5}} a^5 + Q_C = 0$$
 
-The new selector $Q_{\text{pow5}}$ enables efficient fifth-power computation (useful for Poseidon S-boxes).
+This works well for Poseidon S-boxes, which need fifth powers. The constraint is low-degree, requires no precomputation, and adds no extra commitments. But custom gates hit a wall when the relation isn't algebraically compact. A boolean check is easy: $x^2 - x = 0$ has degree 2. A 16-bit range check would need $x(x-1)(x-2)\cdots(x-65535) = 0$, a degree-65536 polynomial that no proof system can handle efficiently.
 
-**Strengths**:
+Lookup tables solve this by shifting complexity from constraint degree to table size. Instead of encoding "x is in $[0, 65535]$" as a high-degree polynomial, we precompute a table of valid values and prove membership via the grand product. As we saw in the Verification section, the verifier never touches the table directly, so verification cost scales with the number of lookups, not the table size.
 
-- No table precomputation
-- No additional polynomial commitments
-- Native for algebraic relations
-
-**Limitations**:
-
-- The relation must be low-degree
-- A degree-$2^{16}$ polynomial for range checks is infeasible
-
-**Best for**: Compact algebraic operations such as boolean checks ($x^2 - x = 0$), elliptic curve point operations, and specialized hash function components.
-
-### Lookup Tables
-
-A lookup table is a separate mechanism:
-
-- Precompute valid tuples
-- Prove witness tuples appear in the table
-
-**Strengths**:
-
-- Handles non-algebraic operations
-- Table size is independent of verification cost
-- One table serves all lookups against it
-
-**Limitations**:
-
-- Adds polynomial commitments to the proof
-- Requires sorting and permutation checks
-- Tables must fit in memory
-
-**Best for**: Range checks, bitwise operations, state machine transitions, arbitrary function approximations.
-
-### When to Use Which
+The tradeoff is that lookups add overhead. Each lookup requires entries in the sorted vector $s$, contributions to the accumulator polynomial, and additional commitment openings. For a simple boolean check, this machinery is overkill. For a 64-bit range check or an 8-bit XOR operation, it's essential.
 
 | Problem | Custom Gate | Lookup Table |
 |---------|-------------|--------------|
@@ -410,7 +258,7 @@ A lookup table is a separate mechanism:
 | Poseidon $x^5$ | One gate | Unnecessary |
 | Valid opcode check | Complex | Direct |
 
-Modern systems use both. UltraPLONK combines custom gates (for algebraic primitives) with lookup tables (for non-algebraic constraints).
+Modern systems like UltraPLONK use both: custom gates for algebraic primitives, lookup tables for everything else.
 
 
 
@@ -420,15 +268,17 @@ Plookup was seminal but not unique. Several alternatives offer different trade-o
 
 ### LogUp: The Logarithmic Derivative Approach
 
-LogUp represents a significant evolution from Plookup. Instead of grand products, it uses the identity:
+Recall the naive product identity from the beginning of this chapter:
 
-$$\sum_{i=1}^{n} \frac{1}{\gamma + f_i} = \sum_{j=1}^{d} \frac{m_j}{\gamma + t_j}$$
+$$\prod_{i=1}^{n} (X - f_i) = \prod_{j=1}^{d} (X - t_j)^{m_j}$$
 
-where $m_j$ is the multiplicity, counting how many times table entry $t_j$ appears in the lookups $f$.
+Plookup avoided the multiplicity problem by using the sorted merge $s$. LogUp takes a different route: transform the product into a sum where multiplicities become coefficients rather than exponents. Taking the logarithmic derivative (i.e., $\frac{d}{dX}\log(\cdot)$) of both sides, and using $\frac{d}{dX}\log(X - a) = \frac{1}{X-a}$ and $\frac{d}{dX}\log((X-a)^m) = \frac{m}{X-a}$:
 
-**The key insight**: If $f \subseteq t$ with multiplicities, then summing the reciprocals of $(\gamma + f_i)$ over all lookups must equal summing $m_j / (\gamma + t_j)$ over table entries. The multiplicity $m_j$ counts how many lookups reference $t_j$.
+$$\sum_{i=1}^{n} \frac{1}{X - f_i} = \sum_{j=1}^{d} \frac{m_j}{X - t_j}$$
 
-**Why this matters**:
+The exponentiation $(X - t_j)^{m_j}$ that required binary decomposition becomes simple scalar multiplication $m_j \cdot \frac{1}{X - t_j}$. Over finite fields, we don't actually compute logs or derivatives; the identity is purely algebraic. If the multisets match, the rational functions are equal. Evaluating at a random challenge $\gamma \in \mathbb{F}$ gives Schwartz-Zippel soundness.
+
+This matters for several reasons:
 
 1. **No sorting required.** Plookup requires constructing and committing to the sorted vector $s$. LogUp skips this entirely: no sorted polynomial, no sorting constraints.
 
@@ -440,56 +290,39 @@ where $m_j$ is the multiplicity, counting how many times table entry $t_j$ appea
 
 3. **Better cross-table lookups.** When a circuit uses multiple tables (range, XOR, opcodes), LogUp handles them in a unified sum rather than separate grand products.
 
-**LogUp-GKR**: Combines LogUp with the GKR protocol for even greater efficiency. The multiplicities $m_j$ are verified via sum-check rather than explicit commitment, reducing prover work for large tables.
+LogUp-GKR combines LogUp with the GKR protocol for even greater efficiency. The multiplicities $m_j$ are verified via sum-check rather than explicit commitment, reducing prover work for large tables.
 
-**The equation in protocol form**:
-
-Define:
-$$h(X) = \sum_{i: f(\omega^i) = f_i} \frac{1}{\gamma + f(\omega^i)} - \sum_{j} \frac{m_j}{\gamma + t_j}$$
-
-If the lookup is valid, $h(X)$ sums to zero over the domain. This is verified via sum-check or a grand sum argument.
+In practice, the prover commits to a "running sum" polynomial analogous to Plookup's accumulator $Z(X)$. At each domain point, it accumulates one term $\frac{1}{\gamma + f_i}$ from the lookups and subtracts the corresponding table contributions. If the lookup is valid, the sum telescopes to zero.
 
 ### cq (Cached Quotients)
 
 A refinement of the logarithmic derivative approach optimized for repeated lookups.
 
-**Advantages**: Pre-computes quotient polynomials for the table. Amortizes table processing across multiple lookup batches.
-
-**Trade-offs**: Setup overhead; benefits emerge with many lookups against the same table.
+cq pre-computes quotient polynomials for the table, amortizing table processing across multiple lookup batches. The trade-off is setup overhead; benefits emerge with many lookups against the same table.
 
 ### Caulk and Caulk+
 
 Caulk (2022) asked a different question: what if the table is *huge* but you only perform a few lookups? Plookup's prover work scales linearly with table size, making it impractical for tables of size $2^{30}$ or larger.
 
-**The insight**: Preprocess the table into a KZG commitment. When the prover looks up values, they prove the lookup values exist in the committed table *without* touching the entire table during proving.
+The core idea: encode the set (or table) $\{t_1, \ldots, t_d\}$ as a polynomial $t(X) = \prod_{j=1}^{d}(X - t_j)$, whose roots are exactly the set elements. To prove that a value $v$ is in the set, observe that $(X - v)$ divides $t(X)$ iff $v$ is a root. KZG lets you prove this divisibility via a quotient polynomial $q(X) = t(X)/(X-v)$, without revealing which root $v$ is. The quotient commitment can be computed from the table commitment using properties of KZG, and crucially, this computation is sublinear in $d$.
 
-**How it works**: The table polynomial $t(X)$ is committed during setup. For each lookup, the prover constructs a "witness" polynomial that proves the lookup value is a root of a polynomial derived from $t$. The key is using the structure of KZG to make these proofs small and fast.
+Prover work is $O(m^2 + m \log d)$ for $m$ lookups into a table of size $d$, sublinear in $d$ when $m \ll d$. The trade-off: Caulk requires trusted setup (KZG), and the quadratic term in $m$ limits scalability for many lookups.
 
-**Complexity**: Prover work is $O(m^2 + m \log N)$ for $m$ lookups into a table of size $N$, sublinear in $N$ when $m \ll N$.
+Caulk is actually a general *membership proof* protocol: given a KZG commitment to a set, prove that certain values belong to that set without revealing which positions they occupy. This makes it useful beyond lookup tables, e.g., as an alternative to Merkle proofs for set membership. Plookup and LogUp can't serve this role because they require the prover to process the entire table during proving, which defeats the purpose of a compact membership proof. Caulk's sublinear prover cost is what enables the generalization.
 
-**Trade-off**: Requires trusted setup (KZG). More complex than Plookup. The quadratic term in $m$ limits scalability for many lookups.
-
-**Caulk+** refined this to $O(m^2)$ prover complexity, removing the $\log N$ term entirely. The table size effectively disappears from prover cost.
+**Caulk+** refined this to $O(m^2)$ prover complexity, removing the $\log d$ term entirely.
 
 ### Halo2 Lookups
 
 Halo2, developed by the Electric Coin Company (Zcash), integrates lookups natively with a "permutation argument" variant rather than Plookup's grand product.
 
-**The approach**: Instead of sorting and checking adjacent pairs, Halo2 uses a *shuffle argument*. The prover demonstrates that the multiset of lookups (with multiplicities) is a permutation of a subset of the table (with appropriate multiplicities).
+The core idea: to prove $A \subseteq S$ (lookups $A$ are contained in table $S$), the prover constructs permuted columns $A'$ and $S'$ such that $A'$ is a permutation of $A$, $S'$ is a permutation of $S$, and in each row either $A'_{i+1} = A'_i$ (a repeat) or $A'_{i+1} = S'_i$ (a table match). This forces every element in $A'$ to equal some element in $S'$. The permutation constraints are enforced via a grand product argument similar to PLONK's copy constraints. Unlike Plookup, there is no explicit sorted merge; the "sorting" happens implicitly through the permutation.
 
-**Key differences from Plookup**:
+Halo2's lookup API lets developers define tables declaratively. The proving system handles the constraint generation automatically. This made Halo2 popular for application circuits: you specify *what* to look up, not *how* the lookup argument works. Scroll, Taiko, and other L2s built on Halo2 rely on its lookup system for zkEVM implementation.
 
-- No explicit sorted vector $s$
-- Multiplicities are handled via a separate "permutation" polynomial
-- Tighter integration with Halo2's recursive verification model
+## Lasso and Jolt
 
-**In practice**: Halo2's lookup API lets developers define tables declaratively. The proving system handles the constraint generation automatically. This made Halo2 popular for application circuits: you specify *what* to look up, not *how* the lookup argument works.
-
-**Ecosystem**: Scroll, Taiko, and other L2s built on Halo2 rely on its lookup system for zkEVM implementation.
-
-### The Memory Bottleneck
-
-All the protocols above share a fundamental limitation: **the prover must commit to polynomials whose degree scales with table size**.
+All the protocols above (Plookup, LogUp, Caulk, Halo2) share a fundamental limitation: the prover must commit to polynomials whose degree scales with table size.
 
 For Plookup, the sorted vector $s$ has length $n + d$ (lookups plus table). For LogUp, the multiplicity polynomial has degree $d$. For Caulk, the table polynomial $t(X)$ must be committed during setup. In every case, a table of size $2^{20}$ means million-coefficient polynomials. A table of size $2^{64}$ means polynomials with more coefficients than atoms in a grain of sand.
 
@@ -497,108 +330,62 @@ This is the memory bottleneck. It's not just "expensive"; it's a hard wall. The 
 
 Early zkVMs worked around this by using small tables (8-bit or 16-bit operations) and paying the cost in constraint complexity for larger operations. A 64-bit addition became a cascade of 8-bit additions with carry propagation. It worked, but it was slow.
 
-Lasso breaks through this wall entirely.
+Lasso (2023, Setty-Thaler-Wahby) breaks through this wall: prover costs scale with *lookups performed* rather than *table size*.
 
-### Lasso and Jolt
+### Static vs. Dynamic Tables
 
-Lasso (2023, Setty-Thaler-Wahby) represents the solution to the memory bottleneck: prover costs that scale with *lookups performed* rather than *table size*.
-
-**Read-Only vs. Read-Write.** Before diving into the mechanism, distinguish two types of lookups:
+Before diving into Lasso's mechanism, distinguish two types of lookups:
 
 *Static tables (read-only)*: Fixed functions like XOR, range checks, or AES S-boxes. The table never changes during execution. Plookup, LogUp, and Lasso excel here.
 
-*Dynamic tables (read-write)*: Simulating RAM (random access memory). The table starts empty and fills up as the program runs. This requires different techniques (like memory-checking arguments or timestamp-based permutation checks) because the table itself is witness-dependent. Jolt uses specialized protocols called Twist and Shout for this.
+*Dynamic tables (read-write)*: Simulating RAM (random access memory). The table starts empty and fills up as the program runs. This requires different techniques (like memory-checking arguments or timestamp-based permutation checks) because the table itself is witness-dependent.
 
 Lasso focuses on static tables, but its decomposition insight is what makes truly large tables tractable.
 
-**Lasso's insight**: *Decomposable tables*. Many tables have structure: their MLE (multilinear extension) can be written as a weighted sum of smaller subtables:
+### Decomposable Tables
+
+Lasso exploits *decomposable tables*. Many tables have structure: their MLE (multilinear extension) can be written as a weighted sum of smaller subtables:
 
 $$\tilde{T}(y) = \sum_{j=1}^{\alpha} c_j \cdot \tilde{T}_j(y_{S_j})$$
 
-Each subtable $\tilde{T}_j$ looks at only a small chunk of the total input $y$. This "Structure of Sums" (SoS) property enables dramatic efficiency gains.
+Each subtable $\tilde{T}_j$ looks at only a small chunk of the total input $y$. This "Structure of Sums" (SoS) property enables dramatic efficiency gains. (This is a cousin of the tensor product structure for Lagrange bases in Chapter 4—both exploit how multilinear functions over product domains inherit structure from their factors.)
 
-**Example: 64-bit AND.** The conceptual table has $2^{128}$ entries (all pairs of 64-bit inputs). But bitwise AND decomposes perfectly: split inputs into sixteen 4-bit chunks, perform 16 lookups into a tiny 256-entry `AND_4` table, concatenate results. The prover never touches the $2^{128}$-entry table.
+Consider 64-bit AND. The conceptual table has $2^{128}$ entries (all pairs of 64-bit inputs). But bitwise AND decomposes perfectly: split inputs into sixteen 4-bit chunks, perform 16 lookups into a tiny 256-entry `AND_4` table, concatenate results. The prover never touches the $2^{128}$-entry table.
 
-**The technical machinery**: Lasso builds on **Spark**, a commitment scheme for sparse polynomials from the Spartan protocol. The key insight: a lookup trace is a *sparse* "hit" vector. If you perform $m$ lookups into a table of size $N$, you access only $m$ entries. Lasso represents this sparse access pattern using Spark, then proves correctness via sum-check.
+### Why Prover Costs Scale with Lookups
 
-The prover's witnesses are:
+Lasso represents the sparse access pattern—which indices were hit, how many times—using commitment schemes optimized for sparse polynomials, then proves correctness via sum-check. The prover commits only to the accessed entries and their multiplicities, never to the full table. For structured tables, the verifier can evaluate $\tilde{T}(r)$ at a random challenge point in $O(\log N)$ time using the table's algebraic formula, without ever seeing the table itself.
 
-- **$\tilde{E}(y)$**: The "existence" polynomial (1 if index $y$ was accessed, 0 otherwise)
-- **$\tilde{a}(y)$**: The values looked up at each accessed index
-- **$\{\tilde{M}_{V,j}\}$**: Coefficient polynomials that correctly wire subtable results together
+### Jolt: A zkVM Built on Lasso
 
-The verifier never sees the full table. For structured tables, she can evaluate $\tilde{T}(r)$ at a random challenge point in $O(\log N)$ time using the table's algebraic formula.
+Jolt applies Lasso to build a complete zkVM for RISC-V. The philosophy: replace arithmetization of instruction semantics with lookups.
 
-**Prover costs**: For $m$ lookups into a table decomposed into $c$ chunks with subtables of size $N^{1/c}$:
+The entire RISC-V instruction set can be viewed as one giant table mapping (opcode, operand1, operand2) to results. This table is far too large to materialize, but it's *decomposable*: most instructions break into independent operations on small chunks. A 64-bit XOR decomposes into 16 lookups into a 256-entry `XOR_4` table. The subtables are tiny, pre-computed once, and reused across all instructions.
 
-$$\text{Committed elements} \approx 3cm + \alpha N^{1/c}$$
+Jolt combines Lasso (for instruction semantics) with R1CS constraints (for wiring: program counter updates, register consistency, data flow). Why this hybrid? Arithmetizing a 64-bit XOR in R1CS requires 64+ constraints for bit decomposition; Jolt proves it with 16 cheap lookups. But simple wiring constraints are trivial in R1CS. Use each tool where it excels.
 
-Crucially, most committed values are *small integers* (counts in $\{0, \ldots, m\}$). Committing to small scalars is dramatically faster than random field elements; this is Lasso's performance breakthrough.
+### Limitations
 
----
-
-**Jolt** applies Lasso to build a complete zkVM for RISC-V. The philosophy: replace arithmetization of instruction semantics with lookups.
-
-Consider the `JOLT_V` table, the evaluation table of the entire RISC-V instruction set:
-
-$$\text{JOLT\_V}(\text{opcode}, a, b) = f_{\text{op}}(a, b)$$
-
-For a 64-bit machine with 256 opcodes, this table has $2^{136}$ entries. Storing it is physically impossible.
-
-**Jolt's insight**: This giant table is *decomposable*. A 64-bit ADD decomposes into 16 lookups into 4-bit addition subtables. A 64-bit XOR decomposes into 16 independent 4-bit XOR lookups. The subtables are tiny (256 entries each), pre-computed once, and reused for every instruction.
-
-**Jolt's architecture**:
-
-1. **Lasso for instruction semantics**: Proves that each instruction's output matches its subtable lookups. No arithmetization of CPU logic.
-2. **Spartan (R1CS) for wiring**: Proves the simple algebraic relationships (program counter updates, register consistency, data flow between components)
-3. **Specialized memory protocols**: **Twist** handles RAM consistency (LOAD/STORE); **Shout** ensures instructions are fetched from the committed bytecode
-
-**Why this hybrid?** Arithmetizing a 64-bit XOR in R1CS requires 64+ constraints (bit decomposition, per-bit logic). Jolt proves it with 16 cheap lookups. But simple wiring constraints ("this value flows from register to ALU") are trivial in R1CS. Use each tool where it excels.
-
-**Performance**: Jolt achieves roughly 50,000 cycles per RISC-V instruction, orders of magnitude faster than prior zkVMs. The "lookup singularity" becomes real: proving a VM is just proving structured table lookups.
-
-**Trade-offs**: Requires decomposable table structure. Arbitrary tables (like SHA-256, which is intentionally non-linear) don't benefit. But for CPU instruction sets, the structure is natural: most operations are bitwise or arithmetic with clean chunk decompositions.
+Lasso and Jolt require decomposable table structure. Tables without chunk-independent structure don't benefit. But for CPU instruction sets, the structure is natural: most operations are bitwise or arithmetic with clean chunk decompositions.
 
 The field continues evolving. The core insight (reducing set membership to polynomial identity) admits many instantiations, each optimizing for different table sizes, structures, and use cases.
 
 
 
-## Integration with STARKs
+## Lookups Across Proving Systems
 
-Lookup arguments aren't exclusive to PLONK. STARK-based systems integrate them via the AIR (Algebraic Intermediate Representation) framework.
+The lookup techniques above: Plookup, LogUp, Lasso, adapt to different proving backends. Plookup and Halo2 integrate naturally with PLONK's polynomial commitment model. Lasso and Jolt use sum-check and R1CS (via Spartan). STARK-based systems take a different path.
 
-In AIR terms:
+In STARKs, computation is represented as an execution trace: a matrix where each row is a state and columns hold registers, memory, and auxiliary values. Lookup arguments integrate by adding columns to this trace:
 
-- The lookup table becomes a public column in the trace
-- Witness values to be looked up appear in other columns
-- A running product column accumulates the grand product
-- Transition constraints enforce the recursive relation
+- The lookup table becomes one or more *public columns* (known to the verifier)
+- Values to be looked up appear in *witness columns*
+- A *running product column* accumulates the grand product (Plookup-style) or running sum (LogUp-style)
+- *Transition constraints* enforce the recursive accumulator relation row-by-row
 
-The conceptual structure is identical; the implementation adapts to the STARK trace model rather than PLONK's polynomial commitments.
+The FRI-based polynomial commitment then proves that these trace columns satisfy all constraints. The lookup argument's algebraic core is unchanged; only the commitment mechanism differs.
 
-Modern STARK systems (Cairo, RISC0, SP1) rely heavily on lookup arguments for efficient VM verification.
-
-
-
-## The Role in zkVMs
-
-Lookup arguments are foundational for zero-knowledge virtual machines.
-
-A zkVM proves correct execution of arbitrary programs. The "table" encodes valid instruction semantics:
-
-- Opcode validity
-- Memory read/write consistency
-- Bitwise operation results
-- Range checks on registers
-
-Without lookups, encoding these constraints algebraically would explode the circuit size. With lookups, each instruction verification reduces to a few table membership proofs.
-
-**Example**: Verifying a RISC-V ADD instruction.
-
-- Without lookups: Decompose 32-bit operands, verify carry propagation, reconstruct result (dozens of constraints).
-- With lookups: Single lookup proving $(a, b, a+b \mod 2^{32})$ is in the addition table (3 constraints).
-
-The efficiency gain is multiplicative across millions of instructions. zkVMs would be impractical without lookup arguments.
+STARK-based zkVMs (Cairo, RISC0, SP1) rely heavily on this integration. Their execution traces naturally represent VM state transitions, and lookups handle instruction semantics, memory consistency, and range checks. The trace-based model makes it easy to add new lookup tables: just add columns and constraints.
 
 
 
@@ -628,4 +415,10 @@ The efficiency gain is multiplicative across millions of instructions. zkVMs wou
 
 9. **LogUp** replaces products with sums of logarithmic derivatives: no sorting, cleaner multi-table handling, natural sum-check integration.
 
-10. **Lasso** achieves prover costs scaling with lookups performed rather than table size, enabling tables of size $2^{128}$ via decomposition into small subtables.
+10. **Caulk** achieves sublinear prover work in table size via KZG-based subset arguments, useful when few lookups access a huge table.
+
+11. **Halo2** uses permutation arguments rather than sorted merges, with lookups integrated into the constraint system declaratively.
+
+12. **Lasso** exploits *decomposable tables* (SoS structure) to achieve prover costs scaling with lookups performed, not table size. Combined with sparse polynomial commitments, this enables effective tables of size $2^{128}$. Jolt applies this to build a complete zkVM.
+
+13. **STARK integration**: Lookup arguments adapt to trace-based proving via running product/sum columns and transition constraints, used by Cairo, RISC0, and SP1.

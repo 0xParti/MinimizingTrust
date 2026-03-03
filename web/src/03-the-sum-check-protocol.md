@@ -16,6 +16,8 @@ The sum-check protocol takes a claim that seems fundamentally expensive to verif
 
 This chapter develops the sum-check protocol from first principles. We'll see exactly how the protocol works, why it's sound, and how any lie propagates through the protocol until it becomes a simple falsehood the verifier can catch. Along the way, we'll trace through complete worked examples with actual field values, because this protocol is too important to understand only abstractly.
 
+The protocol requires only basic polynomial facts from Chapter 2 (Schwartz-Zippel, evaluation, degree). The next two chapters develop the polynomial representations used in practice: multilinear extensions (Chapter 4) enable linear-time provers and scale to domains of size $2^{128}$, while univariate techniques (Chapter 5) offer smaller proofs via FFT-friendly structure. Sum-check itself is agnostic to representation; it works on any multivariate polynomial.
+
 
 
 ## The Problem: Verifying Exponential Sums
@@ -60,7 +62,7 @@ Let's make this precise. The sum-check protocol verifies a claim of the form:
 
 $$H = \sum_{(b_1, \ldots, b_\nu) \in \{0,1\}^\nu} g(b_1, \ldots, b_\nu)$$
 
-where $g$ is a $\nu$-variate polynomial of degree at most $d$ in each variable. The protocol proceeds in $\nu$ rounds.
+where $g$ is a $\nu$-variate polynomial of degree at most $d$ in each variable. (More generally, each variable $X_j$ can have its own degree bound $d_j$; we use uniform $d$ for simplicity.) The verifier must know these degree bounds before the protocol begins—they're part of the problem specification, not something the prover provides. If the prover could claim arbitrary degree bounds, soundness would collapse: a high-degree polynomial can pass through any finite set of points while matching an honest polynomial elsewhere. The sum ranges over boolean points, but $g$ is a polynomial over the field $\mathbb{F}$ and can have degree greater than 1. For example, $g(X_1, X_2) = X_1^2 + X_2^2 + X_1 X_2$ has $d = 2$; when we sum over $\{0,1\}^2$, we get $g(0,0) + g(0,1) + g(1,0) + g(1,1) = 0 + 1 + 1 + 3 = 5$. The degree bound $d$ matters because it determines how many coefficients the prover must send in each round: a degree-$d$ univariate polynomial requires $d+1$ coefficients. The protocol proceeds in $\nu$ rounds.
 
 ### Round 1
 
@@ -80,13 +82,13 @@ If either check fails, the verifier rejects. Otherwise, she samples a random fie
 
 The verifier now evaluates the prover's polynomial at this random point, computing $V_1 = g_1(r_1)$. This value represents what the prover is *implicitly* asserting about a reduced sum. The verifier doesn't compute this sum herself; she simply records what the prover's polynomial claims it to be. This $V_1$ becomes the target for round 2: the prover must now justify that the sum over $2^{\nu-1}$ points, with the first variable fixed to $r_1$, actually equals $V_1$.
 
-The key observation: the verifier has now *reduced* the original claim about a sum over $2^\nu$ points to a new claim about a sum over $2^{\nu-1}$ points. Specifically, the prover is now implicitly claiming that:
+The verifier has now *reduced* the original claim about a sum over $2^\nu$ points to a new claim about a sum over $2^{\nu-1}$ points. Specifically, the prover is now implicitly claiming that:
 
 $$g_1(r_1) = \sum_{(b_2, \ldots, b_\nu) \in \{0,1\}^{\nu-1}} g(r_1, b_2, \ldots, b_\nu)$$
 
 **Why the degree check matters**: The soundness argument relies on Schwartz-Zippel: two *distinct* degree-$d$ polynomials agree on at most $d$ points, so a random evaluation catches the difference with probability $\geq 1 - d/|\mathbb{F}|$. But what if the prover sends a high-degree polynomial instead?
 
-*Attack without degree check*: Suppose the true sum is $H^* = 6$ but the prover claims $H = 100$. The honest polynomial is $s_1(X) = 2X + 2$, with $s_1(0) + s_1(1) = 6$. The prover needs a polynomial passing through $(0, a)$ and $(1, b)$ where $a + b = 100$.
+Suppose the true sum is $H^* = 6$ but the prover claims $H = 100$. The honest polynomial is $s_1(X) = 2X + 2$, with $s_1(0) + s_1(1) = 6$. The prover needs a polynomial passing through $(0, a)$ and $(1, b)$ where $a + b = 100$.
 
 Without a degree bound, the prover is a wizard. He can conjure a polynomial that passes through the lie at $x = 0$ and $x = 1$, yet looks exactly like the honest polynomial everywhere else. A degree-$(|\mathbb{F}| - 1)$ polynomial can match $s_1$ at every point except 0 and 1, making it indistinguishable from the honest polynomial at any random challenge $r_1 \notin \{0, 1\}$.
 
@@ -184,7 +186,7 @@ The verifier checks: $g_2(0) + g_2(1) = 5 + 7 = 12 = V_1$. $\checkmark$
 
 She samples $r_2 = 10$.
 
-**Final check**: The verifier computes $g(5, 10) = 5 + 20 = 25$ and compares to $g_2(10) = 25$. They match. **Accept.**
+**Final check**: The verifier queries her oracle for $g(5, 10) = 25$ and compares to $g_2(10) = 25$. They match. **Accept.**
 
 ### The Cheating Case
 
@@ -192,33 +194,33 @@ Now suppose the prover lies: he claims $H = 7$ instead of the true sum $H^* = 6$
 
 **Round 1**: To pass the consistency check, the prover must send some $g_1(X_1)$ with $g_1(0) + g_1(1) = 7$. The true polynomial $s_1(X_1) = 2X_1 + 2$ sums to 6, so he can't use it.
 
-He sends a lie: $g_1(X_1) = 2X_1 + 2.5$. Check: $g_1(0) + g_1(1) = 2.5 + 4.5 = 7$. $\checkmark$
+He sends a lie: $g_1(X_1) = X_1 + 3$. Check: $g_1(0) + g_1(1) = 3 + 4 = 7$. $\checkmark$
 
-**The critical moment**: The verifier samples $r_1 = 5$.
+The verifier samples $r_1 = 5$.
 
-- Prover's value: $g_1(5) = 12.5$
+- Prover's value: $g_1(5) = 8$
 - True value: $s_1(5) = 12$
 
-The prover is now committed to defending a false claim: $\sum_{x_2} g(5, x_2) = 12.5$. But the true sum is 12.
+The prover is now committed to defending a false claim: $\sum_{x_2} g(5, x_2) = 8$. But the true sum is $g(5,0) + g(5,1) = 5 + 7 = 12$.
 
-**Round 2**: The prover needs $g_2(0) + g_2(1) = 12.5$. He sends $g_2(X_2) = 5.25 + 2X_2$.
+**Round 2**: The prover needs $g_2(0) + g_2(1) = 8$. He sends $g_2(X_2) = 3 + 2X_2$.
 
 The verifier samples $r_2 = 10$.
 
 **Final check**:
 
-- Prover claims: $g_2(10) = 25.25$
-- Verifier computes: $g(5, 10) = 25$
+- Prover claims: $g_2(10) = 3 + 20 = 23$
+- Verifier queries oracle: $g(5, 10) = 25$
 
-$25.25 \neq 25$. **Reject.**
+$23 \neq 25$. **Reject.**
 
 ### The Moral
 
 The initial lie forced the prover to send polynomials different from the true ones. By Schwartz-Zippel, the random challenges almost certainly landed on points where these polynomials disagreed. The lie didn't just persist; it *amplified* through the rounds until it became a simple, detectable falsehood.
 
-Notice what happened to the cheating prover. After sending the first dishonest polynomial, they weren't free. The verifier's random challenge $r_1 = 5$ created a new constraint: the prover must now justify that $\sum_{x_2} g(5, x_2) = 12.5$. But they didn't choose 5; the verifier did, unpredictably. The prover is forced to fabricate an answer for a question they couldn't anticipate.
+Notice what happened to the cheating prover. After sending the first dishonest polynomial, they weren't free. The verifier's random challenge $r_1 = 5$ created a new constraint: the prover must now justify that $\sum_{x_2} g(5, x_2) = 8$. But they didn't choose 5; the verifier did, unpredictably. The prover is forced to fabricate an answer for a question they couldn't anticipate.
 
-Each round tightens the trap. The second lie must be consistent with the first. The third with the second. Each fabrication constrains the next, and the prover never controls which constraints they'll face. By the final round, the accumulated lies have painted the cheater into a corner: they must claim that $g(5, 10) = 25.25$ when any honest evaluation reveals 25. The system of fabrications collapses under its own weight.
+Each round tightens the trap. The second lie must be consistent with the first. The third with the second. Each fabrication constrains the next, and the prover never controls which constraints they'll face. By the final round, the accumulated lies have painted the cheater into a corner: they must claim that $g(5, 10) = 23$ when any honest evaluation reveals 25. The system of fabrications collapses under its own weight.
 
 The prover's only hope is that every random challenge happens to land on a point where the cheating polynomial agrees with the true one. For degree-$d$ polynomials over a field of size $|\mathbb{F}|$, this probability is at most $d/|\mathbb{F}|$ per round, negligible in cryptographic settings.
 
@@ -440,15 +442,11 @@ For the common case of multilinear polynomials ($d = 1$), this halves communicat
 
 The sum-check protocol is not just one protocol among many; it's the foundation upon which much of modern verifiable computation is built.
 
-**Interactive proofs**: The celebrated IP = PSPACE theorem, which shows that every problem solvable in polynomial space has an efficient interactive proof, uses sum-check as its core building block. The LFKN protocol arithmetizes quantified boolean formulas and applies sum-check recursively.
+The celebrated IP = PSPACE theorem, which shows that every problem solvable in polynomial space has an efficient interactive proof, uses sum-check as its core building block. The LFKN protocol arithmetizes quantified boolean formulas and applies sum-check recursively. To verify that an arithmetic circuit was evaluated correctly, the GKR protocol (Chapter 7) expresses the relationship between adjacent circuit layers as a sum over a hypercube, then uses sum-check to reduce a claim about one layer to a claim about the next, peeling back the circuit layer by layer until we reach the inputs.
 
-**The GKR protocol**: To verify that an arithmetic circuit was evaluated correctly, the GKR protocol (Chapter 7) expresses the relationship between adjacent circuit layers as a sum over a hypercube. Sum-check reduces a claim about one layer to a claim about the next, peeling back the circuit layer by layer until we reach the inputs.
+Many of today's practical succinct arguments (Spartan, HyperPlonk, and the entire family of "sum-check based" SNARKs) use sum-check as their information-theoretic core. The protocol's structure, where a prover commits to polynomials and a verifier checks random evaluations, maps cleanly onto polynomial commitment schemes. As we'll see in the next chapter, multilinear polynomials (those with degree at most 1 in each variable) have a natural correspondence with functions on the boolean hypercube. Sum-check works especially elegantly with multilinear polynomials, and this paradigm has become one of the two major approaches to building modern proof systems.
 
-**Modern SNARKs**: Many of today's practical succinct arguments (Spartan, HyperPlonk, and the entire family of "sum-check based" SNARKs) use sum-check as their information-theoretic core. The protocol's structure, where a prover commits to polynomials and a verifier checks random evaluations, maps cleanly onto polynomial commitment schemes.
-
-**The multilinear paradigm**: As we'll see in the next chapter, multilinear polynomials (those with degree at most 1 in each variable) have a natural correspondence with functions on the boolean hypercube. The sum-check protocol works especially elegantly with multilinear polynomials, and this paradigm has become one of the two major approaches to building modern proof systems.
-
-**The sum-check renaissance**: For years after the initial theoretical breakthroughs, practical SNARK systems moved away from sum-check toward other approaches (PCPs, linear PCPs, univariate techniques). But recently, sum-check has made a dramatic comeback. Systems like Lasso and Jolt use sum-check at their core, achieving remarkable prover efficiency. Why the return? It turns out that sum-check provers can run in *linear time* for structured polynomials, and the protocol meshes beautifully with modern polynomial commitment schemes. We'll explore this renaissance in depth in Chapter 19.
+For years after the initial theoretical breakthroughs, practical SNARK systems moved away from sum-check toward other approaches (PCPs, linear PCPs, univariate techniques). But recently, sum-check has made a dramatic comeback. Systems like Lasso and Jolt use sum-check at their core, achieving remarkable prover efficiency. It turns out that sum-check provers can run in *linear time* for structured polynomials, and the protocol meshes beautifully with modern polynomial commitment schemes. We'll explore this renaissance in depth in Chapter 19.
 
 The sum-check protocol is where the abstract power of polynomials (their rigidity, their compression of constraints, their amenability to random testing) first crystallizes into a concrete verification procedure. Every protocol we study from here forward either uses sum-check directly or is in dialogue with the principles it established.
 

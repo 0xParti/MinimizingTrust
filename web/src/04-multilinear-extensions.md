@@ -43,7 +43,9 @@ Any function $f: \{0,1\}^n \to \mathbb{F}$ assigns a field element to each verte
 
 - A database of $2^n$ records indexed by $n$-bit keys
 
-The hypercube is our *discrete* domain. We want a polynomial that agrees with $f$ on this domain but is defined everywhere.
+Why does the hypercube matter? Because computation is fundamentally boolean. A memory address is a bit string. A circuit's inputs are bits. A satisfying assignment to a boolean formula is a point in $\{0,1\}^n$. When we want to verify a computation, the objects we care about—wire values, memory contents, constraint satisfaction—are naturally indexed by binary strings. The hypercube $\{0,1\}^n$ is where computational problems live.
+
+But polynomials live over fields, not just $\{0,1\}$. We want a polynomial that agrees with $f$ on the hypercube but extends smoothly to all of $\mathbb{F}^n$. This extension is what lets us apply the algebraic machinery (Schwartz-Zippel, sum-check) that makes verification efficient.
 
 
 
@@ -143,7 +145,7 @@ for $a, b \in \{0,1\}^n$.
 The Lagrange basis polynomials are just the equality polynomial with one input fixed:
 $$L_w(X) = \widetilde{\text{eq}}(w, X)$$
 
-**Why does this matter?** The equality polynomial appears constantly in sum-check-based protocols. Here's the key use case: suppose you want to "select" a specific hypercube point $w \in \{0,1\}^n$ from a sum. The verifier sends a random challenge $r \in \mathbb{F}^n$, and you evaluate $\widetilde{\text{eq}}(r, w)$. On the hypercube, this function equals 1 at $w$ and 0 everywhere else. But at a random $r$, it gives a *weighted* selection: $\widetilde{\text{eq}}(r, w)$ is large when $r$ is "close" to $w$ (in a polynomial sense) and negligibly small otherwise. This lets the verifier probe specific hypercube points through random field elements.
+The equality polynomial appears constantly in sum-check-based protocols. Here's the key use case: suppose you want to "select" a specific hypercube point $w \in \{0,1\}^n$ from a sum. The verifier sends a random challenge $r \in \mathbb{F}^n$, and you evaluate $\widetilde{\text{eq}}(r, w)$. On the hypercube, this function equals 1 at $w$ and 0 everywhere else. But at a random $r$, it gives a *weighted* selection: $\widetilde{\text{eq}}(r, w)$ is large when $r$ is "close" to $w$ (in a polynomial sense) and negligibly small otherwise. This lets the verifier probe specific hypercube points through random field elements.
 
 
 
@@ -356,7 +358,7 @@ For general $n$, the vector of all $2^n$ Lagrange evaluations is:
 
 $$(L_0(r_1), L_1(r_1)) \otimes (L_0(r_2), L_1(r_2)) \otimes \cdots \otimes (L_0(r_n), L_1(r_n))$$
 
-**Why this matters**: The streaming algorithm exploits tensor structure. Instead of computing all $2^n$ Lagrange values (expensive), it processes one coordinate at a time, folding the tensor product incrementally. This is why MLE evaluation costs $O(2^n)$ instead of $O(n \cdot 2^n)$. The same tensor structure enables:
+The streaming algorithm exploits this tensor structure. Instead of computing all $2^n$ Lagrange values (expensive), it processes one coordinate at a time, folding the tensor product incrementally. This is why MLE evaluation costs $O(2^n)$ instead of $O(n \cdot 2^n)$. The same tensor structure enables:
 
 - Efficient prover algorithms for sum-check (Chapter 19)
 
@@ -386,7 +388,7 @@ The sum-check protocol (Chapter 3) proves claims of the form:
 
 $$H = \sum_{b \in \{0,1\}^n} g(b)$$
 
-for some polynomial $g$. When $g$ is the multilinear extension of a function, this sum is just... the sum of all function values.
+for some polynomial $g$. When $g$ is the multilinear extension of a function $f$, this sum equals $\sum_{b \in \{0,1\}^n} f(b)$, the sum of all function values on the hypercube.
 
 **Example**: Prove that a vector $(v_1, \ldots, v_N)$ with $N = 2^n$ sums to a claimed value $H$.
 
@@ -399,9 +401,9 @@ This is the bridge from "data" to "proof": encode data as an MLE, verify propert
 
 
 
-## The Golden Link: Evaluations = Coordinates
+## Evaluations and Coefficients
 
-Here's a perspective that clarifies many constructions.
+A perspective that clarifies many constructions:
 
 A multilinear polynomial $\tilde{f}$ has $2^n$ coefficients (the $c_S$ values in the monomial expansion $\sum_S c_S \prod_{i \in S} X_i$). These coefficients live in an abstract "coefficient space."
 
@@ -409,7 +411,7 @@ But $\tilde{f}$ also has $2^n$ evaluations on the hypercube. These evaluations a
 
 These are not the same numbers. The table entry $f(0,0) = 3$ in our worked example is not a coefficient of the polynomial. The polynomial $\tilde{f}(X_1, X_2) = 3 - X_1 + 4X_2 - X_1X_2$ has coefficients $\{3, -1, 4, -1\}$, while the table values are $\{3, 7, 2, 5\}$. They're related by the Lagrange interpolation formula.
 
-**The key insight**: For multilinear polynomials, the evaluation table *is* a complete description. You can recover coefficients from evaluations and vice versa. They're just two bases for the same $2^n$-dimensional vector space.
+For multilinear polynomials, the evaluation table *is* a complete description. You can recover coefficients from evaluations and vice versa. They're just two bases for the same $2^n$-dimensional vector space.
 
 The transformation between bases is exactly the Lagrange interpolation formula and its inverse. Both can be computed in $O(2^n)$ time.
 
