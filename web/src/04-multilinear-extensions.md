@@ -35,7 +35,7 @@ n = 3: A cube with 8 vertices
 
 Any function $f: \{0,1\}^n \to \mathbb{F}$ assigns a field element to each vertex of this hypercube. There are $2^n$ vertices, so $f$ is essentially a table of $2^n$ values.
 
-**Examples**:
+For example:
 
 - A vector $(v_1, \ldots, v_{2^n})$ can be viewed as $f(b) = v_{1 + \text{bin}(b)}$ where $\text{bin}(b)$ converts the bit string to an index
 
@@ -53,9 +53,9 @@ But polynomials live over fields, not just $\{0,1\}$. We want a polynomial that 
 
 In Chapter 2, we used univariate polynomials (Reed-Solomon). Why switch to multivariate now?
 
-**The degree problem.** If you encode $N = 2^{20}$ data points into a single-variable polynomial $p(x)$, that polynomial has degree about one million. Manipulating degree-million polynomials is expensive, requiring heavy FFT operations.
+The problem with univariate encoding is degree: if you encode $N = 2^{20}$ data points into a single-variable polynomial $p(x)$, that polynomial has degree about one million. Manipulating degree-million polynomials is expensive, requiring heavy FFT operations.
 
-**The multilinear solution.** If you encode the same $2^{20}$ points into a 20-variable multilinear polynomial, the degree in each variable is just 1. The total degree is only 20. By increasing the number of variables, we drastically lower the per-variable degree. This tradeoff (more variables, lower degree) enables the linear-time prover algorithms that power modern systems like HyperPlonk and Lasso, avoiding the expensive FFTs required by univariate approaches.
+Multilinear polynomials avoid this. If you encode the same $2^{20}$ points into a 20-variable multilinear polynomial, the degree in each variable is just 1. The total degree is only 20. By increasing the number of variables, we drastically lower the per-variable degree. This tradeoff (more variables, lower degree) enables the linear-time prover algorithms that power modern systems like HyperPlonk and Lasso, avoiding the expensive FFTs required by univariate approaches.
 
 A polynomial in $n$ variables has terms like $X_1^{a_1} X_2^{a_2} \cdots X_n^{a_n}$ with various exponents. The **degree** in variable $X_i$ is the maximum exponent of $X_i$ across all terms.
 
@@ -88,7 +88,7 @@ $$L_w(X) = \prod_{i=1}^{n} \left( w_i \cdot X_i + (1 - w_i)(1 - X_i) \right)$$
 
 This polynomial has a beautiful property: it equals 1 at $w$ and 0 at every other hypercube point.
 
-**Why?** At point $w$:
+To see why, consider what happens at point $w$:
 
 - If $w_i = 1$: the factor is $1 \cdot X_i + 0 \cdot (1 - X_i) = X_i$, which evaluates to $1$
 
@@ -153,7 +153,7 @@ The equality polynomial appears constantly in sum-check-based protocols. Here's 
 
 Let's trace through a complete example.
 
-**The function**: $f: \{0,1\}^2 \to \mathbb{F}$ defined by the table:
+Consider $f: \{0,1\}^2 \to \mathbb{F}$ defined by the table:
 
 | $(X_1, X_2)$ | $f(X_1, X_2)$ |
 |--------------|---------------|
@@ -162,14 +162,14 @@ Let's trace through a complete example.
 | $(1, 0)$     | $2$           |
 | $(1, 1)$     | $5$           |
 
-**The Lagrange basis polynomials**:
+The Lagrange basis polynomials are:
 
 $$L_{(0,0)}(X) = (1 - X_1)(1 - X_2)$$
 $$L_{(0,1)}(X) = (1 - X_1) \cdot X_2$$
 $$L_{(1,0)}(X) = X_1 \cdot (1 - X_2)$$
 $$L_{(1,1)}(X) = X_1 \cdot X_2$$
 
-**The multilinear extension**:
+The multilinear extension is then:
 
 $$\tilde{f}(X_1, X_2) = 3 \cdot (1-X_1)(1-X_2) + 7 \cdot (1-X_1)X_2 + 2 \cdot X_1(1-X_2) + 5 \cdot X_1 X_2$$
 
@@ -180,7 +180,7 @@ $$= 3 - 3X_1 - 3X_2 + 3X_1X_2 + 7X_2 - 7X_1X_2 + 2X_1 - 2X_1X_2 + 5X_1X_2$$
 $$= 3 + (-3 + 2)X_1 + (-3 + 7)X_2 + (3 - 7 - 2 + 5)X_1X_2$$
 $$= 3 - X_1 + 4X_2 - X_1X_2$$
 
-**Verification**: Check that this matches the table:
+We can verify this matches the table:
 
 - $\tilde{f}(0,0) = 3 - 0 + 0 - 0 = 3$ (matches)
 
@@ -190,7 +190,7 @@ $$= 3 - X_1 + 4X_2 - X_1X_2$$
 
 - $\tilde{f}(1,1) = 3 - 1 + 4 - 1 = 5$ (matches)
 
-**Evaluation at a random point**: What is $\tilde{f}(0.5, 0.3)$?
+What happens at a non-boolean point? Evaluating at $(0.5, 0.3)$:
 $$\tilde{f}(0.5, 0.3) = 3 - 0.5 + 4(0.3) - (0.5)(0.3) = 3 - 0.5 + 1.2 - 0.15 = 3.55$$
 
 This value has no "meaning" on the hypercube; $(0.5, 0.3)$ isn't a Boolean point. But this is exactly what we want: the polynomial is defined everywhere, and random evaluation is the key to probabilistic verification.
@@ -201,12 +201,12 @@ This value has no "meaning" on the hypercube; $(0.5, 0.3)$ isn't a Boolean point
 
 Given the table of values $\{f(w) : w \in \{0,1\}^n\}$ and a query point $r \in \mathbb{F}^n$, how fast can we compute $\tilde{f}(r)$?
 
-**Naive approach**: Sum over all $2^n$ terms:
+The naive approach sums over all $2^n$ terms:
 $$\tilde{f}(r) = \sum_{w \in \{0,1\}^n} f(w) \cdot L_w(r)$$
 
 Each $L_w(r)$ takes $O(n)$ to compute. Total: $O(n \cdot 2^n)$.
 
-**Better: Streaming evaluation**. We can compute $\tilde{f}(r)$ in $O(2^n)$ time with the following observation.
+We can do better with streaming evaluation. $\tilde{f}(r)$ is computable in $O(2^n)$ time with the following observation.
 
 Define $T_k$ as the "partial extension" using only the first $k$ variables of $r$:
 
@@ -264,10 +264,10 @@ $$T_2 = (1 - r_2) \cdot T_1(0) + r_2 \cdot T_1(1) = 0.3 \cdot 2.6 + 0.7 \cdot 6.
 
 The table has shrunk from 2 values to 1 value. This single value is $\tilde{f}(0.4, 0.7) = 5.12$.
 
-**Verification**: Using the explicit formula $\tilde{f}(X_1, X_2) = 3 - X_1 + 4X_2 - X_1X_2$:
+We can verify using the explicit formula $\tilde{f}(X_1, X_2) = 3 - X_1 + 4X_2 - X_1X_2$:
 $$\tilde{f}(0.4, 0.7) = 3 - 0.4 + 4(0.7) - (0.4)(0.7) = 3 - 0.4 + 2.8 - 0.28 = 5.12 \checkmark$$
 
-**Why does this work?** The Lagrange basis polynomial factorizes into independent pieces, one per coordinate:
+This works because the Lagrange basis polynomial factorizes into independent pieces, one per coordinate:
 $$L_{(b_1, b_2)}(r_1, r_2) = L_{b_1}(r_1) \cdot L_{b_2}(r_2)$$
 
 where $L_0(r) = 1 - r$ and $L_1(r) = r$ are univariate selectors. This factorization holds because the multilinear Lagrange formula is a *product* over coordinates:
@@ -276,7 +276,7 @@ $$L_w(X) = \prod_{i=1}^{n} \left( w_i \cdot X_i + (1 - w_i)(1 - X_i) \right)$$
 
 Each factor depends only on one coordinate of $w$ and one coordinate of $X$. So evaluating at $(r_1, r_2)$ gives a product of independent terms.
 
-**How the algorithm exploits this**: The MLE evaluation is:
+The algorithm exploits this factorization. The MLE evaluation is:
 $$\tilde{f}(r_1, r_2) = \sum_{b_1, b_2 \in \{0,1\}} f(b_1, b_2) \cdot L_{b_1}(r_1) \cdot L_{b_2}(r_2)$$
 
 Rearranging the sum (grouping by $b_2$):
@@ -284,7 +284,7 @@ $$= \sum_{b_2} L_{b_2}(r_2) \cdot \underbrace{\left( \sum_{b_1} f(b_1, b_2) \cdo
 
 The inner sum is exactly what Step 1 computes: for each value of $b_2$, it combines the two $b_1$ cases using weights $L_0(r_1) = 1 - r_1$ and $L_1(r_1) = r_1$. The result $T_1$ has half as many entries. Step 2 then folds in the $r_2$ weights similarly.
 
-**The Tournament Bracket.** Think of a single-elimination tournament with $2^n$ players. In each round, pairs compete and half are eliminated. After $n$ rounds, one champion remains. The streaming algorithm works the same way: $2^n$ table entries enter, each round uses a random weight to combine pairs, and after $n$ rounds a single evaluation emerges. The tournament bracket is the structure of multilinear computation.
+An analogy helps here: think of a single-elimination tournament with $2^n$ players. In each round, pairs compete and half are eliminated. After $n$ rounds, one champion remains. The streaming algorithm works the same way: $2^n$ table entries enter, each round uses a random weight to combine pairs, and after $n$ rounds a single evaluation emerges. The tournament bracket is the structure of multilinear computation.
 
 This pattern of using a random challenge to collapse pairs of values and halving the problem size will reappear throughout this book. In Chapter 10 (FRI), we'll name it **folding** and see it as one of the central techniques in zero-knowledge proofs.
 
@@ -390,7 +390,7 @@ $$H = \sum_{b \in \{0,1\}^n} g(b)$$
 
 for some polynomial $g$. When $g$ is the multilinear extension of a function $f$, this sum equals $\sum_{b \in \{0,1\}^n} f(b)$, the sum of all function values on the hypercube.
 
-**Example**: Prove that a vector $(v_1, \ldots, v_N)$ with $N = 2^n$ sums to a claimed value $H$.
+As an example, suppose we want to prove that a vector $(v_1, \ldots, v_N)$ with $N = 2^n$ sums to a claimed value $H$.
 
 Let $\tilde{v}$ be the MLE encoding the vector. Then:
 $$\sum_{b \in \{0,1\}^n} \tilde{v}(b) = \sum_{i=1}^{N} v_i = H$$
