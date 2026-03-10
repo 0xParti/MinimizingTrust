@@ -184,20 +184,17 @@
                     <main>
                         <h1 id="chapter-15-starks"><a class="header" href="#chapter-15-starks">Chapter 15: STARKs</a></h1>
 <p>While Gabizon and Williamson were building PLONK, a parallel revolution was underway.</p>
-<p>Eli Ben-Sasson had been thinking about proofs for two decades. As a theoretical computer scientist, he'd worked on probabilistically checkable proofs (PCPs) since the early 2000s, the remarkable discovery that any mathematical proof can be encoded so that a verifier need only spot-check a few random bits to detect errors. PCPs had transformed complexity theory but remained a theoretical curiosity. The constructions were galactic: asymptotically efficient, practically useless.</p>
-<p>Then came the blockchain era. Suddenly there was demand for proofs that were not only short and easy to verify, but <em>trustless</em>. The SNARKs emerging in 2013-2016 (Pinocchio, Groth16) achieved remarkable succinctness using pairing-based cryptography. But they required trusted setup: someone generated secret parameters, hopefully destroyed them, and everyone trusted the ceremony worked. PLONK (2019) would make the setup universal and updatable, but couldn't eliminate it entirely. The &quot;toxic waste&quot; remained.</p>
-<p>Ben-Sasson asked a different question: could you build proof systems using <em>nothing but hash functions</em>?</p>
-<p>In 2018, the same year PLONK was taking shape, Ben-Sasson and colleagues (Iddo Bentov, Yinon Horesh, and Michael Riabzev) published &quot;Scalable, Transparent, and Post-quantum Secure Computational Integrity.&quot; The acronym spelled <strong>STARK</strong>: Scalable Transparent ARgument of Knowledge. The key words were <em>transparent</em> (no trusted setup, no toxic waste, no ceremonies) and <em>post-quantum</em> (secure against quantum computers). Where PLONK optimized pairing-based cryptography, STARKs abandoned it entirely.</p>
-<p>The theoretical foundations weren't new. Interactive Oracle Proofs (IOPs), the FRI protocol (Fast Reed-Solomon Interactive Oracle Proof of Proximity), the ALI protocol (Algebraic Linking IOP): these had been developed over the preceding years, often by the same researchers. What the 2018 paper achieved was synthesis: a complete system that could prove arbitrary computations with practical efficiency, security based only on collision-resistant hashing.</p>
-<p>Ben-Sasson founded StarkWare the same year to commercialize the technology. By 2020, StarkEx was processing transactions on Ethereum, around the same time Plookup was solving the lookup problem for PLONK-based systems. Other teams followed: Polygon (formerly Matic) developed their own STARK implementation, RISC Zero built a STARK-based zkVM, and the open-source ecosystem grew.</p>
-<p>The two paradigms, pairing-based (Groth16, PLONK) and hash-based (STARKs), now coexist in production, each with distinct trade-offs. This chapter develops the STARK paradigm: how hash-based polynomial commitments (Chapter 10's FRI) combine with a state-machine model of computation to yield proofs that are transparent, scalable, and quantum-resistant, at the cost of larger proof sizes than their pairing-based cousins.</p>
+<p>Eli Ben-Sasson had been working on probabilistically checkable proofs (PCPs) since the early 2000s: the discovery that any proof can be encoded so a verifier need only spot-check a few random bits to detect errors. PCPs transformed complexity theory but remained practically useless. The constructions were galactic.</p>
+<p>All the pairing-based SNARKs we've seen (Groth16, PLONK) require trusted setup. Ben-Sasson asked a different question: could you build proof systems using <em>nothing but hash functions</em>?</p>
+<p>In 2018, Ben-Sasson and colleagues (Bentov, Horesh, Riabzev) published the <strong>STARK</strong> (Scalable Transparent ARgument of Knowledge) construction: transparent (no trusted setup), post-quantum (no pairings), with security based only on collision-resistant hashing. The theoretical ingredients, Interactive Oracle Proofs (IOPs), the FRI protocol (see Chapter 10), the ALI protocol (Algebraic Linking IOP), had been developed over the preceding years, often by the same researchers. The 2018 paper synthesized them into a complete, practical system.</p>
+<p>STARKs have since become one of the two dominant proof system families, with independent implementations by StarkWare, Polygon, and RISC Zero. This chapter develops the STARK paradigm: how FRI combines with a state-machine model of computation to yield transparent, scalable, quantum-resistant proofs, at the cost of larger proof sizes than their pairing-based cousins.</p>
 <hr />
 <h2 id="why-not-pairings"><a class="header" href="#why-not-pairings">Why Not Pairings?</a></h2>
 <p>The most efficient SNARKs in Chapters 12-13 rely on pairing-based polynomial commitments. Groth16 builds pairings directly into its verification equation. PLONK is a polynomial IOP, agnostic to the commitment scheme, but achieves its smallest proofs when compiled with KZG, which requires pairings. The bilinear map $e: \mathbb{G}_1 \times \mathbb{G}_2 \to \mathbb{G}_T$ is what enables constant-size proofs and $O(1)$ verification.</p>
 <p>This foundation is remarkably productive. But it carries costs that grow heavier with scrutiny.</p>
 <p><strong>The first cost is trust.</strong> A KZG commitment scheme requires a structured reference string: powers of a secret $\tau$ encoded in the group. Someone generated that $\tau$. If they kept it, they can forge proofs. The elaborate ceremonies of Chapter 12 (the multi-party computations, the public randomness beacons, the trusted participants) exist to distribute this trust. But distributed trust is still trust. The ceremony could fail. Participants could collude. The procedures could contain subtle flaws discovered years later.</p>
 <p><strong>The second cost is quantum vulnerability.</strong> Shor's algorithm solves discrete logarithms in polynomial time on a quantum computer. The security of KZG, Groth16, and IPA all rest on the hardness of discrete log in elliptic curve groups. Pairings add structure on top of this assumption but don't change the underlying vulnerability. When a sufficiently large quantum computer exists, all these schemes break. When that day comes is uncertain. That it will come seems increasingly likely. A proof verified today may need to remain trusted for decades.</p>
-<p><strong>The third cost is algebraic rigidity.</strong> Pairings require carefully chosen curves with embedding degree constraints, specific field characteristics, and compatible subgroups. The curves must support efficient pairing computation while remaining cryptographically secure, a delicate balance that has produced a small family of &quot;pairing-friendly&quot; curves, each with its own quirks and potential weaknesses.</p>
+<p><strong>The third cost is field rigidity.</strong> Only a small family of elliptic curves support efficient pairings while remaining cryptographically secure, and each curve dictates a specific large prime field (e.g., the 254-bit field of BN254, the 381-bit field of BLS12-381). Pairing-based proof systems are locked into these fields, ruling out optimizations over smaller or differently structured fields where arithmetic is dramatically cheaper.</p>
 <p>STARKs abandon elliptic curves entirely. They ask a more primitive question: <em>what can we prove using only hash functions?</em></p>
 <h2 id="the-hash-function-gambit"><a class="header" href="#the-hash-function-gambit">The Hash Function Gambit</a></h2>
 <p>A collision-resistant hash function is perhaps the most conservative cryptographic assumption we have. SHA-256, Blake3, Keccak: these primitives are analyzed relentlessly, deployed universally, and trusted implicitly. They offer no algebraic structure, no homomorphisms, no elegant equations. Just a box that takes input and produces output, where finding two inputs with the same output is computationally infeasible.</p>
@@ -205,31 +202,21 @@
 <p>This seems like a step backward. Algebraic structure is what made polynomial commitments possible. KZG works because $g^{p(\tau)}$ preserves polynomial relationships, because the commitment scheme respects the algebra of the underlying object. A hash function respects nothing. $H(a + b) \neq H(a) + H(b)$. The hash of a polynomial evaluation tells you nothing about the polynomial.</p>
 <p>Yet hash functions offer something pairings cannot: a Merkle tree. Chapter 10 developed this machinery in detail; here we summarize the key ideas before showing how STARKs compose them into a complete proof system.</p>
 <p>Commit to a sequence of values by hashing them into a binary tree. The root is the commitment. To open any leaf, provide the authentication path, the $O(\log n)$ hashes connecting that leaf to the root. The binding property is information-theoretic within the random oracle model: changing any leaf changes the root. No trapdoors, no toxic waste, no ceremonies.</p>
-<p>The problem is that a Merkle commitment is too strong in one sense and too weak in another. Too strong: opening a position requires $O(\log n)$ hash values, not $O(1)$ like KZG. Too weak: there's no way to prove anything <em>about</em> the committed values without opening them. A KZG commitment to a polynomial $p$ lets you prove $p(z) = v$ with a single group element. A Merkle commitment to the evaluations of $p$ on a domain lets you prove $p(z) = v$ only if $z$ happens to be one of the committed points, and only by opening that point explicitly.</p>
+<p>The problem is that a Merkle commitment is simultaneously too strong and too weak. It's too strong in that opening a single position already costs $O(\log n)$ hash values, compared to $O(1)$ for KZG. And it's too weak in that there's no way to prove anything <em>about</em> the committed values without opening them. A KZG commitment to a polynomial $p$ lets you prove $p(z) = v$ at any point with a single group element. A Merkle commitment to evaluations of $p$ on a domain lets you prove $p(z) = v$ only if $z$ happens to be in the domain, and only by opening that leaf explicitly.</p>
 <p>The insight behind STARKs is that these limitations can be overcome by a shift in perspective. Instead of proving polynomial identities directly, we prove that a committed function is <em>close to</em> a low-degree polynomial. This is the domain of coding theory, not algebra. And coding theory has powerful tools for detecting errors through random sampling.</p>
 <h2 id="the-reed-solomon-lens"><a class="header" href="#the-reed-solomon-lens">The Reed-Solomon Lens</a></h2>
-<p>The key insight comes from an unexpected source: a 1960 paper by Irving Reed and Gustave Solomon, written not for cryptography but for sending data to spacecraft.</p>
-<p>The problem they faced was corruption. Radio signals degrade over interplanetary distances. Cosmic rays flip bits. Antenna interference scrambles transmissions. If you beam raw data to a satellite, any corruption destroys information irretrievably. Reed and Solomon asked: can we encode messages so that errors become <em>visible</em>, so corrupted data announces itself as corrupted?</p>
-<p>Their answer was polynomials.</p>
-<p><strong>The encoding trick.</strong> To protect $k$ symbols, interpret them as coefficients of a degree-$(k-1)$ polynomial $p(X)$. Then evaluate $p$ at $n \gg k$ points. Send these $n$ evaluations instead of the original $k$ symbols. This is deliberate redundancy, more data than strictly necessary.</p>
-<p>Why does this help? Because polynomials are rigid objects. A degree-$(k-1)$ polynomial is completely determined by any $k$ of its evaluations (Lagrange interpolation). The remaining $n - k$ evaluations add no new information; they're mathematically implied by the first $k$. But they add <em>constraints</em>. Every evaluation must be consistent with a single underlying polynomial.</p>
-<p><strong>The beautiful consequence.</strong> Corrupt even one evaluation, and the spell breaks. The corrupted sequence no longer lies on <em>any</em> degree-$(k-1)$ polynomial. The error doesn't hide; it creates a global inconsistency. This is the magic that makes Reed-Solomon codes work on CDs, DVDs, QR codes, and the Voyager spacecraft still transmitting from interstellar space.</p>
-<p>Think of it this way: a polynomial is like a crystal lattice. Every atom's position is determined by the structure as a whole. You cannot move one atom without shattering the crystal (or rather, you can move it, but what remains is no longer a crystal of the same type). It's a defect, and the defect is visible from almost any angle. A forger trying to fake a polynomial faces this crystalline rigidity. They can change one point, but they cannot make the change local. The alteration propagates, disrupts the global pattern, and announces itself to anyone who checks a random position.</p>
-<p><strong>The distance property.</strong> How different is a corrupted codeword from valid ones? Dramatically. Two distinct degree-$(k-1)$ polynomials agree on at most $k-1$ points (their difference is a degree-$(k-1)$ polynomial with at most $k-1$ roots). So any two valid codewords differ in at least $n - k + 1$ positions.</p>
-<p><em>Proof</em>: Let $p \neq q$ both have degree $&lt; k$. Then $p - q$ is nonzero with degree $&lt; k$, so it has at most $k-1$ roots. Thus $p(x) = q(x)$ for at most $k-1$ values, meaning they differ on at least $n - (k-1) = n - k + 1$ points. $\square$</p>
-<p>This is the <strong>minimum distance</strong> of the Reed-Solomon code: $d = n - k + 1$. Errors don't cluster; they spread across most of the codeword. Random sampling finds them.</p>
-<p><strong>The connection to STARKs.</strong> The prover commits to function evaluations via Merkle tree. They claim these evaluations correspond to a low-degree polynomial. If they're lying (if the committed function isn't actually low-degree) it disagrees with <em>every</em> low-degree polynomial on at least $n - k + 1$ points. Random queries find these disagreements with high probability.</p>
-<p><strong>Soundness bound</strong>: If the committed function disagrees with every degree-$(k-1)$ polynomial on at least $\delta n$ points (where $\delta = 1 - (k-1)/n$ is the relative distance), then a single random query hits a disagreement with probability $\geq \delta$. With $q$ independent queries, the probability of missing all disagreements is at most $(1-\delta)^q$. For a blowup factor $\rho = n/k$ (e.g., $\rho = 8$), we have $\delta \approx 1 - 1/\rho$, so $(1-\delta)^q \approx (1/\rho)^q$. With $\rho = 8$ and $q = 45$ queries: $(1/8)^{45} &lt; 2^{-135}$.</p>
-<p>This is the leverage STARKs exploit. The verifier doesn't need to check all $n$ evaluations. A random sample suffices.</p>
-<p>The <strong>FRI protocol</strong> (Chapter 10) formalizes this. Given a Merkle commitment to function evaluations, FRI proves the function is close to a polynomial of bounded degree. The prover cannot commit to garbage and claim it's low-degree; the random queries expose the lie.</p>
-<p>But FRI alone proves only that <em>some</em> polynomial is committed. We need to prove the <em>right</em> polynomial, one whose low-degree-ness implies validity of the original computation.</p>
+<p>Every proof system we've seen reduces computation to polynomial constraints. The prover commits to polynomials; the verifier checks that these polynomials satisfy certain identities. In pairing-based systems (Groth16, PLONK), the commitment scheme itself enforces polynomial structure: KZG commitments can only represent polynomials, and pairing checks verify evaluations algebraically. Low-degree-ness is built into the commitment.</p>
+<p>With Merkle trees, this is no longer free. A Merkle tree commits to arbitrary sequences of field elements, with no structural guarantee. The prover <em>claims</em> the committed values are evaluations of a low-degree polynomial, but nothing about the commitment prevents them from committing garbage.</p>
+<p>The Reed-Solomon encoding (Chapter 2) solves this. The prover's polynomial has degree at most $k - 1$, determined by $k$ evaluations. But the prover evaluates it on a much larger domain of $n$ points, with $n \gg k$, and commits to all $n$ values. This serves two purposes. First, it creates something to check: any $k$ field elements are consistent with <em>some</em> degree-$(k-1)$ polynomial (by Lagrange interpolation), so a commitment to just $k$ values can never be invalid. But most sequences of $n$ values are <em>not</em> consistent with any low-degree polynomial, so cheating becomes detectable. Second, the verifier queries random points in the extended domain rather than the trace domain, so the actual computation data is never revealed.</p>
+<p>The Reed-Solomon distance property quantifies the first point. If the committed values don't correspond to a degree-$(k-1)$ polynomial, they disagree with <em>every</em> such polynomial on at least $n - k + 1$ of the $n$ positions. A random query hits a disagreement with probability at least $\delta = 1 - (k-1)/n$, and $q$ independent queries miss all disagreements with probability at most $(1 - \delta)^q$. For a blowup factor $\rho = n/k = 8$ and $q = 45$ queries: $(1/8)^{45} &lt; 2^{-135}$. A random sample suffices.</p>
+<p>The <strong>FRI protocol</strong> (Chapter 10) turns this sampling argument into a complete interactive low-degree test, replacing the structural guarantee that KZG provides for free.</p>
+<p>So STARKs have a way to commit to polynomials (Merkle trees) and a way to verify they're low-degree (FRI). But FRI only proves a degree bound: the committed function is close to <em>some</em> low-degree polynomial. We still need to prove it's the <em>right</em> polynomial, one that encodes a valid computation. That requires a way to express computation as polynomial constraints.</p>
 <h2 id="computation-as-state-evolution"><a class="header" href="#computation-as-state-evolution">Computation as State Evolution</a></h2>
-<p>The proof systems of previous chapters represent computation as circuits: directed acyclic graphs where wires carry values and gates impose constraints. This is a natural model for expressing single computations, but it handles iteration awkwardly. A loop executing $n$ times becomes $n$ copies of the loop body, each a separate subcircuit. The structure that made the loop simple to write (the repetition of identical operations) is obscured in the flattened graph.</p>
+<p>How should we encode computation into polynomials for this framework? The proof systems of previous chapters use circuits: directed acyclic graphs where wires carry values and gates impose constraints. This works, but it handles iteration awkwardly. A loop executing $n$ times becomes $n$ copies of the loop body, each a separate subcircuit. The repetition that made the loop simple to write is obscured in the flattened graph.</p>
 <p>STARKs adopt a different model: the <strong>state machine</strong>.</p>
-<p>Think of a computation as a <strong>flip book animation</strong>. In the circuit model, you tear out every page, lay them flat on the floor, and wire them together with string showing which drawings connect to which. The result is a sprawling diagram where the sequential flow is lost in a web of connections. In the state machine model, you keep the book bound. Each page is a complete snapshot (the state at one moment), and you write down one rule of physics that governs how any page transforms into the next. The rule is the same for every page flip. To verify the animation, you don't need to trace all the strings; you just check that each pair of adjacent pages obeys the physics. A computation is a sequence of states $S_0, S_1, \ldots, S_{T-1}$ evolving over discrete time. Each state is a tuple of register values. A transition function $f$ maps $S_i$ to $S_{i+1}$. The function $f$ is fixed, the same at every timestep. Only the register values change.</p>
-<p>This model fits iterative computation like a glove. A hash function running for $n$ rounds is $n$ applications of the same round function. A CPU executing $n$ instructions is $n$ applications of the same instruction-processing logic (with the instruction itself read from a register). The uniformity across timesteps isn't merely notational convenience. It's the key to efficient proofs.</p>
-<p>Consider a circuit representation of $n$ loop iterations. Each iteration contributes its own gates and constraints. The total constraint count scales with $n$. Now consider a state machine representation. The transition constraints describe one step: &quot;if the current state satisfies certain conditions, the next state must satisfy certain other conditions.&quot; This description has fixed size, independent of $n$. The same constraints apply at every timestep.</p>
-<p><strong>A tiny example.</strong> Suppose we want to prove we computed $3^8 = 6561$. The state machine has two registers: a counter $c$ and an accumulator $a$. The transition rule: $c' = c + 1$ and $a' = a \cdot 3$. The trace:</p>
+<p>A computation is a sequence of states $S_0, S_1, \ldots, S_{T-1}$ evolving over discrete time. Each state is a tuple of register values. A transition function $f$ maps $S_i$ to $S_{i+1}$, and $f$ is the same at every timestep. Only the register values change.</p>
+<p>This uniformity is what makes the model efficient. A hash function running for $n$ rounds, a CPU executing $n$ instructions: both are $n$ applications of the same transition function. In a circuit, each iteration contributes its own gates and constraints, scaling linearly with $n$. In a state machine, the transition constraints describe a single step and apply identically at every timestep. The description has fixed size, independent of $n$.</p>
+<p>Suppose we want to prove we computed $3^8 = 6561$. The state machine has two registers: a counter $c$ and an accumulator $a$. The transition rule: $c' = c + 1$ and $a' = a \cdot 3$. The trace:</p>
 <div class="table-wrapper"><table><thead><tr><th>Step</th><th>$c$</th><th>$a$</th></tr></thead><tbody>
 <tr><td>0</td><td>0</td><td>1</td></tr>
 <tr><td>1</td><td>1</td><td>3</td></tr>
@@ -242,22 +229,20 @@
 <tr><td>8</td><td>8</td><td>6561</td></tr>
 </tbody></table>
 </div>
+<p>This table is a <em>trace</em>: a matrix with $w = 2$ registers and $T = 9$ rows. The &quot;Step&quot; column is just a label; the actual data is the $c$ and $a$ columns. Each row captures the complete state at one moment; each column tracks one register's evolution through time.</p>
 <p>The transition constraint (&quot;next accumulator equals current accumulator times 3&quot;) is the same at every row. We don't need 8 separate multiplication gates; we need one constraint that holds 8 times. The prover commits to the entire trace, then proves the constraint holds everywhere. For $3^{1000000}$, the constraint is still just one equation; only the trace grows longer.</p>
-<p>The table above <em>is</em> a trace. The &quot;Step&quot; column is just a label; the actual trace is the $c$ and $a$ columns, a matrix with $w = 2$ registers and $T = 9$ rows. Each row captures the complete state at one moment; each column tracks one register's journey through time. Reading across tells you what happened at step 4. Reading down tells you how the accumulator evolved.</p>
-<p>This is the conceptual shift from circuits to state machines. The witness changes from a circuit-wide assignment to a <strong>trace</strong>, a matrix where row $i$ is the state $S_i$ and each column is a register's evolution over time. Proving the computation is valid means proving that every adjacent pair of rows $(S_i, S_{i+1})$ satisfies the transition constraints.</p>
 <h2 id="algebraic-intermediate-representation"><a class="header" href="#algebraic-intermediate-representation">Algebraic Intermediate Representation</a></h2>
-<p>An <strong>AIR</strong> (Algebraic Intermediate Representation) encodes this structure in polynomial form.</p>
+<p>An <strong>AIR</strong> (Algebraic Intermediate Representation) encodes the trace and its transition constraints in polynomial form.</p>
 <p>The trace is a matrix with $w$ columns (registers) and $T$ rows (timesteps). Each column, viewed as a sequence of $T$ field elements, becomes a polynomial via interpolation. Choose a domain $H = {1, \omega, \omega^2, \ldots, \omega^{T-1}}$ where $\omega$ is a primitive $T$-th root of unity. The column polynomial $P_j(X)$ is the unique polynomial of degree less than $T$ satisfying $P_j(\omega^i) = \text{trace}[i][j]$.</p>
-<p><strong>Returning to our example.</strong> In the $3^8$ trace, we have two registers: $c$ (the counter) and $a$ (the accumulator). These become two column polynomials:</p>
+<p>In the $3^8$ trace, we have two registers: $c$ (the counter) and $a$ (the accumulator). These become two column polynomials:</p>
 <ul>
 <li>$P_c(X)$: the unique degree-8 polynomial passing through $(1, 0), (\omega, 1), (\omega^2, 2), \ldots, (\omega^8, 8)$</li>
 <li>$P_a(X)$: the unique degree-8 polynomial passing through $(1, 1), (\omega, 3), (\omega^2, 9), \ldots, (\omega^8, 6561)$</li>
 </ul>
-<p>The transition constraint &quot;next accumulator = current accumulator × 3&quot; becomes: $P_a(\omega X) = 3 \cdot P_a(X)$. At $X = \omega^2$, this says $P_a(\omega^3) = 3 \cdot P_a(\omega^2)$, i.e., $27 = 3 \cdot 9$. The polynomial identity encodes all 8 transition checks at once.</p>
-<p><strong>The general pattern.</strong> If the transition function requires that register $r_0$ at step $i+1$ equals $r_0^3 + r_1$ at step $i$, this becomes:</p>
+<p>Since $P_j(\omega^i)$ is the value of register $j$ at step $i$, replacing $X$ with $\omega X$ shifts forward by one step: $P_j(\omega \cdot \omega^i) = P_j(\omega^{i+1})$, which is step $i + 1$. This lets us express &quot;next row&quot; algebraically. The transition constraint &quot;next accumulator = current accumulator × 3&quot; becomes $P_a(\omega X) = 3 \cdot P_a(X)$. At $X = \omega^2$, this says $P_a(\omega^3) = 3 \cdot P_a(\omega^2)$, i.e., $27 = 3 \cdot 9$. The single polynomial identity encodes all 8 transition checks at once.</p>
+<p>Another example: if a different transition function requires that register $r_0$ at step $i+1$ equals $r_0^3 + r_1$ at step $i$, this becomes:</p>
 <p>$$P_0(\omega X) = P_0(X)^3 + P_1(X)$$</p>
-<p>The left side is the &quot;next-step&quot; value of register 0: $P_0(\omega \cdot \omega^i) = P_0(\omega^{i+1})$. The right side is the required function of current-step values.</p>
-<p>This identity must hold at every transition. When $X = \omega^i$, the left side becomes $P_0(\omega^{i+1})$ (next-step value) and the right side uses $P_0(\omega^i), P_1(\omega^i)$ (current-step values). So $X \in {1, \omega, \ldots, \omega^{T-2}}$ checks steps $0 \to 1$, $1 \to 2$, ..., $(T-2) \to (T-1)$, covering all $T-1$ transitions. Define the constraint polynomial:</p>
+<p>This identity must hold for $X \in {1, \omega, \ldots, \omega^{T-2}}$, covering all $T - 1$ transitions. Define the constraint polynomial:</p>
 <p>$$C(X) = P_0(\omega X) - P_0(X)^3 - P_1(X)$$</p>
 <p>If the trace is valid, $C(X)$ vanishes on $H' = {1, \omega, \ldots, \omega^{T-2}}$. By the factor theorem, $C(X)$ is divisible by the vanishing polynomial $Z_{H'}(X) = \prod_{h \in H'}(X - h)$. The quotient:</p>
 <p>$$Q(X) = \frac{C(X)}{Z_{H'}(X)}$$</p>
@@ -267,37 +252,23 @@
 <p>The degree of the constraint polynomial $C(X)$ directly impacts prover cost. If a transition constraint involves $P_0(X)^3$, that term has degree $3(T-1)$ (since $P_0$ has degree $T-1$). The composition polynomial inherits this: $\deg(\text{Comp}) \approx \deg(\text{constraint}) \times T$. The prover must commit to this polynomial over the LDE domain, and FRI must prove its degree bound.</p>
 <p>This creates a fundamental trade-off. Higher-degree constraints let you express more complex transitions in a single step, but they blow up the prover's work. A degree-8 constraint over a million-step trace produces a composition polynomial of degree ~8 million, requiring proportionally more commitment and FRI work. Most practical AIR systems keep constraint degree between 2 and 4, accepting more trace columns (more registers) to avoid high-degree terms. The art of AIR design is balancing expressiveness against this degree bottleneck.</p>
 </blockquote>
-<p><strong>Boundary constraints</strong> pin down the inputs and outputs. Transition constraints say &quot;each step follows the rules&quot;; boundary constraints say &quot;we started here and ended there.&quot; In our $3^8$ example:</p>
+<p>Transition constraints enforce the rules at every step, but they say nothing about <em>which</em> computation we're proving. We also need <strong>boundary constraints</strong> to pin down the inputs and outputs. In our $3^8$ example:</p>
 <ul>
 <li><strong>Input</strong>: $P_a(1) = 1$ (accumulator starts at 1)</li>
 <li><strong>Output</strong>: $P_a(\omega^8) = 6561$ (accumulator ends at $3^8$)</li>
 </ul>
 <p>Each becomes a divisibility check. If the input requires register 0 to equal 5 at step 0, the constraint $P_0(1) = 5$ becomes $P_0(X) - 5$ vanishing at $X = 1$, quotient $(P_0(X) - 5)/(X - 1)$.</p>
-<p><strong>Batching via random linear combination.</strong> We have multiple constraints: transition constraints (one quotient $Q_{\text{trans}}$), and boundary constraints (quotients $Q_{\text{in}}, Q_{\text{out}}$, possibly more). Rather than prove each separately, we batch them into a single polynomial using random challenges $\alpha_1, \alpha_2, \ldots$ (derived via Fiat-Shamir):</p>
+<p>We now have multiple constraint quotients: $Q_{\text{trans}}$ for the transition, $Q_{\text{in}}$ and $Q_{\text{out}}$ for boundaries, possibly more. Rather than prove each separately, we batch them into a single polynomial using random challenges $\alpha_1, \alpha_2, \ldots$ (derived via Fiat-Shamir):</p>
 <p>$$\text{Comp}(X) = \alpha_1 Q_{\text{trans}}(X) + \alpha_2 Q_{\text{in}}(X) + \alpha_3 Q_{\text{out}}(X) + \ldots$$</p>
 <p>Why does this work? If all quotients are polynomials, their linear combination is a polynomial. If any quotient has a pole (from a violated constraint), the random combination almost certainly preserves that pole: the $\alpha_i$ values would need to be precisely chosen to cancel it, which happens with negligible probability over a large field.</p>
-<p>This batching trick is ubiquitous: it reduces &quot;prove $n$ things&quot; to &quot;prove 1 thing&quot; with only a single random challenge per claim. The verifier's work stays constant regardless of constraint count.</p>
-<p><strong>The complete picture.</strong> A STARK proves three things simultaneously:</p>
+<p>Putting it together for our $3^8$ example, the three quotients are:</p>
 <ol>
-<li><strong>Transition constraints</strong>: the quotient $Q_{\text{trans}}(X) = C(X) / Z_{H'}(X)$ is a polynomial (each step follows the rules)</li>
+<li><strong>Transition</strong>: $Q_{\text{trans}}(X) = C(X) / Z_{H'}(X)$ is a polynomial (each step follows the rules)</li>
 <li><strong>Input boundary</strong>: $(P_a(1) - 1)/(X - 1)$ is a polynomial (accumulator starts at 1)</li>
 <li><strong>Output boundary</strong>: $(P_a(\omega^8) - 6561)/(X - \omega^8)$ is a polynomial (accumulator ends at 6561)</li>
 </ol>
-<p>All three get batched into one composition polynomial. If any constraint fails (wrong transition, wrong input, wrong output) the composition polynomial has a pole, and FRI rejects it as non-low-degree.</p>
-<p>The STARK protocol reduces to: the prover commits to the trace polynomials, derives challenges, computes the composition polynomial (batching transition and boundary quotients), and proves (via FRI) that it's low-degree.</p>
-<h2 id="the-low-degree-extension"><a class="header" href="#the-low-degree-extension">The Low-Degree Extension</a></h2>
-<p>Here is where the Merkle/FRI machinery enters.</p>
-<p>The trace polynomials $P_j(X)$ have degree less than $T$ (the number of timesteps, 9 in our $3^8$ example). The trace domain $H = {1, \omega, \ldots, \omega^{T-1}}$ has exactly $T$ points, so the polynomial fits perfectly: $T$ points determine a degree-$(T-1)$ polynomial.</p>
-<p>The prover evaluates them not on $H$ alone, but on a larger domain $D \supset H$, typically 4 to 16 times larger. This is the <strong>low-degree extension (LDE)</strong>.</p>
-<p>Why extend beyond $H$? Not because we need more space (the polynomial already fits $H$ exactly). We extend for <em>redundancy</em>, the same reason Reed-Solomon codes evaluate beyond the message length. The key insight is that <strong>if you only check points in $H$, the prover can cheat by committing to any function that happens to match the &quot;right&quot; values on $H$, regardless of whether it's a low-degree polynomial.</strong></p>
-<p><strong>A tiny example.</strong> Suppose the honest trace polynomial is $P(X) = X$ (degree 1), evaluated on $H = {1, 2}$: values are $P(1) = 1, P(2) = 2$. A cheating prover wants to claim a different trace, say values $1, 5$ on $H$. They commit to some function $f$ with $f(1) = 1, f(2) = 5$.</p>
-<p>If the verifier only checks points in $H$, the cheater wins: $f$ gives the &quot;right&quot; answers on $H$ by construction. But there's no degree-1 polynomial through $(1, 1)$ and $(2, 5)$ that equals the honest $P(X) = X$.</p>
-<p>Now extend to $D = {1, 2, 3, 4}$. The honest polynomial $P(X) = X$ extends to $P(3) = 3, P(4) = 4$. The cheater's function $f$, whatever it is, must give <em>some</em> values at 3 and 4. If $f$ is the degree-1 polynomial through $(1,1)$ and $(2,5)$, that's $f(X) = 4X - 3$, so $f(3) = 9, f(4) = 13$.</p>
-<p><strong>But what check catches this?</strong> The verifier doesn't know the &quot;honest&quot; values; they're trying to determine if the prover is honest. The answer: the verifier checks <em>constraints</em>. The trace must satisfy some relation, say $P(2) = 2 \cdot P(1)$ (doubling). The honest trace $(1, 2)$ satisfies this. The cheater's trace $(1, 5)$ doesn't: $5 \neq 2 \cdot 1$.</p>
-<p>This constraint failure propagates. The constraint polynomial $C(X) = P(2X) - 2P(X)$ should vanish on $H$. For the cheater, it doesn't, so $C(X)/Z_H(X)$ has a pole. It's not a polynomial. When the verifier runs FRI on this &quot;quotient,&quot; they're testing whether a non-polynomial is low-degree. FRI queries random points in $D$, and at most of them, the non-polynomial disagrees with every actual low-degree polynomial. Extension doesn't just spread the trace; it spreads the <em>evidence of constraint violation</em>.</p>
-<p>With larger extension factors (say $|D| = 8|H|$), FRI's random queries land outside $H$ with probability 7/8, catching the fraud almost always.</p>
-<p>The prover commits to the LDE evaluations via Merkle tree. Each leaf is $P_j(x)$ for some $x \in D$. The root is the commitment. Once committed, the prover cannot change evaluations without breaking the Merkle binding.</p>
-<p>Now suppose the prover cheated on the trace at row $i$. The constraint polynomial $C(X)$ doesn't vanish at $\omega^i$. The quotient $Q(X)$ has a pole there, so it's not a polynomial. The composition polynomial inherits this non-polynomiality. When evaluated on $D$, this &quot;polynomial&quot; disagrees with every actual low-degree polynomial at a constant fraction of points (the Reed-Solomon distance property). FRI's random queries detect this with overwhelming probability.</p>
+<p>If any constraint fails, the corresponding quotient has a pole, the composition polynomial inherits it, and FRI rejects it as non-low-degree.</p>
+<p>To make this concrete: the trace polynomials $P_j(X)$ have degree at most $T - 1$, since the trace domain $H = {1, \omega, \ldots, \omega^{T-1}}$ has $T$ points (9 in our $3^8$ example). The prover evaluates them not on $H$ alone, but on a larger domain $D \supset H$, typically 4 to 16 times larger. This is the <strong>low-degree extension (LDE)</strong>. As we saw in the Reed-Solomon section, this redundancy is what makes cheating detectable: FRI's random queries in $D$ catch the non-low-degree composition polynomial. The prover commits to these LDE evaluations via Merkle tree, with the root as the commitment.</p>
 <h2 id="the-complete-protocol"><a class="header" href="#the-complete-protocol">The Complete Protocol</a></h2>
 <p><strong>Prover's Algorithm:</strong></p>
 <ol>
@@ -308,16 +279,16 @@
 <p>Interpolate each trace column to obtain polynomials $P_1(X), \ldots, P_w(X)$ over domain $H$.</p>
 </li>
 <li>
-<p>Evaluate these polynomials on the LDE domain $D$. Commit via Merkle tree. Output <code>trace_root</code>.</p>
+<p>Evaluate all $w$ polynomials on the LDE domain $D$, forming a $|D| \times w$ matrix. Commit this matrix in a single Merkle tree: each leaf is the hash of one row $(P_1(x), \ldots, P_w(x))$ for a domain point $x \in D$. Send the trace root to the verifier.</p>
 </li>
 <li>
 <p>Derive random challenges $\alpha_1, \alpha_2, \ldots$ by hashing the transcript (Fiat-Shamir).</p>
 </li>
 <li>
-<p>Compute constraint polynomials, form quotients, combine into the composition polynomial.</p>
+<p>Compute constraint polynomials, form quotients, and batch them into the composition polynomial using the challenges from step 4.</p>
 </li>
 <li>
-<p>Evaluate the composition polynomial on $D$. Commit via Merkle tree. Output <code>composition_root</code>.</p>
+<p>Evaluate the composition polynomial on $D$. Commit via a second Merkle tree and send the composition root to the verifier.</p>
 </li>
 <li>
 <p>Run FRI on the composition polynomial, proving it has degree less than the known bound.</p>
@@ -326,11 +297,11 @@
 <p>Derive query points $x_1, \ldots, x_k$ by hashing the transcript (Fiat-Shamir). For each $x_i$: open the trace polynomials and composition polynomial, providing Merkle authentication paths.</p>
 </li>
 </ol>
-<p><strong>How many queries?</strong> Each query catches a cheater with probability roughly $1 - 1/\rho$, where $\rho$ is the blowup factor (size of $D$ divided by size of $H$). With $k$ queries, soundness error is roughly $(1/\rho)^k$. For 128-bit security with blowup factor 8, around 45 queries suffice.</p>
+<p>Each query catches a cheater with probability roughly $1 - 1/\rho$, where $\rho$ is the blowup factor ($|D|/|H|$). With $k$ queries, soundness error is roughly $(1/\rho)^k$. For 128-bit security with blowup factor 8, around 45 queries suffice.</p>
 <p><strong>Verifier's Algorithm:</strong></p>
 <ol>
 <li>
-<p>Receive <code>trace_root</code>, <code>composition_root</code>, FRI commitments, and query responses.</p>
+<p>Receive the Merkle roots (trace and composition), FRI commitments, and query responses.</p>
 </li>
 <li>
 <p>Derive all Fiat-Shamir challenges from the transcript.</p>
@@ -341,33 +312,21 @@
 <li>
 <p>For each query point $x$:</p>
 <ul>
-<li>Verify the Merkle paths for trace openings.</li>
-<li>Using the opened trace values at $x$, locally compute what the composition polynomial should equal at $x$.</li>
-<li>Check that this matches the FRI-verified composition value.</li>
+<li>The prover opens the trace Merkle tree at $x$, providing the row $(P_1(x), \ldots, P_w(x))$ and an authentication path. The verifier hashes the row and checks it against the trace root.</li>
+<li>The prover also opens the composition Merkle tree at $x$, providing $\text{Comp}(x)$ and its authentication path. The verifier checks it against the composition root (which FRI proved corresponds to a low-degree polynomial).</li>
+<li>The verifier plugs the trace values into the constraint equations, forms the quotients, applies the batching coefficients $\alpha_i$, and locally recomputes what $\text{Comp}(x)$ should be. If this doesn't match the opened composition value, reject.</li>
 </ul>
 </li>
 <li>
 <p>Accept if all checks pass.</p>
 </li>
 </ol>
-<p>The last step, the <strong>AIR-FRI link</strong>, is crucial and often underappreciated. Consider what FRI actually proves: the committed function is close to <em>some</em> low-degree polynomial. That's it. FRI doesn't know about constraints, traces, or computations; it just tests degree.</p>
-<p>A cheating prover could commit to the polynomial $P(X) = 0$, run FRI (which passes, since zero is certainly low-degree), and hope the verifier is satisfied. The AIR-FRI link closes this gap.</p>
-<p>At each query point $x$, the verifier has:</p>
-<ul>
-<li>The trace values $P_1(x), \ldots, P_w(x)$ (opened via Merkle proof)</li>
-<li>The composition value $C(x)$ (verified by FRI)</li>
-</ul>
-<p>The verifier <em>locally recomputes</em> what $C(x)$ should be: plug the trace values into the constraint equations, form the quotients, apply the random batching coefficients. This computation doesn't require the full polynomials, just the values at $x$. If the prover's committed composition matches this recomputation at all $k$ query points, the verifier accepts.</p>
-<p>Why does this work? The prover committed to the trace <em>before</em> learning the query points (Fiat-Shamir). If the trace violates any constraint, the composition &quot;polynomial&quot; isn't actually low-degree; it has poles. FRI catches this. If the trace is valid but the prover committed to a <em>different</em> composition, the two disagree at most points (Schwartz-Zippel). The random queries catch this.</p>
-<p>The AIR-FRI link is where the abstract (FRI proves low-degree) meets the concrete (this specific polynomial encodes this specific computation).</p>
-<blockquote>
-<p><strong>DEEP-FRI vs. Standard FRI</strong></p>
-<p>The protocol described here uses the <strong>DEEP method</strong> (Domain Extension for Eliminating Pretenders). In standard FRI, the verifier queries the composition polynomial only at points in the LDE domain $D$. A subtle attack exists: a cheating prover could commit to a function that's low-degree <em>on $D$</em> but encodes the wrong trace values. DEEP closes this gap by having the verifier sample a random point $z$ <em>outside</em> $D$ and requiring the prover to open trace polynomials there. Since honest trace polynomials are globally low-degree, they can be evaluated anywhere; a cheater who faked values only on $D$ cannot consistently answer queries at $z$. The &quot;domain extension&quot; refers to this expansion beyond $D$; &quot;eliminating pretenders&quot; refers to catching cheaters whose polynomials only <em>pretend</em> to be correct within the original domain.</p>
-</blockquote>
+<p>This last sub-step is the <strong>AIR-FRI link</strong>: it connects FRI (which only proves low-degree-ness, knowing nothing about constraints or computations) to the actual claim being verified. Without it, a cheating prover could commit to $\text{Comp}(X) = 0$, pass FRI trivially, and hope the verifier is satisfied.</p>
+<p>Why is this sound? The prover committed to the trace <em>before</em> learning the query points (Fiat-Shamir). If the trace violates any constraint, the composition polynomial has poles and isn't low-degree; FRI catches this. If the trace is valid but the prover committed to a <em>different</em> composition polynomial, the opened value and the locally recomputed value disagree at most points (Schwartz-Zippel); the random queries catch this.</p>
+<p>There is a subtle gap in standard FRI: the verifier only queries points in the LDE domain $D$, so a cheating prover could commit to a function that's low-degree on $D$ but encodes wrong trace values. <strong>DEEP-FRI</strong> (introduced in Chapter 10) closes this gap. The verifier samples a random point $z$ <em>outside</em> $D$ and requires the prover to open the trace polynomials there. Since honest trace polynomials are globally low-degree, they can be evaluated anywhere; a cheater who faked values only on $D$ cannot consistently answer at $z$. In the STARK context, this means the AIR-FRI link is checked at a point the prover could not have anticipated when constructing the trace commitment, which is why most STARK implementations use DEEP-FRI rather than standard FRI.</p>
 <h2 id="a-concrete-example-fibonacci"><a class="header" href="#a-concrete-example-fibonacci">A Concrete Example: Fibonacci</a></h2>
 <p>Let's trace the protocol on a minimal computation: proving knowledge of the 7th Fibonacci number.</p>
-<p><strong>The claim:</strong> Starting from $F_0 = 1, F_1 = 1$, the sequence satisfies $F_6 = 13$.</p>
-<p><strong>The trace:</strong> Two registers $(a, b)$ representing consecutive Fibonacci numbers. We need 6 rows (steps 0-5) to compute $F_6$.</p>
+<p>The claim: starting from $F_0 = 1, F_1 = 1$, the sequence satisfies $F_6 = 13$. The trace has two registers $(a, b)$ representing consecutive Fibonacci numbers, with 6 rows (steps 0-5):</p>
 <div class="table-wrapper"><table><thead><tr><th>Step</th><th>$a$</th><th>$b$</th></tr></thead><tbody>
 <tr><td>0</td><td>1</td><td>1</td></tr>
 <tr><td>1</td><td>1</td><td>2</td></tr>
@@ -377,61 +336,39 @@
 <tr><td>5</td><td>8</td><td>13</td></tr>
 </tbody></table>
 </div>
-<p><strong>Transition constraints:</strong> At each step $i \in {0, \ldots, 4}$:</p>
+<p>The transition constraints enforce, at each step $i \in {0, \ldots, 4}$:</p>
 <ul>
 <li>$a_{i+1} = b_i$ (the next $a$ is the current $b$)</li>
 <li>$b_{i+1} = a_i + b_i$ (the next $b$ is the sum)</li>
 </ul>
-<p><strong>Boundary constraints:</strong></p>
+<p>The boundary constraints pin down the endpoints:</p>
 <ul>
 <li>$a_0 = 1$ (initial condition)</li>
 <li>$b_0 = 1$ (initial condition)</li>
 <li>$b_5 = 13$ (the claimed output $F_6$)</li>
 </ul>
-<p><strong>Polynomials:</strong> Let $\omega$ be a primitive 6th root of unity. Interpolate the $a$-column to get $A(X)$ with $A(\omega^i) = a_i$. Similarly for $B(X)$.</p>
-<p><strong>Constraint polynomials:</strong> The key trick: multiplying the input by $\omega$ shifts to the next row. Since $A(\omega^i) = a_i$, we have $A(\omega \cdot \omega^i) = A(\omega^{i+1}) = a_{i+1}$. So $A(\omega X)$ evaluated at $X = \omega^i$ gives the <em>next</em> value.</p>
-<p>This lets us express &quot;next step&quot; constraints as polynomial identities:</p>
+<p>Let $\omega$ be a primitive 6th root of unity. Interpolating the columns gives $A(X)$ with $A(\omega^i) = a_i$ and $B(X)$ with $B(\omega^i) = b_i$. Using the $\omega$-shift from the AIR section, the constraint polynomials are:</p>
 <ul>
-<li>$C_1(X) = A(\omega X) - B(X)$: &quot;next $a$&quot; minus &quot;current $b$&quot; (should be zero)</li>
-<li>$C_2(X) = B(\omega X) - A(X) - B(X)$: &quot;next $b$&quot; minus &quot;current $a$ + current $b$&quot; (should be zero)</li>
+<li>$C_1(X) = A(\omega X) - B(X)$: next $a$ equals current $b$</li>
+<li>$C_2(X) = B(\omega X) - A(X) - B(X)$: next $b$ equals current $a + b$</li>
 <li>$C_{B1}(X) = A(X) - 1$, vanishing at $X = 1$</li>
 <li>$C_{B2}(X) = B(X) - 1$, vanishing at $X = 1$</li>
 <li>$C_{B3}(X) = B(X) - 13$, vanishing at $X = \omega^5$</li>
 </ul>
-<p><strong>Quotients:</strong> Each constraint polynomial is divided by the appropriate vanishing polynomial. The transition constraints must hold at steps 0-4, so they're divided by $Z_5(X) = (X^6 - 1)/(X - \omega^5)$.</p>
-<p><strong>Composition:</strong> With random challenges $\alpha_1, \ldots, \alpha_5$:
+<p>Each constraint polynomial is divided by the appropriate vanishing polynomial. The transition constraints must hold at steps 0-4, so they're divided by $Z_5(X) = (X^6 - 1)/(X - \omega^5)$. Batching with random challenges $\alpha_1, \ldots, \alpha_5$:
 $$\text{Comp}(X) = \alpha_1 \frac{C_1(X)}{Z_5(X)} + \alpha_2 \frac{C_2(X)}{Z_5(X)} + \alpha_3 \frac{C_{B1}(X)}{X-1} + \ldots$$</p>
-<p>If the trace is valid (and it is) this composition is a polynomial of degree roughly $\deg(A) + \deg(B) - 5 \approx 5$. FRI proves this.</p>
-<p><strong>What the verifier actually computes.</strong> Suppose the verifier queries at $x = \omega^{10}$ (some point in $D$ outside $H$). The prover opens $A(\omega^{10}) = 17$ and $B(\omega^{10}) = 42$ (hypothetical values from the LDE). The verifier now locally checks:</p>
-<ol>
-<li>Compute transition constraint values:
-<ul>
-<li>$C_1(\omega^{10}) = A(\omega^{11}) - B(\omega^{10})$, but wait, the verifier needs $A(\omega^{11})$ too!</li>
-</ul>
-</li>
-</ol>
-<p>This reveals an important detail: queries come in <em>pairs</em> (or larger groups). To check $C_1(x) = A(\omega x) - B(x)$, the verifier needs both $A(\omega x)$ and $B(x)$. So the prover opens trace values at $x$ <em>and</em> $\omega x$ together.</p>
-<ol start="2">
-<li>
-<p>With both openings, the verifier computes each constraint polynomial at $x$, divides by the vanishing polynomial evaluated at $x$, applies the $\alpha$ weights, and sums to get $\text{Comp}(x)$.</p>
-</li>
-<li>
-<p>Compare to the opened composition value. If they match at all query points, accept.</p>
-</li>
-</ol>
-<p>The verifier never sees the full trace, just $k$ random openings (perhaps 45 pairs for 128-bit security). But those openings, combined with the FRI proof, suffice to guarantee the entire computation was correct.</p>
-<p><strong>What FRI checks look like.</strong> The composition polynomial $\text{Comp}(X)$ has degree roughly 5 (from our 6-step trace). The prover commits to $\text{Comp}$ evaluated over the LDE domain $D$ (say, 48 points with blowup factor 8). FRI proves this committed function is close to a degree-5 polynomial.</p>
-<p>FRI works by folding. The verifier sends a random $\beta$. The prover constructs:
-$$\text{Comp}^{(1)}(Y) = \frac{\text{Comp}(Y) + \text{Comp}(-Y)}{2} + \beta \cdot \frac{\text{Comp}(Y) - \text{Comp}(-Y)}{2Y}$$</p>
-<p>This halves the degree and domain size. For our degree-5 polynomial over 48 points, after one fold we get a degree-2 polynomial over 24 points. Another fold: degree-1 over 12 points. One more: a constant over 6 points. The prover sends this final constant directly.</p>
-<p>At each fold, the verifier spot-checks consistency. Pick a random $y \in D$. The prover opens $\text{Comp}(y)$ and $\text{Comp}(-y)$. The verifier computes what $\text{Comp}^{(1)}(y^2)$ should be from these values, then checks it matches the next layer's commitment. This continues down the FRI layers.</p>
-<p>For our tiny example: 3 folding rounds, ~45 queries per round, checking that each layer is consistent with the previous. If the original wasn't low-degree, the folded versions won't be consistent: the prover would need to commit to polynomials that don't match the folding relation, and random queries will catch this.</p>
-<p><strong>Query overlap.</strong> The same query points serve both purposes. When the verifier queries at $y$, the prover opens:</p>
-<ul>
-<li>Trace values $A(y), B(y), A(\omega y), B(\omega y)$: for the AIR consistency check</li>
-<li>Composition value $\text{Comp}(y)$ and $\text{Comp}(-y)$: for the first FRI fold</li>
-</ul>
-<p>The verifier uses the trace openings to locally recompute $\text{Comp}(y)$, confirms it matches the opened value, and simultaneously uses $\text{Comp}(y), \text{Comp}(-y)$ to verify the fold. One query, two checks. The total query count is determined by the security requirement (each query gives ~$\log_2(\text{blowup})$ bits of security), and those queries are reused across AIR and FRI.</p>
+<p>If the trace is valid (and it is) this composition is a polynomial of degree roughly $\deg(A) + \deg(B) - 5 \approx 5$.</p>
+<p>Now the commitment step. The prover evaluates $A(X)$ and $B(X)$ on a larger LDE domain $D$ (say 48 points, with blowup factor 8). Each leaf of the trace Merkle tree holds the pair $(A(x), B(x))$ for one $x \in D$. The prover sends the trace root. After deriving the Fiat-Shamir challenges $\alpha_1, \ldots, \alpha_5$, the prover evaluates $\text{Comp}(X)$ on $D$, commits it in a second Merkle tree, and sends the composition root.</p>
+<p>At query time, one detail this example reveals: to check $C_1(x) = A(\omega x) - B(x)$, the verifier needs trace values at both $x$ and $\omega x$. So queries come in <em>pairs</em>: the prover opens the trace Merkle tree at $x$ and $\omega x$ together, giving the verifier both the &quot;current row&quot; and &quot;next row&quot; values. The prover also opens the composition tree at $x$. The verifier recomputes $\text{Comp}(x)$ from the trace values and checks it matches the opened composition value.</p>
+<p>FRI then proves the composition polynomial is low-degree via the folding protocol from Chapter 10. For our degree-5 polynomial over a 48-point LDE domain (blowup factor 8), three folding rounds reduce it to a constant. At each round, the verifier spot-checks that the folded layer is consistent with the previous one. The same query points serve both the AIR consistency check (opening trace values) and FRI verification (opening composition values at $y$ and $-y$ for folding), so one set of openings handles both.</p>
+<h2 id="adding-zero-knowledge"><a class="header" href="#adding-zero-knowledge">Adding Zero-Knowledge</a></h2>
+<p>The protocol as described so far is a transparent argument of knowledge, but it is not zero-knowledge. When the verifier queries a point $x \in D$ and the prover opens the trace Merkle tree, the verifier learns the actual values $P_1(x), \ldots, P_w(x)$. These are evaluations of the trace polynomials, and they leak information about the witness (the execution trace).</p>
+<p>Chapter 18 covers the general theory of making proof systems zero-knowledge. Two broad techniques apply: commit-and-prove (hiding values behind homomorphic commitments) and polynomial masking (adding randomness that is invisible on the constraint domain but randomizes the verifier's queries). Here we focus on the approach specific to STARKs: <strong>trace randomization</strong>.</p>
+<p>The idea is to extend the execution trace with random data before committing. The prover appends $k$ random rows to the trace (typically $k = 2$ to $4$), filled with random field elements, extending it from $T$ to $T + k$ rows. The trace polynomials are then interpolated over a domain of size $T + k$ rather than $T$.</p>
+<p>Why does this help? The trace polynomials now encode both the real computation (on the first $T$ rows) and random noise (on the last $k$ rows). A low-degree polynomial is globally determined by its values, so the random rows &quot;contaminate&quot; evaluations everywhere outside the original domain $H$. More precisely, each trace polynomial has degree $T + k - 1$, determined by $T$ real values and $k$ random values. The $k$ random degrees of freedom make the polynomial's evaluations at any $k$ points outside $H$ statistically independent of the real trace. Since the verifier's queries land in $D \setminus H$, the opened values reveal nothing about the witness.</p>
+<p>The constraint system requires only minor adjustments. The random rows do not satisfy the transition constraints, but they don't need to: $Z_{H'}(X)$ already vanishes only at ${\omega^0, \ldots, \omega^{T-2}}$, so the quotient $C(X) / Z_{H'}(X)$ remains a polynomial even though $C(X)$ is nonzero at the random row positions. Boundary constraints are unaffected since they pin specific rows within the original trace (e.g., $P_a(\omega^0) = 1$). The composition polynomial is formed as before but over the larger domain, and FRI proves the slightly larger degree bound $T + k - 1$.</p>
+<p>Verification works directly on the blinded polynomials. The verifier never needs to see the actual trace values on $H$. At a query point $x \in D \setminus H$, the prover opens the blinded evaluations $P_1(x), \ldots, P_w(x)$, and the verifier recomputes $C(x) / Z_{H'}(x)$ from them, checking consistency with FRI. The quotient check confirms that some low-degree polynomial satisfies the constraints on $H$, which is all the verifier needs. The boundary constraints are verified through their own quotient terms in the composition polynomial.</p>
+<p>A simulator that knows only the public inputs and outputs can produce identically distributed transcripts: it picks random trace polynomials consistent with the boundary constraints and simulates the protocol. The random rows provide enough freedom to match any set of query responses the real prover would produce. This technique is specific to the STARK setting because it exploits the separation between the trace domain $H$ and the query domain $D \setminus H$. Pairing-based systems use different masking strategies suited to their algebraic structure (see Chapter 18).</p>
 <h2 id="the-trust-and-size-trade-off"><a class="header" href="#the-trust-and-size-trade-off">The Trust and Size Trade-off</a></h2>
 <p>STARKs achieve transparency at a cost: proof size.</p>
 <div class="table-wrapper"><table><thead><tr><th>Property</th><th>Groth16</th><th>PLONK (KZG)</th><th>STARKs</th></tr></thead><tbody>
@@ -443,16 +380,10 @@ $$\text{Comp}^{(1)}(Y) = \frac{\text{Comp}(Y) + \text{Comp}(-Y)}{2} + \beta \cdo
 </tbody></table>
 </div>
 <p>The gap is stark: two orders of magnitude in proof size, from hundreds of bytes to tens of kilobytes. For on-chain verification, where every byte costs gas, this matters enormously. A Groth16 proof costs perhaps 200K gas to verify on Ethereum. A raw STARK proof would cost millions.</p>
-<p>But the size gap has motivated clever engineering. STARK proofs can be <em>wrapped</em> in SNARKs: use a STARK to prove the bulk of the computation (transparently, with the state machine model's natural fit for VMs), then use a Groth16 proof to attest &quot;I verified a valid STARK proof.&quot; The SNARK verification circuit is fixed-size and small. The on-chain cost is the cost of verifying Groth16, regardless of the original computation's size.</p>
-<p>This hybrid architecture, STARK for proving and SNARK for on-chain verification, is deployed in production systems: StarkNet, zkSync, Polygon zkEVM. The bulk of the security relies on hash functions. Only the final compression step uses pairings, and that step verifies a fixed, auditable circuit.</p>
-<h2 id="the-state-machine-advantage"><a class="header" href="#the-state-machine-advantage">The State Machine Advantage</a></h2>
-<p>For certain computations, the state machine model isn't just equivalent to circuits; it's strictly better.</p>
-<p>Consider a virtual machine executing arbitrary programs. In the circuit model, you'd need a different circuit for each program. In the state machine model, the transition constraints encode the VM's instruction set once. The trace varies with the program; the constraints don't. Proving &quot;this VM executed this program correctly&quot; requires the same constraint system for all programs.</p>
-<p>This is the architecture of <strong>zkVMs</strong>: zero-knowledge virtual machines that prove correct execution of arbitrary code. The VM's state includes program counter, registers, memory, and stack. The transition constraints encode fetch-decode-execute. Given any program, the prover generates an execution trace and proves it satisfies the constraints.</p>
-<p>In practice, zkVMs combine two mechanisms: an <strong>execution trace</strong> (state evolution over time) and <strong>lookup arguments</strong> (Chapter 14) to verify that each instruction's behavior matches a precomputed table. The trace captures <em>what happened</em>; lookups verify <em>each step was valid</em>. Different zkVMs use different proof backends: Cairo and RISC-Zero use AIR constraints over the trace, while Jolt uses sum-check and Lasso lookups without AIR. The architectural insight (uniform constraints for all programs, with lookups for instruction semantics) is shared across both approaches.</p>
-<p>The STARK model, with its uniform constraints across timesteps, its trace-based witness representation, and its hash-based commitments, is natural for this application. The circuit model would require &quot;unrolling&quot; the VM for a fixed number of steps, losing generality. The state machine model handles arbitrary-length execution with fixed constraint complexity.</p>
+<p>But the size gap has motivated clever engineering. Proof wrapping is a general composition technique where one proof system verifies the output of another, and any system can in principle be wrapped. STARKs benefit from this the most because their large proofs are precisely the problem wrapping solves. Concretely, a STARK proves the bulk of the computation (transparently, with the state machine model's natural fit for VMs), then a Groth16 proof attests &quot;I verified a valid STARK proof.&quot; The Groth16 verification circuit is fixed-size and small. The on-chain cost is the cost of verifying Groth16, regardless of the original computation's size.</p>
+<p>This hybrid architecture is deployed in production systems like StarkNet, zkSync, and Polygon zkEVM. The STARK itself remains fully transparent, relying only on hash functions. Pairings enter only through the Groth16 wrapper, which verifies a fixed, auditable circuit. Part of why STARKs dominate in these systems is AIR's natural fit for virtual machines: the transition constraints encode the VM's instruction set once, and the trace varies with the program while the constraints stay fixed. The circuit model would require a different circuit for each program, or &quot;unrolling&quot; the VM for a fixed number of steps. AIR handles arbitrary-length execution with fixed constraint complexity.</p>
 <h2 id="circle-starks-and-small-field-proving"><a class="header" href="#circle-starks-and-small-field-proving">Circle STARKs and Small-Field Proving</a></h2>
-<p>Traditional STARKs require a multiplicative subgroup of size $2^k$ for FFT. This constraint dictates field choice: primes $p$ where $p - 1$ is divisible by a large power of 2. Fields like Goldilocks ($2^{64} - 2^{32} + 1$) and BabyBear ($2^{31} - 2^{27} + 1$) are carefully constructed to meet this requirement.</p>
+<p>Throughout this chapter, we interpolated trace columns over a domain $H = {1, \omega, \omega^2, \ldots, \omega^{T-1}}$ of roots of unity. This choice wasn't arbitrary: roots of unity enable the FFT, which is what makes interpolation and evaluation over $H$ efficient ($O(n \log n)$ rather than $O(n^2)$). But FFT requires a multiplicative subgroup of size $2^k$, which constrains the field: we need primes $p$ where $p - 1$ is divisible by a large power of 2. Fields like Goldilocks ($2^{64} - 2^{32} + 1$) and BabyBear ($2^{31} - 2^{27} + 1$) are carefully constructed to meet this requirement.</p>
 <p><strong>Circle STARKs</strong> remove this constraint by working over a different algebraic structure: the circle group.</p>
 <h3 id="the-circle-group"><a class="header" href="#the-circle-group">The Circle Group</a></h3>
 <p>Consider a prime $p$ and the set of points $(x, y)$ satisfying $x^2 + y^2 = 1$ over $\mathbb{F}_p$. This is an algebraic curve, specifically a &quot;circle&quot; over a finite field.</p>
@@ -466,14 +397,10 @@ $$\text{Comp}^{(1)}(Y) = \frac{\text{Comp}(Y) + \text{Comp}(-Y)}{2} + \beta \cdo
 $$(x_1, y_1) \cdot (x_2, y_2) = (x_1 x_2 - y_1 y_2, x_1 y_2 + x_2 y_1)$$</p>
 <p>This is the standard multiplication formula for complex numbers $z = x + iy$ restricted to the unit circle. Over $\mathbb{F}_p$, it's well-defined and creates a cyclic group.</p>
 <h3 id="the-m31-advantage"><a class="header" href="#the-m31-advantage">The M31 Advantage</a></h3>
-<p>The Mersenne prime $M_{31} = 2^{31} - 1$ deserves special attention. Its arithmetic is uniquely fast:</p>
-<p><strong>Reduction by addition.</strong> For any product $a \cdot b &lt; 2^{62}$, split the result into low and high 31-bit parts: $ab = \text{lo} + \text{hi} \cdot 2^{31}$. Then $ab \equiv \text{lo} + \text{hi} \pmod{M_{31}}$, because $2^{31} \equiv 1 \pmod{M_{31}}$. Modular reduction becomes a single addition plus a conditional subtraction, with no division or extended multiplication.</p>
-<p><strong>32-bit native operations.</strong> Field elements fit in a single 32-bit word. CPUs handle 32-bit arithmetic natively; SIMD instructions process 4-8 elements per cycle on modern hardware. Compare to 64-bit Goldilocks (needs 64-bit multiplies, harder to vectorize) or 254-bit BN254 (requires multi-precision arithmetic, ~10× slower per operation).</p>
-<p><strong>The speedup is substantial.</strong> StarkWare's Stwo prover using M31 Circle STARKs achieves approximately 100× faster hash evaluations compared to their previous Stone prover over larger fields. The combination of faster field arithmetic and better vectorization compounds multiplicatively.</p>
-<h3 id="why-this-matters"><a class="header" href="#why-this-matters">Why This Matters</a></h3>
-<p><strong>Smaller fields, faster arithmetic.</strong> Mersenne-31 has 31-bit elements instead of 64-bit (Goldilocks) or 254-bit (BN254). Each field operation is faster. Vectorization (SIMD) handles more elements per instruction.</p>
-<p><strong>Perfect power-of-2 domains.</strong> The domain size is $2^{31}$, with no wasted bits or awkward padding. Trace lengths of $2^{20}$ or $2^{25}$ divide evenly.</p>
-<p><strong>Same security model.</strong> Circle STARKs still rely only on hash functions. The algebraic curve structure is used for FFTs, not for cryptographic assumptions.</p>
+<p>The Mersenne prime $M_{31} = 2^{31} - 1$ deserves special attention. Two properties converge to make it exceptionally efficient for STARKs.</p>
+<p>The first is cheap arithmetic, a property of Mersenne primes themselves. For any product $a \cdot b &lt; 2^{62}$, split the result into low and high 31-bit parts, $ab = \text{lo} + \text{hi} \cdot 2^{31}$. Since $2^{31} \equiv 1 \pmod{M_{31}}$, reduction is just $\text{lo} + \text{hi}$ plus a conditional subtraction. No division, no extended multiplication. Since elements range from $0$ to $2^{31} - 2$, each fits in a single 32-bit word, so CPUs handle them natively and SIMD instructions process 4-8 elements per cycle. Compare this to 64-bit Goldilocks (needs 64-bit multiplies, harder to vectorize) or 254-bit BN254 (requires multi-precision arithmetic, roughly 10x slower per operation). This fast arithmetic is a property of the prime, not the circle group. STARKs can exploit it because their security comes from hash functions, not from discrete log hardness over the field, so 31-bit elements provide enough room. Pairing-based systems like Groth16 and PLONK (with KZG) cannot: the pairing-friendly curve fixes the scalar field at ~254 bits, and no pairing-friendly curve exists over a 31-bit field. Sum-check based systems occupy a middle ground: sum-check itself is field-agnostic, but the PCS dictates the field. With KZG commitments, they inherit the same ~254-bit constraint. With hash-based commitments (Brakedown, Binius), they too can use small fields.</p>
+<p>The second property is the circle group's order. Over M31, the multiplicative group has order $p - 1 = 2(2^{30} - 1)$, which is not a large power of 2, so traditional FFT-based STARKs cannot use M31 directly. But the circle group has order $p + 1 = 2^{31}$, a perfect power of 2, enabling FFT-like algorithms over the circle. Trace lengths of $2^{20}$ or $2^{25}$ divide evenly with no wasted bits.</p>
+<p>These advantages compound. Implementations using M31 Circle STARKs, such as StarkWare's Stwo and Polygon's Plonky3, report order-of-magnitude speedups over provers using larger fields. The security model is unchanged: the circle structure is used for FFTs, not for cryptographic assumptions.</p>
 <h3 id="the-trade-off"><a class="header" href="#the-trade-off">The Trade-off</a></h3>
 <p>Circle STARKs require adapting the polynomial machinery:</p>
 <ul>
@@ -483,41 +410,29 @@ $$(x_1, y_1) \cdot (x_2, y_2) = (x_1 x_2 - y_1 y_2, x_1 y_2 + x_2 y_1)$$</p>
 </ul>
 <p>The implementation complexity is higher. But for systems targeting maximum prover speed, particularly zkVMs where prover time dominates, Circle STARKs offer a path to significant performance improvements.</p>
 <h3 id="the-broader-lesson"><a class="header" href="#the-broader-lesson">The Broader Lesson</a></h3>
-<p>Circle STARKs exemplify a general principle: <em>match the algebraic structure to hardware capabilities</em>. Traditional STARKs chose fields for mathematical convenience (large primes with smooth multiplicative order). Circle STARKs choose fields for computational efficiency (Mersenne primes with fast reduction), then build the necessary mathematical structure (the circle group) around that choice.</p>
-<p>This same principle appears in Binius (Chapter 25), which uses binary tower fields where addition is XOR, a single CPU instruction. The trend is clear: as proof systems mature, field choice increasingly reflects hardware realities rather than purely mathematical aesthetics.</p>
-<h3 id="current-deployment"><a class="header" href="#current-deployment">Current Deployment</a></h3>
-<p>StarkWare's Stwo prover implements Circle STARKs over Mersenne-31. Polygon's research explores similar directions. As of 2025, Circle STARKs are transitioning from research to production, with benchmarks showing ~100× speedups over traditional STARK provers for hash-heavy workloads.</p>
+<p>Circle STARKs exemplify a general principle: <em>match the algebraic structure to hardware capabilities</em>. Traditional STARKs chose fields for mathematical convenience (large primes with smooth multiplicative order). Circle STARKs choose fields for computational efficiency (Mersenne primes with fast reduction), then build the necessary mathematical structure (the circle group) around that choice. Binius (Chapter 25) pushes this further by working over binary tower fields, where addition is XOR and field elements match the computer's native data types. As proof systems mature, field choice increasingly reflects hardware realities rather than purely mathematical aesthetics.</p>
 <h2 id="key-takeaways"><a class="header" href="#key-takeaways">Key Takeaways</a></h2>
 <ol>
 <li>
 <p><strong>STARKs eliminate trusted setup</strong> by building on hash functions rather than pairings. Merkle trees provide binding commitments; FRI proves low-degree properties.</p>
 </li>
 <li>
-<p><strong>The state machine model</strong> represents computation as state evolution over time. Transition constraints describe one step; the same constraints apply uniformly across all timesteps.</p>
+<p><strong>Computation becomes a trace.</strong> The state machine model represents computation as a matrix of register values over timesteps. Each column interpolates to a polynomial over a root-of-unity domain $H$, and uniform transition constraints relate consecutive rows via the $\omega X$ shift.</p>
 </li>
 <li>
-<p><strong>The execution trace</strong> is the witness: a matrix of register values over timesteps. Columns interpolate to trace polynomials over a root-of-unity domain $H$.</p>
+<p><strong>The algebraic pipeline reduces all constraints to a single degree check.</strong> Constraint satisfaction becomes polynomial divisibility (quotients), quotients batch into a composition polynomial via random weights, and FRI verifies the degree bound. Low-degree extension over $D \supset H$ ensures any violation spreads across most of $D$.</p>
 </li>
 <li>
-<p><strong>The $\omega X$ trick encodes &quot;next step.&quot;</strong> Since $P(\omega^i) = p_i$, evaluating $P(\omega \cdot \omega^i) = P(\omega^{i+1}) = p_{i+1}$. Transition constraints like $P(\omega X) - Q(X) = 0$ relate consecutive rows algebraically.</p>
+<p><strong>The AIR-FRI link.</strong> The verifier opens trace values at query points, locally recomputes the composition, and checks it matches the committed value. The same queries feed into FRI consistency checks: one query, two purposes.</p>
 </li>
 <li>
-<p><strong>Quotient polynomials</strong> encode constraint satisfaction. $C(X)/Z_H(X)$ is a polynomial iff $C$ vanishes on $H$, iff the constraint holds at every step.</p>
+<p><strong>Trace randomization adds zero-knowledge.</strong> Appending random rows before committing contaminates evaluations outside $H$, so queries in $D \setminus H$ reveal nothing about the witness. The existing constraint structure accommodates this with no changes to the vanishing polynomial.</p>
 </li>
 <li>
-<p><strong>The composition polynomial</strong> combines all quotients via random $\alpha$-weights (Fiat-Shamir derived). Low-degree composition implies all constraints satisfied.</p>
+<p><strong>Circle STARKs unlock small-field proving.</strong> By replacing multiplicative subgroups with the circle group, STARKs can use Mersenne primes like $M_{31}$, where 31-bit arithmetic and SIMD vectorization yield order-of-magnitude speedups. This is possible because STARK security depends on hash functions, not on field size.</p>
 </li>
 <li>
-<p><strong>Low-degree extension</strong> amplifies errors. Evaluating trace polynomials over a larger domain $D \supset H$ spreads any constraint violation across most of $D$.</p>
-</li>
-<li>
-<p><strong>The AIR-FRI link.</strong> The verifier opens trace values at query points, locally recomputes the composition, and checks it matches the committed value. Same queries feed into FRI consistency checks: one query, two purposes.</p>
-</li>
-<li>
-<p><strong>zkVMs use traces plus lookups.</strong> AIR-based systems (Cairo, RISC-Zero) verify trace evolution; sum-check systems (Jolt) use Lasso lookups. Both combine execution traces with lookup tables for instruction semantics.</p>
-</li>
-<li>
-<p><strong>The STARK trade-off</strong>: Post-quantum security and transparency (no trusted setup) at the cost of larger proofs (tens of kilobytes versus hundreds of bytes). Hybrid STARK+SNARK architectures compress for on-chain verification.</p>
+<p><strong>The STARK trade-off</strong>: post-quantum security and transparency at the cost of larger proofs (tens of kilobytes versus hundreds of bytes). Hybrid architectures wrap STARKs in pairing-based proofs for on-chain verification.</p>
 </li>
 </ol>
 

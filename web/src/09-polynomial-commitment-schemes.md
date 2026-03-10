@@ -274,20 +274,31 @@ $$= \alpha \cdot \alpha^{-1} \langle \vec{c}_L, \vec{G}_L \rangle + \alpha \cdot
 $$= \langle \vec{c}_L, \vec{G}_L \rangle + \langle \vec{c}_R, \vec{G}_R \rangle + \alpha^2 \langle \vec{c}_L, \vec{G}_R \rangle + \alpha^{-2} \langle \vec{c}_R, \vec{G}_L \rangle$$
 
 Similarly, expanding the new inner product $v' = \langle \vec{c}', \vec{z}' \rangle$:
-$$v' = \langle \vec{c}_L, \vec{z}_L \rangle + \langle \vec{c}_R, \vec{z}_R \rangle + \alpha^2 \langle \vec{c}_L, \vec{z}_R \rangle + \alpha^{-2} \langle \vec{c}_R, \vec{z}_L \rangle = v + \alpha^2 L_{\text{ip}} + \alpha^{-2} R_{\text{ip}}$$
+$$v' = \langle \vec{c}_L, \vec{z}_L \rangle + \langle \vec{c}_R, \vec{z}_R \rangle + \alpha^2 \langle \vec{c}_L, \vec{z}_R \rangle + \alpha^{-2} \langle \vec{c}_R, \vec{z}_L \rangle$$
+
+$$= v + \alpha^2 L_{\mathrm{ip}} + \alpha^{-2} R_{\mathrm{ip}}$$
 
 Now look at $P' = L^{\alpha^2} \cdot P \cdot R^{\alpha^{-2}}$ and expand each term:
 
 - $P = \langle \vec{c}_L, \vec{G}_L \rangle + \langle \vec{c}_R, \vec{G}_R \rangle + v \cdot U$
-- $L = \langle \vec{c}_L, \vec{G}_R \rangle + L_{\text{ip}} \cdot U$
-- $R = \langle \vec{c}_R, \vec{G}_L \rangle + R_{\text{ip}} \cdot U$
+
+- $L = \langle \vec{c}_L, \vec{G}_R \rangle$ $+ \, L_{\mathrm{ip}} \cdot U$
+
+- $R = \langle \vec{c}_R, \vec{G}_L \rangle$ $+ \, R_{\mathrm{ip}} \cdot U$
 
 So:
-$$L^{\alpha^2} \cdot P \cdot R^{\alpha^{-2}} = \alpha^2 L + P + \alpha^{-2} R$$
-$$= \alpha^2 (\langle \vec{c}_L, \vec{G}_R \rangle + L_{\text{ip}} \cdot U) + (\langle \vec{c}_L, \vec{G}_L \rangle + \langle \vec{c}_R, \vec{G}_R \rangle + v \cdot U) + \alpha^{-2}(\langle \vec{c}_R, \vec{G}_L \rangle + R_{\text{ip}} \cdot U)$$
 
-Collecting terms:
-$$= \underbrace{\langle \vec{c}_L, \vec{G}_L \rangle + \langle \vec{c}_R, \vec{G}_R \rangle + \alpha^2 \langle \vec{c}_L, \vec{G}_R \rangle + \alpha^{-2} \langle \vec{c}_R, \vec{G}_L \rangle}_{= \langle \vec{c}', \vec{G}' \rangle} + \underbrace{(v + \alpha^2 L_{\text{ip}} + \alpha^{-2} R_{\text{ip}})}_{= v'} \cdot U$$
+$$L^{\alpha^2} \cdot P \cdot R^{\alpha^{-2}} = \alpha^2 L + P + \alpha^{-2} R$$
+
+Expanding with $L_{\mathrm{ip}}$ and $R_{\mathrm{ip}}$ denoting the inner product cross-terms:
+
+$$= \alpha^2 L + P + \alpha^{-2} R$$
+
+Collecting terms, the vector parts give $\langle \vec{c}', \vec{G}' \rangle$ and the scalar parts give $v'$:
+
+$$= \langle \vec{c}', \vec{G}' \rangle + v' \cdot U$$
+
+where $v' = v + \alpha^2 L_{\mathrm{ip}} + \alpha^{-2} R_{\mathrm{ip}}$.
 
 This equals $\langle \vec{c}', \vec{G}' \rangle + v' \cdot U = P'_{\text{honest}}$. The update formula produces exactly the right commitment!
 
