@@ -8,6 +8,8 @@ language = "en"
 [build]
 build-dir = "book"
 
+[preprocessor.katex]
+
 [output.html]
 default-theme = "navy"
 preferred-dark-theme = "navy"

@@ -86,7 +86,7 @@ For each point $w \in \{0,1\}^n$, define the **Lagrange basis polynomial**:
 
 $$L_w(X) = \prod_{i=1}^{n} \left( w_i \cdot X_i + (1 - w_i)(1 - X_i) \right)$$
 
-This polynomial has a beautiful property: it equals 1 at $w$ and 0 at every other hypercube point.
+Here $w = (w_1, \ldots, w_n)$ is a fixed boolean vector, where each $w_i \in \{0,1\}$. You can read $w$ as the binary representation of an index from 0 to $2^n - 1$, addressing one of the $2^n$ vertices of the hypercube. Meanwhile $X = (X_1, \ldots, X_n)$ is a vector of formal variables where each $X_i$ ranges over all of $\mathbb{F}$. Geometrically, $w$ lives at a corner of the unit hypercube, while $X$ can be any point in $\mathbb{F}^n$, including points "between" corners. The polynomial $L_w$ is defined over all of $\mathbb{F}^n$, but it has a special property on the hypercube: it equals 1 at $w$ and 0 at every other boolean point.
 
 To see why, consider what happens at point $w$:
 
@@ -145,7 +145,17 @@ for $a, b \in \{0,1\}^n$.
 The Lagrange basis polynomials are just the equality polynomial with one input fixed:
 $$L_w(X) = \widetilde{\text{eq}}(w, X)$$
 
-The equality polynomial appears constantly in sum-check-based protocols. Here's the key use case: suppose you want to "select" a specific hypercube point $w \in \{0,1\}^n$ from a sum. The verifier sends a random challenge $r \in \mathbb{F}^n$, and you evaluate $\widetilde{\text{eq}}(r, w)$. On the hypercube, this function equals 1 at $w$ and 0 everywhere else. But at a random $r$, it gives a *weighted* selection: $\widetilde{\text{eq}}(r, w)$ is large when $r$ is "close" to $w$ (in a polynomial sense) and negligibly small otherwise. This lets the verifier probe specific hypercube points through random field elements.
+The equality polynomial appears constantly in sum-check-based protocols, through the identity:
+
+$$\sum_{x \in \{0,1\}^n} \widetilde{\text{eq}}(\tau, x) \cdot f(x) = \widetilde{f}(\tau)$$
+
+This follows directly from the Lagrange formula: $\widetilde{f}(\tau) = \sum_x f(x) \cdot L_x(\tau) = \sum_x f(x) \cdot \widetilde{\text{eq}}(\tau, x)$. Summing $f$ weighted by $\widetilde{\text{eq}}(\tau, \cdot)$ over the hypercube gives the MLE of $f$ evaluated at $\tau$. This means evaluating an MLE at a random challenge $\tau$ reduces to a sum-check on $g(x) = \widetilde{\text{eq}}(\tau, x) \cdot f(x)$.
+
+This immediately gives a powerful zero test. Suppose the verifier wants to check that $f$ vanishes on the entire Boolean hypercube. By the identity above, checking that all $f(x)$ values are zero is the same as checking that $\widetilde{f}(\tau) = 0$. The verifier picks a random $\tau \in \mathbb{F}^n$ and runs sum-check on:
+
+$$\sum_{x \in \{0,1\}^n} \widetilde{\text{eq}}(\tau, x) \cdot f(x) = 0$$
+
+This is a random linear combination of all $f(x)$ values. If $f$ truly vanishes on the hypercube, then $\widetilde{f} \equiv 0$ (by the uniqueness theorem above), so the sum is always 0. If even one value $f(x^*) \neq 0$, then $\widetilde{f}$ is a nonzero multilinear polynomial, and Schwartz-Zippel guarantees $\widetilde{f}(\tau) \neq 0$ with probability at least $1 - n/|\mathbb{F}|$. Over a 254-bit field, this is negligible. This "zero-on-hypercube" test is the foundation of Spartan and related sum-check-based proof systems.
 
 
 
