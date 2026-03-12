@@ -25,6 +25,9 @@ jobs:
         with:
           mdbook-version: 'latest'
 
+      - name: Install mdbook-katex
+        run: cargo install mdbook-katex
+
       - name: Build mdBook
         run: mdbook build web
 
