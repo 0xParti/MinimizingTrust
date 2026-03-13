@@ -26,7 +26,7 @@ jobs:
           mdbook-version: 'latest'
 
       - name: Install mdbook-katex
-        run: cargo install mdbook-katex
+        run: cargo install mdbook-katex --version 0.9.4
 
       - name: Build mdBook
         run: mdbook build web

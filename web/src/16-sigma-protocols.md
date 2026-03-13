@@ -20,7 +20,7 @@ So he invented a cave.
 >
 > This story, published as "How to Explain Zero-Knowledge Protocols to Your Children," captures the essence of what we now call a $\Sigma$-protocol: **Commitment** (entering the cave), **Challenge** (Victor shouting), **Response** (appearing from the correct side). Almost all modern cryptography, from your credit card chip to your blockchain wallet, is a mathematical version of this cave.
 
-The paper became a classic. The cave analogy appears in nearly every introductory cryptography course. What makes it so powerful is that it captures the *structure* of zero-knowledge: the prover commits to a position before knowing the challenge, then demonstrates knowledge by responding correctly.
+The paper became a classic, despite the fact that most children would probably stop listening after "takes a random path" to ask what "random" means. The cave analogy appears in nearly every introductory cryptography course regardless. What makes it so powerful is that it captures the *structure* of zero-knowledge: the prover commits to a position before knowing the challenge, then demonstrates knowledge by responding correctly.
 
 This chapter develops the mathematics behind the cave. A prover commits to something random. A verifier challenges with something random. The prover responds with something that combines both randomnesses with their secret. The verifier checks a simple algebraic equation. If it holds, accept; if not, reject.
 
@@ -38,6 +38,8 @@ We return to familiar ground. Chapter 6 introduced the discrete logarithm proble
 
 The setting is a cyclic group $\mathbb{G}$ of prime order $q$ with generator $g$. Every element $h \in \mathbb{G}$ can be written as $h = g^w$ for some $w \in \mathbb{Z}_q$. This $w$ is the *discrete logarithm* of $h$ with respect to $g$. Computing $w$ from $h$ is hard; computing $h$ from $w$ is easy. This asymmetry, the one-wayness that made Pedersen commitments binding, now enables something new.
 
+We use multiplicative notation throughout this chapter. In practice, most implementations use elliptic curves, where the group operation is written additively: $g^w$ becomes $w \cdot G$, $g^r \cdot g^s$ becomes $r \cdot G + s \cdot G$, and the Schnorr verification equation $g^z = a \cdot h^e$ becomes $z \cdot G = A + e \cdot H$. The mathematics is identical; only the symbols change.
+
 The prover *knows* $w$. The verifier sees $h$ but cannot compute $w$ directly. The prover wants to convince the verifier that they know $w$ without revealing what $w$ is.
 
 The naive approach fails immediately. If the prover just sends $w$, the verifier can check $g^w = h$, but the secret is exposed. If the prover sends nothing, the verifier has no basis for belief. There seems to be no middle ground.
@@ -46,13 +48,9 @@ Interactive proofs create that middle ground.
 
 ## Schnorr's Protocol
 
-Claus Schnorr discovered the canonical solution in 1989. The protocol is three messages, two exponentiations for the prover, two exponentiations for the verifier. It is as close to optimal as plausible.
+Claus Schnorr discovered the canonical solution in 1989. The protocol is three messages, two exponentiations for the prover, two exponentiations for the verifier.
 
-**Public information:** Group $\mathbb{G}$, generator $g$, target element $h$.
-
-**Private information (prover only):** Witness $w$ such that $h = g^w$.
-
-**The protocol:**
+Both parties know a group $\mathbb{G}$, a generator $g$, and the public value $h = g^w$. The prover alone knows the witness $w$. The protocol proceeds in three moves:
 
 1. **Commitment.** The prover samples a random $r \leftarrow \mathbb{Z}_q$ and computes $a = g^r$. The prover sends $a$ to the verifier.
 
@@ -81,11 +79,7 @@ sequenceDiagram
     Note over V: Accept / Reject
 ```
 
-That's the entire protocol. Let's understand why it works.
-
-> **The Equation of a Line**
->
-> Schnorr's protocol is secretly proving you know the equation of a line. In $z = r + w \cdot e$, think of $w$ as the slope and $r$ as the y-intercept. The prover commits to the intercept ($r$, hidden as $a = g^r$). The verifier picks an x-coordinate ($e$). The prover reveals the y-coordinate ($z$). One point on a line doesn't reveal the slope, but two points would. That's why the protocol must be run once per challenge: a single $(e, z)$ pair is consistent with infinitely many slopes, but two pairs with the same intercept uniquely determine $w$.
+That's the entire protocol. The diagram above makes the $\Sigma$ shape visible: three arrows zigzagging between prover and verifier. Let's understand why it works.
 
 **Completeness.** An honest prover with the correct $w$ always passes verification:
 $$g^z = g^{r + we} = g^r \cdot g^{we} = g^r \cdot (g^w)^e = a \cdot h^e$$
@@ -100,30 +94,20 @@ $$g^{z_1} = a \cdot h^{e_1} \quad \text{and} \quad g^{z_2} = a \cdot h^{e_2}$$
 Dividing these equations:
 $$g^{z_1 - z_2} = h^{e_1 - e_2}$$
 
-Taking discrete logarithms (which the extractor can do symbolically, as both exponents are known):
+The extractor computes $w$ from the known exponents:
 $$w = \frac{z_1 - z_2}{e_1 - e_2} \mod q$$
 
-A cheater who could answer two challenges *must* know $w$. This is **special soundness**: two accepting transcripts with different challenges allow extracting the witness.
+This is well-defined since $e_1 \neq e_2$ and $q$ is prime. To verify: $g^w = (g^{z_1}/g^{z_2})^{1/(e_1-e_2)} = (ah^{e_1}/ah^{e_2})^{1/(e_1-e_2)} = h^{(e_1-e_2)/(e_1-e_2)} = h$. $\square$
 
-**Formal extraction statement**: Given transcripts $(a, e_1, z_1)$ and $(a, e_2, z_2)$ with $e_1 \neq e_2$ that both satisfy $g^{z_i} = a \cdot h^{e_i}$, the extractor computes $w = (z_1 - z_2)(e_1 - e_2)^{-1} \mod q$. This is well-defined since $e_1 \neq e_2$ and $q$ is prime. Verification: $g^w = g^{(z_1-z_2)/(e_1-e_2)} = (g^{z_1}/g^{z_2})^{1/(e_1-e_2)} = (ah^{e_1}/ah^{e_2})^{1/(e_1-e_2)} = h^{(e_1-e_2)/(e_1-e_2)} = h$. $\square$
+This extraction is a proof technique, not something the verifier can actually do. In a real execution, the prover answers only one challenge, so $w$ stays hidden. But the argument shows that anyone who *could* answer two challenges for the same commitment must already know $w$. Contrapositively, someone who doesn't know $w$ cannot reliably answer even a single random challenge. This property is called **special soundness**: two accepting transcripts with different challenges allow extracting the witness. It is why $\Sigma$-protocols prove you *know* something, not merely that something exists.
 
-> **The Rewinding Lemma**
->
-> How do we get two transcripts with the same commitment $a$ but different challenges? In real life, we cannot. The prover sends $a$ only once, receives one challenge, and responds.
->
-> But in a thought experiment, we can *rewind time*. We let the prover send $a$, we send challenge $e_1$, and receive response $z_1$. Then we press "rewind," return to the moment after they sent $a$, and send a *different* challenge $e_2$. If the prover can answer both, we solve the system of equations to extract $w$.
->
-> This "rewinding" argument is the mathematical foundation of proofs of knowledge. It's why $\Sigma$-protocols prove you *know* something, not merely that something exists. An extractor with rewind powers could pry the secret from any successful prover.
+There is a clean geometric way to see this. Schnorr's protocol is secretly proving you know the equation of a line. In $z = r + w \cdot e$, think of $w$ as the slope and $r$ as the y-intercept. The prover commits to the intercept ($r$, hidden as $a = g^r$). The verifier picks an x-coordinate ($e$). The prover reveals the y-coordinate ($z$). In a single execution, the verifier learns one point $(e, z)$ on the line, which is consistent with infinitely many slopes, so $w$ stays hidden. But if an extractor could rewind and obtain a second point $(e_2, z_2)$ on the same line (same intercept $r$, since $a$ was fixed), two points would determine the slope.
 
-**Zero-knowledge (honest verifier).** Here is where things become subtle. Consider a simulator that doesn't know $w$ but wants to produce a valid-looking transcript $(a, e, z)$. The simulator proceeds *backwards*:
+**Honest-verifier zero-knowledge (HVZK).** Here is where things become subtle. What follows is a restricted form of zero-knowledge that assumes the verifier behaves honestly (samples $e$ uniformly at random). Chapter 17 formalizes the full definition, which must handle malicious verifiers. For now, consider a simulator that doesn't know $w$ but wants to produce a valid-looking transcript $(a, e, z)$. The simulator proceeds *backwards*:
 
 1. Sample $e \leftarrow \mathbb{Z}_q$ (the challenge first!)
 2. Sample $z \leftarrow \mathbb{Z}_q$ (the response, uniform and independent)
 3. Compute $a = g^z \cdot h^{-e}$ (the commitment that *makes* the equation hold)
-
-> **The Simulator's Time Machine**
->
-> In real execution, events unfold: Commitment → Challenge → Response. The simulator cheats time. It picks the answer first ($z$), invents a question that fits ($e$), then back-calculates what the commitment "must have been" ($a = g^z h^{-e}$). This temporal reversal is invisible in the final transcript. Anyone looking at $(a, e, z)$ cannot tell whether it was produced forward (by someone who knows $w$) or backward (by someone who cheated time). This is the heart of zero-knowledge: if a transcript can be faked without the secret, then having the secret cannot be what makes the transcript convincing. The transcript itself carries no information about $w$.
 
 Check: $g^z = a \cdot h^e = g^z h^{-e} \cdot h^e = g^z$.
 
@@ -134,82 +118,40 @@ The transcript $(a, e, z)$ is valid. And its distribution is identical to a real
 
 Both distributions have $e$ and $z$ uniform and independent, with $a$ determined by the verification equation. They are identical.
 
-**Formal indistinguishability**: Let $\mathcal{T}_{\text{real}}$ denote the distribution of real transcripts and $\mathcal{T}_{\text{sim}}$ the simulator's output. Both are distributions over $\mathbb{G} \times \mathbb{Z}_q \times \mathbb{Z}_q$. In $\mathcal{T}_{\text{real}}$: $(a, e, z) = (g^r, e, r + we)$ where $r, e \stackrel{\$}{\leftarrow} \mathbb{Z}_q$. In $\mathcal{T}_{\text{sim}}$: $(a, e, z) = (g^z h^{-e}, e, z)$ where $e, z \stackrel{\$}{\leftarrow} \mathbb{Z}_q$. In both cases, $e$ and $z$ are uniform and independent (in the real case, $z = r + we$ is uniform because $r$ is uniform and independent of $e$). The value $a$ is then uniquely determined by the verification equation $g^z = ah^e$. Since both distributions have identical marginals on $(e, z)$ and $a$ is a deterministic function of $(e, z)$, we have $\mathcal{T}_{\text{real}} \equiv \mathcal{T}_{\text{sim}}$ (perfect equality, not just computational indistinguishability).
+More formally, let $\mathcal{T}_{\text{real}}$ denote the distribution of real transcripts and $\mathcal{T}_{\text{sim}}$ the simulator's output. Both are distributions over $\mathbb{G} \times \mathbb{Z}_q \times \mathbb{Z}_q$. In $\mathcal{T}_{\text{real}}$: $(a, e, z) = (g^r, e, r + we)$ where $r, e \stackrel{\$}{\leftarrow} \mathbb{Z}_q$. In $\mathcal{T}_{\text{sim}}$: $(a, e, z) = (g^z h^{-e}, e, z)$ where $e, z \stackrel{\$}{\leftarrow} \mathbb{Z}_q$. In both cases, $e$ and $z$ are uniform and independent (in the real case, $z = r + we$ is uniform because $r$ is uniform and independent of $e$). The value $a$ is then uniquely determined by the verification equation $g^z = ah^e$. Since both distributions have identical marginals on $(e, z)$ and $a$ is a deterministic function of $(e, z)$, we have $\mathcal{T}_{\text{real}} \equiv \mathcal{T}_{\text{sim}}$ (perfect equality, not just computational indistinguishability).
 
-This is **honest-verifier zero-knowledge (HVZK)**: if the verifier samples $e$ honestly (uniformly at random), the transcript reveals nothing about $w$ that the verifier couldn't have generated alone.
+The transcript reveals nothing about $w$ that the verifier couldn't have generated alone.
 
+In real execution, events unfold forward: Commitment → Challenge → Response. The simulator reverses this. It picks the answer first ($z$), invents a question that fits ($e$), then back-calculates what the commitment "must have been" ($a = g^z h^{-e}$). This temporal reversal is invisible in the final transcript. Anyone looking at $(a, e, z)$ cannot tell whether it was produced forward (by someone who knows $w$) or backward (by someone who doesn't). If a transcript can be faked without the secret, then having the secret cannot be what makes the transcript convincing. The transcript itself carries no information about $w$.
 
+### A Concrete Computation
 
-## A Concrete Computation
+Let's trace through Schnorr's protocol with actual numbers, then see how a simulator fakes a transcript.
 
-Let's trace through Schnorr's protocol with actual numbers. Working in a small group makes the arithmetic visible.
+Work in $\mathbb{Z}_{11}^*$ (order 10) with generator $g = 2$. The prover knows $w = 6$, and the public value is $h = 2^6 \equiv 9 \pmod{11}$.
 
-**Setup.** Take the multiplicative group $\mathbb{Z}_{11}^* = \{1, 2, 3, \ldots, 10\}$, which has order 10. Let $g = 2$ (a generator).
+**Real transcript:** The prover samples $r = 4$, computes $a = 2^4 \equiv 5$, and sends it. The verifier sends challenge $e = 7$. The prover computes $z = r + we = 4 + 42 = 46 \equiv 6 \pmod{10}$ (note: we reduce modulo the group order 10, not the prime 11). Verification: $g^z = 2^6 \equiv 9$ and $a \cdot h^e = 5 \cdot 9^7 \equiv 5 \cdot 4 \equiv 9 \pmod{11}$. Both sides match.
 
-**Secret.** The prover knows $w = 6$. The public value is:
-$$h = g^w = 2^6 = 64 \equiv 9 \pmod{11}$$
+The transcript is $(a, e, z) = (5, 7, 6)$.
 
-**Round 1 (Commitment).** The prover samples $r = 4$ and computes:
-$$a = g^r = 2^4 = 16 \equiv 5 \pmod{11}$$
-The prover sends $a = 5$.
-
-**Round 2 (Challenge).** The verifier samples $e = 7$ and sends it.
-
-**Round 3 (Response).** The prover computes:
-$$z = r + w \cdot e = 4 + 6 \cdot 7 = 4 + 42 = 46 \equiv 6 \pmod{10}$$
-(Note: we reduce modulo 10, the group order, not modulo 11.)
-The prover sends $z = 6$.
-
-**Verification.** The verifier checks $g^z = a \cdot h^e$:
-
-- Left side: $g^z = 2^6 = 64 \equiv 9 \pmod{11}$
-- Right side: $a \cdot h^e = 5 \cdot 9^7 \pmod{11}$
-
-To compute $9^7 \pmod{11}$: Note $9 \equiv -2 \pmod{11}$, so $9^7 = (-2)^7 = -128 \equiv -128 + 132 = 4 \pmod{11}$.
-
-Thus $a \cdot h^e = 5 \cdot 4 = 20 \equiv 9 \pmod{11}$.
-
-Both sides equal 9. The proof verifies.
+**Simulated transcript:** A simulator who doesn't know $w$ picks $e = 7$ and $z = 6$ (both uniform), then computes $a = g^z \cdot h^{-e} = 2^6 \cdot 9^{-7} \equiv 9 \cdot 4^{-1} \equiv 9 \cdot 3 \equiv 5 \pmod{11}$ (since $4 \cdot 3 = 12 \equiv 1$). The simulated transcript is $(5, 7, 6)$, identical to the real one. The simulator produced a valid proof without knowing $w = 6$. This is HVZK in action: the transcript carries no information about the witness.
 
 
-
-## Why the Order Matters: Commitment Before Challenge
-
-The protocol's security rests entirely on the *order* of messages. The prover commits to $a$ before seeing $e$. This temporal ordering is crucial.
-
-Consider what happens if the order is reversed. Suppose the verifier sends $e$ first, then the prover responds with $(a, z)$. A cheating prover, without knowing $w$, could:
-
-1. Receive $e$
-2. Choose any $z$
-3. Compute $a = g^z h^{-e}$ (which satisfies the verification equation)
-4. Send $(a, z)$
-
-This always passes verification! The protocol would have no soundness at all.
-
-Commitment before challenge forces the prover to "bet" on a strategy before knowing what will be tested. A prover without the witness bets blind; a prover with the witness can always respond correctly.
-
-This is the essence of interactive proof security: randomness forces the prover's hand.
 
 ## Pedersen Commitments and $\Sigma$-Protocols
 
-Chapter 6 introduced Pedersen commitments: $C = g^m h^r$ commits to message $m$ with blinding factor $r$, where $g, h$ are generators with unknown discrete log relation. Now we complete the picture: $\Sigma$-protocols let you *prove things* about committed values.
+Schnorr's protocol proves knowledge of a single discrete log. But in practice, we often need to prove knowledge of values hidden inside commitments. Chapter 6 introduced Pedersen commitments: $C = g^m h^r$ commits to message $m$ with blinding factor $r$, where $g, h$ are generators with unknown discrete log relation. $\Sigma$-protocols let us go further and *prove things* about committed values.
 
-The connection runs deeper than mere compatibility. Schnorr's protocol and Pedersen commitments are algebraically the same construction. In Schnorr, the prover commits to $a = g^r$ and later reveals $z = r + we$ (a linear combination of the randomness and the secret). In Pedersen, the committer computes $C = g^m h^r$ (a linear combination of two generators weighted by the message and randomness). Both rely on the same hardness assumption; both achieve the same hiding property.
+This is not a coincidence. Schnorr's protocol and Pedersen commitments are algebraically the same construction. In Schnorr, the prover commits to $a = g^r$ and later reveals $z = r + we$ (a linear combination of the randomness and the secret). In Pedersen, the committer computes $C = g^m h^r$ (a linear combination of two generators weighted by the message and randomness). Both rely on the same hardness assumption; both achieve the same hiding property.
 
 Recall from Chapter 6: a Pedersen commitment $C = g^m h^r$ is perfectly hiding (reveals nothing about $m$) and computationally binding (opening to a different value requires solving discrete log). The additive homomorphism $C_1 \cdot C_2 = g^{m_1+m_2} h^{r_1+r_2}$ lets us compute on committed values.
 
 What Chapter 6 couldn't address: how does a prover demonstrate they *know* the opening $(m, r)$ without revealing it? This is precisely what $\Sigma$-protocols provide.
 
 
-## Proving Knowledge of Openings
+### Proving Knowledge of Openings
 
-Schnorr's protocol proves knowledge of one discrete log: given $h = g^w$, prove you know $w$. Pedersen commitments involve *two* exponents: $C = g^m h^r$. To prove you know the opening $(m, r)$, we need the two-dimensional generalization.
-
-**Statement.** Given a Pedersen commitment $C$, prove knowledge of $(m, r)$ such that $C = g^m h^r$.
-
-The structure mirrors Schnorr exactly (commit, challenge, respond) but now with two secrets handled in parallel.
-
-**The protocol:**
+Schnorr handles one exponent; Pedersen commitments involve two: $C = g^m h^r$. To prove knowledge of the opening $(m, r)$, we need the two-dimensional generalization. The structure mirrors Schnorr exactly (commit, challenge, respond) but now with two secrets handled in parallel:
 
 1. **Commitment.** Prover samples $d, s \leftarrow \mathbb{Z}_q$ and sends $a = g^d h^s$.
 
@@ -230,17 +172,17 @@ $$g^{z_1} h^{z_2} = g^{d + me} h^{s + re} = g^d h^s \cdot (g^m h^r)^e = a \cdot 
 $$g^{z_1^{(1)} - z_1^{(2)}} h^{z_2^{(1)} - z_2^{(2)}} = C^{e_1 - e_2}$$
 From which both $m$ and $r$ can be extracted.
 
-**Zero-knowledge (honest verifier).** Simulator picks $e, z_1, z_2$ uniformly, sets $a = g^{z_1} h^{z_2} \cdot C^{-e}$.
+**HVZK.** Simulator picks $e, z_1, z_2$ uniformly, sets $a = g^{z_1} h^{z_2} \cdot C^{-e}$.
 
 The prover demonstrates knowledge of the commitment opening without revealing what that opening is.
 
 
 
-## Proving Relations on Committed Values
+### Proving Relations on Committed Values
 
 The homomorphic property enables something remarkable: proving statements about committed values without revealing them.
 
-**Proving addition.** Given commitments $C_1, C_2, C_3$, prove that the committed values satisfy $m_1 + m_2 = m_3$.
+For addition, given commitments $C_1, C_2, C_3$, we can prove that the committed values satisfy $m_1 + m_2 = m_3$.
 
 Consider the product $C_1 \cdot C_2 \cdot C_3^{-1}$. Expanding the Pedersen structure:
 
@@ -252,7 +194,7 @@ $$C_1 \cdot C_2 \cdot C_3^{-1} = g^0 \cdot h^{r_1 + r_2 - r_3} = h^{r_1 + r_2 - 
 
 The combined commitment collapses to a pure power of $h$. To prove the relation holds, the prover demonstrates knowledge of this exponent $r_1 + r_2 - r_3$ (a single Schnorr proof with base $h$ and public element $C_1 \cdot C_2 \cdot C_3^{-1}$).
 
-**Proving multiplication.** This is harder. Pedersen commitments aren't multiplicatively homomorphic. Given $C_1 = g^{m_1} h^{r_1}$, $C_2 = g^{m_2} h^{r_2}$, $C_3 = g^{m_3} h^{r_3}$, how do we prove $m_1 \cdot m_2 = m_3$?
+Multiplication is harder. Pedersen commitments aren't multiplicatively homomorphic. Given $C_1 = g^{m_1} h^{r_1}$, $C_2 = g^{m_2} h^{r_2}$, $C_3 = g^{m_3} h^{r_3}$, how do we prove $m_1 \cdot m_2 = m_3$?
 
 The key insight is to change bases. Observe that:
 $$g^{m_3} = g^{m_1 \cdot m_2} = (g^{m_1})^{m_2}$$
@@ -297,20 +239,18 @@ The transform works because $H$ is modeled as a **random oracle**: a function th
 
 In practice, $H$ is a cryptographic hash function like SHA-256. The random oracle model is an idealization (hash functions aren't truly random functions) but the heuristic is empirically robust for well-designed protocols.
 
-**Schnorr signatures** are the direct application. Given secret key $w$ and public key $h = g^w$:
+Schnorr signatures are the direct application. Given secret key $w$ and public key $h = g^w$:
 
 - **Sign message $M$:** Compute $a = g^r$, $e = H(h, a, M)$, $z = r + we$. Signature is $(a, z)$.
 - **Verify:** Check $g^z = a \cdot h^e$ where $e = H(h, a, M)$.
 
-This is the foundation of EdDSA (Ed25519), now standard in TLS, SSH, and cryptocurrency systems. Bitcoin adopted Schnorr signatures in the 2021 Taproot upgrade.
+Schnorr patented his signature scheme in 1989 (U.S. Patent 4,995,082). NIST needed a standard and designed DSA, later ECDSA, specifically to work around the patent. The result was a signing equation $s = k^{-1}(H(m) + rx)$ that includes a modular inversion $k^{-1}$. This non-linearity is the algebraic cost of the workaround: you cannot simply add ECDSA signatures, because the inverses don't combine.
 
-**Why Schnorr beats ECDSA.** The equation $z = r + we$ is *linear*. This linearity enables:
+The patent expired in 2008, and Schnorr signatures finally entered widespread use as EdDSA (Ed25519), now standard in TLS, SSH, and cryptocurrency systems. Bitcoin launched in 2009, but ECDSA was already the entrenched standard, so Satoshi used it. Ethereum launched in 2015 with ECDSA as well: audited Schnorr implementations on secp256k1 simply did not exist yet, and Ethereum still uses ECDSA today. It took until the 2021 Taproot upgrade for Bitcoin to adopt Schnorr. The linearity of $z = r + we$ enables what ECDSA cannot:
 
-- **Batch verification**: Check many signatures faster than individually by taking random linear combinations (Schwartz-Zippel ensures invalid signatures can't cancel)
-- **Native aggregation**: Multiple signers can combine signatures into one. MuSig2 produces a single 64-byte signature for $n$ parties that verifies against an aggregate public key
-- **ZK-friendliness**: No modular inversions (unlike ECDSA's $s = k^{-1}(H(m) + rx)$), so Schnorr verification is cheap inside circuits
-
-Compare to ECDSA: the $k^{-1}$ term makes the equation non-linear. You cannot simply add ECDSA signatures; the inverses don't combine. This algebraic accident kept Bitcoin on ECDSA for a decade.
+- **Batch verification**: check many signatures faster than individually by taking random linear combinations (Schwartz-Zippel ensures invalid signatures can't cancel)
+- **Native aggregation**: multiple signers can combine signatures into one. MuSig2 produces a single 64-byte signature for $n$ parties that verifies against an aggregate public key
+- **ZK-friendliness**: no modular inversions, so Schnorr verification is cheap inside arithmetic circuits
 
 
 
@@ -318,7 +258,7 @@ Compare to ECDSA: the $k^{-1}$ term makes the equation non-linear. You cannot si
 
 $\Sigma$-protocols compose cleanly, enabling proofs of complex statements from simple building blocks.
 
-**AND composition.** To prove "I know $w_1$ such that $h_1 = g^{w_1}$ AND $w_2$ such that $h_2 = g^{w_2}$":
+For AND composition, to prove "I know $w_1$ such that $h_1 = g^{w_1}$ AND $w_2$ such that $h_2 = g^{w_2}$":
 
 1. Run both protocols in parallel with independent commitments
 2. Use the same challenge $e$ for both
@@ -326,15 +266,7 @@ $\Sigma$-protocols compose cleanly, enabling proofs of complex statements from s
 
 If the prover knows both witnesses, they can respond to any challenge. If they lack either witness, they can't respond correctly.
 
-**OR composition.** To prove "I know $w_1$ OR $w_2$" (without revealing which):
-
-> **The Card Trick Analogy**
->
-> Imagine a magician holding two decks of cards. They claim: "I know the order of Deck A OR the order of Deck B." You shuffle one deck and ask them to name the top card.
->
-> If the magician knows that deck's order, they answer instantly. If they don't, they use sleight of hand: they "force" the right card to the top, making it look like they predicted it all along.
->
-> In an OR-proof, the prover plays the magician. For the secret they know, they answer honestly. For the secret they don't know, they use the Simulator (the "sleight of hand") to produce a transcript that looks legitimate. The verifier sees two correct answers and cannot tell which was genuine knowledge and which was mathematical magic.
+OR composition is more subtle. To prove "I know $w_1$ OR $w_2$" (without revealing which):
 
 1. For the witness you *don't* know, simulate a transcript $(a_i, e_i, z_i)$ (using the honest-verifier simulator from the zero-knowledge property)
 2. For the witness you *do* know, commit honestly to $a_j$
@@ -346,77 +278,34 @@ The verifier checks:
 - Both verification equations hold
 - $e_1 + e_2 = e$
 
-**Concrete example.** Alice knows the discrete log of $h_1 = g^{w_1}$ but not $h_2$. She wants to prove she knows at least one of them.
+As an example, suppose Alice knows the discrete log of $h_1 = g^{w_1}$ but not $h_2$. She wants to prove she knows at least one of them.
 
 1. **Simulate the unknown:** Alice picks $e_2 = 7$ and $z_2 = 13$ at random, then computes $a_2 = g^{z_2} h_2^{-e_2} = g^{13} h_2^{-7}$. This is a valid-looking transcript for $h_2$.
 
-2. **Commit honestly for the known:** Alice picks $r_1 = 5$ and computes $a_1 = g^{r_1} = g^5$.
+2. **Commit honestly for the known:** Alice picks $r_1 = 5$ and computes $a_1 = g^{r_1} = g^5$. She sends $(a_1, a_2)$ to the verifier.
 
-3. **Send commitments:** Alice sends $(a_1, a_2)$ to the verifier.
+3. **Split the challenge:** The verifier sends $e = 19$. Alice sets $e_1 = e - e_2 = 19 - 7 = 12$.
 
-4. **Receive challenge:** The verifier sends $e = 19$.
-
-5. **Split the challenge:** Alice sets $e_1 = e - e_2 = 19 - 7 = 12$. Now she must respond to challenge 12 for $h_1$.
-
-6. **Respond honestly:** Alice computes $z_1 = r_1 + w_1 \cdot e_1 = 5 + w_1 \cdot 12$.
-
-7. **Send responses:** Alice sends $(e_1, z_1, e_2, z_2) = (12, z_1, 7, 13)$.
+4. **Respond honestly:** Alice computes $z_1 = r_1 + w_1 \cdot e_1 = 5 + w_1 \cdot 12$ and sends $(e_1, z_1, e_2, z_2) = (12, z_1, 7, 13)$.
 
 The verifier checks $g^{z_1} = a_1 \cdot h_1^{e_1}$ and $g^{z_2} = a_2 \cdot h_2^{e_2}$, plus $e_1 + e_2 = 19$. Both equations hold. The verifier cannot tell which transcript was simulated; the simulated $(a_2, e_2, z_2)$ is statistically identical to an honest execution.
 
-The prover can always succeed by simulating one protocol and honestly executing the other. The verifier cannot tell which is which; the simulated transcript is indistinguishable from a real one.
-
-This is remarkable: you can prove you know one of two secrets without revealing which. Ring signatures, anonymous credentials, and many privacy-preserving constructions build on this technique.
-
-## Connection to Larger Systems
-
-$\Sigma$-protocols appear as components within the complex proof systems of earlier chapters.
-
-**The inner product argument** (Chapter 9) is a recursive $\Sigma$-protocol. Each round (commit to cross-terms $L, R$; receive challenge $u$; fold the vectors) follows the three-move structure. The recursion terminates when the vectors shrink to single elements, yielding logarithmic proof size.
-
-**Bulletproofs** generalize the IPA to prove range statements and circuit satisfiability. The construction is layered: Pedersen vector commitments at the base, IPA for compression, $\Sigma$-protocols for linking claims. The entire system inherits honest-verifier zero-knowledge from its $\Sigma$-protocol core.
-
-**Polynomial commitment openings** in KZG can be viewed through this lens too. The pairing check $e(C - g^v, g) = e(\pi, g^\tau - g^z)$ proves that the committed polynomial evaluates correctly at $z$. It's not a three-move protocol per se, but it shares the algebraic structure: commitment (the polynomial commitment $C$), challenge (the evaluation point $z$), and verification equation (the pairing check).
-
-Understanding $\Sigma$-protocols provides the vocabulary for understanding zero-knowledge more broadly. The simulator, the extractor, the honest-verifier assumption: these concepts appear in precisely the same form in systems a hundred times more complex.
-
-
-
-## Elliptic Curve Notation
-
-Modern implementations use elliptic curves, where the group operation is written additively rather than multiplicatively:
-
-| Multiplicative | Additive |
-|----------------|----------|
-| $g^w$ | $w \cdot G$ |
-| $g^r \cdot g^s = g^{r+s}$ | $r \cdot G + s \cdot G = (r+s) \cdot G$ |
-| $h = g^w$ | $H = w \cdot G$ |
-
-The Schnorr verification equation becomes:
-$$z \cdot G = A + e \cdot H$$
-
-The mathematics is identical. The notation change reflects the underlying group structure: elliptic curve groups are abelian, naturally written additively. Every $\Sigma$-protocol translates directly; only the symbols change.
+You can prove you know one of two secrets without revealing which. Ring signatures, anonymous credentials, and many privacy-preserving constructions build on this technique.
 
 
 
 ## Key Takeaways
 
-1. **Three messages suffice** for zero-knowledge proofs of knowledge. Commit → Challenge → Response. The temporal ordering (commitment before challenge) is essential for soundness.
+1. **Three messages suffice** for zero-knowledge proofs of knowledge. Commit → Challenge → Response. The commitment must come before the challenge; reversing this order destroys soundness.
 
-2. **Special soundness** means two accepting transcripts with different challenges enable witness extraction. This makes $\Sigma$-protocols *proofs of knowledge*, not merely proofs of existence.
+2. **Special soundness**: two accepting transcripts with different challenges enable witness extraction. This makes $\Sigma$-protocols *proofs of knowledge*, not merely proofs of existence.
 
-3. **Zero-knowledge via simulation**: pick the challenge and response first, compute what the commitment must have been. The simulated transcript is indistinguishable from a real one, proving the verifier learns nothing beyond the statement's truth.
+3. **Zero-knowledge via simulation**: pick the challenge and response first, compute what the commitment must have been. If a transcript can be faked without the secret, the transcript carries no information about the secret.
 
-4. **Schnorr's protocol** proves knowledge of a discrete logarithm: you know $w$ such that $h = g^w$. Verification: $g^z = a \cdot h^e$. It is the archetype.
+4. **Schnorr is the archetype**. Every $\Sigma$-protocol in this chapter is a variation on $z = r + we$: Pedersen openings run two Schnorr proofs in parallel, relations on committed values reduce to Schnorr proofs after algebraic simplification.
 
-5. **Proving Pedersen openings** extends Schnorr to two dimensions. To prove knowledge of $(m, r)$ such that $C = g^m h^r$, commit to both exponents and respond with linear combinations.
+5. **Fiat-Shamir** removes interaction by hashing the commitment to derive the challenge. This yields Schnorr signatures and non-interactive proofs.
 
-6. **Relations on committed values** reduce to simpler proofs. Addition: the product $C_1 \cdot C_2 \cdot C_3^{-1}$ collapses to $h^{r_1+r_2-r_3}$ when $m_1 + m_2 = m_3$, requiring only a single Schnorr proof. Multiplication requires base-changing tricks.
+6. **Composition** builds complex proofs from simple ones. AND runs protocols in parallel with a shared challenge. OR uses simulation for the unknown witness; the verifier cannot tell which branch is real.
 
-7. **Fiat-Shamir** removes interaction: hash the commitment to derive the challenge. This yields Schnorr signatures (linear, aggregatable, ZK-friendly) and non-interactive proofs.
-
-8. **Composition** builds complex proofs from simple ones. AND runs protocols in parallel with a shared challenge. OR uses simulation for the unknown witness; the verifier cannot tell which branch was real.
-
-9. **Connection to SNARKs**: The inner product argument (Bulletproofs), KZG opening proofs, and recursive protocols all inherit the three-move structure and simulation-based security of $\Sigma$-protocols.
-
-10. **Minimal assumptions**: $\Sigma$-protocols require only the discrete logarithm assumption. No pairings, no trusted setup, no hash functions beyond Fiat-Shamir.
+7. **Minimal assumptions**: $\Sigma$-protocols require only the discrete logarithm assumption. No pairings, no trusted setup, no hash functions beyond Fiat-Shamir.

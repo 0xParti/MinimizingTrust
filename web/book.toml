@@ -9,6 +9,7 @@ language = "en"
 build-dir = "book"
 
 [preprocessor.katex]
+after = ["links"]
 
 [output.html]
 default-theme = "navy"
