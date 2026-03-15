@@ -484,24 +484,35 @@ Both KZG and IPA extend naturally to multilinear polynomials, exploiting the ten
 
 
 
-## The Role of PCS in SNARKs
+## The Role of PCS in SNARKs: Replacing Oracle Access
 
-Polynomial commitment schemes are the cryptographic core that transforms interactive protocols into succinct, non-interactive proofs.
+Polynomial commitment schemes are the cryptographic core that transforms interactive protocols into succinct, non-interactive proofs. To understand why, recall the gap we flagged in Chapter 3.
 
-**The recipe**:
+### The Oracle Gap
 
-1. **Arithmetization**: Convert computation to polynomial constraints
-2. **IOP**: Define an interactive protocol where the prover sends polynomials (abstractly)
-3. **PCS**: Compile the IOP using a polynomial commitment scheme
-4. **Fiat-Shamir**: Make non-interactive by deriving challenges from transcript hashes
+Throughout this book, interactive proof protocols assume the verifier can evaluate certain polynomials at chosen points. Complexity theorists call this "oracle access": the verifier sends a query point, the oracle returns the correct evaluation, and the protocol moves on. Sum-check (Chapter 3) is the concrete example we have already seen: its final step requires the verifier to evaluate $g(r_1, \ldots, r_\nu)$. But the pattern is entirely general. Any interactive oracle proof (IOP) assumes that the verifier can query prover-supplied polynomials at arbitrary points. In practice, no oracle exists.
 
-The PCS handles the "oracle" aspect of IOPs. Instead of the verifier having oracle access to polynomials, the prover commits to them, and later provides evaluation proofs at queried points.
+Sometimes the verifier can evaluate $g$ herself. If $g$ is built entirely from public data (circuit structure, known constants, Fiat-Shamir challenges), the verifier just computes. But in most SNARK applications, $g$ depends on the prover's private witness. To make this concrete, consider Spartan's sum-check for R1CS satisfaction (we will study Spartan in detail in a later chapter):
 
-Different PCS choices lead to different SNARK properties:
+$$g(x) = \widetilde{\text{eq}}(\tau, x) \cdot \left[\widetilde{Az}(x) \cdot \widetilde{Bz}(x) - \widetilde{Cz}(x)\right]$$
 
-- KZG → Groth16, PLONK (trusted setup, constant proofs)
-- IPA → Halo (transparent, larger proofs, linear verification)
-- FRI (Chapter 10) → STARKs (transparent, post-quantum)
+Recall from Chapter 4 that $\widetilde{\text{eq}}(\tau, x) = \prod_i (\tau_i x_i + (1-\tau_i)(1-x_i))$ is the equality polynomial: it "pins" the sum to a random evaluation point $\tau$ chosen by the verifier. The terms $\widetilde{Az}$, $\widetilde{Bz}$, $\widetilde{Cz}$ are MLEs of matrix-vector products involving the witness $z$. The verifier can compute $\widetilde{\text{eq}}(\tau, r)$ on her own (she chose $\tau$ and knows $r$ from the sum-check challenges), but she cannot compute $\widetilde{Az}(r)$, $\widetilde{Bz}(r)$, or $\widetilde{Cz}(r)$ without knowing the witness. Sum-check has done its job, reducing an exponential sum to evaluations at a single random point, but the verifier is stuck at the last mile.
+
+### How PCS Closes the Gap
+
+The pattern for any IOP is the same. The prover holds a polynomial $f$ that the verifier needs to query. A PCS turns the abstract oracle into a concrete mechanism via three steps:
+
+1. **Before the IOP begins**, the prover commits to the polynomial: $C = \text{Commit}(f)$. This commitment is short (a single group element for KZG, a hash root for FRI) and *binding*: the prover cannot change $f$ after sending $C$.
+
+2. **During the IOP**, random challenges are determined interactively (or via Fiat-Shamir). The commitment $C$ was sent before any challenges were chosen, so the prover cannot adapt $f$ to the query point.
+
+3. **When the verifier needs an evaluation**, say $f(r)$ at some challenge point $r$, the prover provides the value $v$ along with an *opening proof* $\pi$. The verifier checks $\text{Verify}(C, r, v, \pi)$, confirming that $v$ is the evaluation of the committed polynomial at the challenge point.
+
+To return to our sum-check example: the prover commits to the witness polynomial $\widetilde{w}$ before the protocol starts, the sum-check challenges $r_1, \ldots, r_\nu$ are generated during the interaction, and at the end the prover opens $\widetilde{w}(r_1, \ldots, r_\nu)$ with a proof that the verifier checks against the commitment. But the same three-step structure applies whenever an IOP assumes oracle access, regardless of which protocol produced the query point.
+
+The binding property is what makes this work. Because the prover committed to $f$ before seeing the evaluation point, they cannot cheat: the committed polynomial is fixed, and the opening proof ties them to it. Schwartz-Zippel guarantees that checking at a random point catches any discrepancy with overwhelming probability.
+
+This is the bridge between information theory and cryptography. An IOP achieves soundness assuming the verifier has oracle access to prover-supplied polynomials. The PCS *instantiates* that oracle, compiling the IOP into a cryptographic argument. Sum-check-based SNARKs are the most prominent example, but the compilation is universal: any IOP can be paired with any PCS. Chapter 11 develops this in full generality.
 
 
 

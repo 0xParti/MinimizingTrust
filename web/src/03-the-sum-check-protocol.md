@@ -122,9 +122,9 @@ If the values match, she accepts. Otherwise, she rejects.
 
 ### A Note on Oracle Access
 
-In complexity theory, we say the verifier has "oracle access" to $g$. In practical SNARKs, this simply means the verifier knows the formula for $g$.
+In complexity theory, we say the verifier has "oracle access" to $g$. Sometimes this is trivial: if $g$ encodes a multiplication gate, the verifier knows that $g(a, b) = a \cdot b$ and just plugs in the random values $r_1, \ldots, r_\nu$. No magic needed.
 
-For example, if $g$ encodes a multiplication gate, the verifier knows that $g(a, b) = a \cdot b$. She doesn't need a magical black box; she just plugs the random values $r_1, \ldots, r_\nu$ into that equation at the end of the protocol. The "magic" is that she does this only once, at a single point, regardless of how many variables are in the sum or how large the hypercube is.
+But in many SNARK constructions, $g$ depends on the prover's *private data*. The verifier cannot evaluate $g$ on her own, because she doesn't know the inputs that define it. Sum-check has done its job, reducing an exponential sum to one evaluation, but the verifier is stuck at the last step. How this gap is closed (using polynomial commitment schemes) is a central question we return to in Chapter 9.
 
 
 
@@ -452,6 +452,32 @@ The sum-check protocol is where the abstract power of polynomials (their rigidit
 
 
 
+## The Last Mile: From Oracle Access to Polynomial Commitments
+
+We noted earlier that the final check of sum-check requires evaluating $g(r_1, \ldots, r_\nu)$, and that sometimes the verifier cannot do this herself because $g$ depends on the prover's private data. This deserves a closer look, because the mechanism that closes this gap is what turns sum-check from a complexity-theoretic curiosity into a practical proof system.
+
+Consider two representative scenarios.
+
+**When the verifier can compute $g$ directly.** If $g$ is built entirely from public information, the final evaluation is straightforward. For instance, in the #SAT application above, $g_\phi$ is a product of clause polynomials derived from the public formula $\phi$. The verifier knows $\phi$, so she can evaluate $g_\phi(r_1, \ldots, r_\nu)$ in $O(m)$ time. Similarly, in the GKR protocol (Chapter 7), the polynomial $g$ at each layer encodes the circuit's wiring pattern, which is public. No additional machinery is needed.
+
+**When $g$ depends on the prover's private witness.** This is the harder and more common case in SNARK constructions. In systems like Spartan (Chapter 19), the polynomial $g$ involves the multilinear extension of the prover's private witness vector $w$. (We develop multilinear extensions in Chapter 4.) The verifier can compute the public parts of $g$ at the random point, but the witness-dependent part requires a value she does not know.
+
+Sum-check has reduced the exponential sum to a single evaluation, but the verifier cannot complete the check alone. The protocol needs one more ingredient: a way for the prover to credibly reveal a single evaluation of a polynomial she committed to earlier, without revealing the polynomial itself.
+
+This ingredient is a **polynomial commitment scheme (PCS)**, developed in Chapter 9. The mechanism is simple in outline:
+
+1. Before sum-check begins, the prover sends a short, binding commitment $C$ to the witness polynomial. "Binding" means the prover cannot change the polynomial after sending $C$.
+
+2. During sum-check, the random challenges $r_1, \ldots, r_\nu$ are determined. The commitment was sent before any challenges were chosen, so the prover cannot adapt the polynomial to the challenge point.
+
+3. After sum-check, the prover opens the commitment at $(r_1, \ldots, r_\nu)$: she provides the evaluation $v$ together with a proof $\pi$ that $v$ is consistent with $C$. The verifier checks $\pi$ and uses $v$ to complete the final sum-check check.
+
+This is where sum-check transitions from an information-theoretic protocol (what the literature calls an "Interactive Oracle Proof") to a cryptographic argument. The PCS replaces oracle access with commit-then-open. The prover is bound to a specific polynomial before seeing the evaluation point, and the succinctness of the commitment means the verifier never needs to see the full polynomial.
+
+Every sum-check-based SNARK makes this transition at the final step. The oracle is not a black box. It is a commitment scheme.
+
+
+
 ## Key Takeaways
 
 1. **The sum-check protocol verifies exponential sums efficiently**: A prover can convince a verifier that $\sum_{b \in \{0,1\}^\nu} g(b) = H$ with the verifier doing only $O(\nu)$ work, plus one evaluation of $g$. The verifier never computes any sum herself.
@@ -464,4 +490,6 @@ The sum-check protocol is where the abstract power of polynomials (their rigidit
 
 5. **Arithmetization connects sum-check to computation**: Problems like #SAT encode as sums over the boolean hypercube. The prover does $O(2^\nu)$ work; the verifier does $O(\nu)$. This asymmetry is what makes verification useful.
 
-6. **Sum-check is foundational**: IP = PSPACE, GKR, Spartan, Lasso, and most multilinear SNARKs build on sum-check. The protocol's comeback in practical systems (Chapter 19) shows it wasn't just theoretically elegant but practically powerful.
+6. **The final evaluation is the bridge to cryptography**: Sum-check reduces an exponential sum to one evaluation. When that evaluation depends on the prover's private data, a polynomial commitment scheme (Chapter 9) closes the gap: the prover commits before seeing the challenge point, then opens at the end. This is the "last mile" that turns the information-theoretic protocol into a SNARK.
+
+7. **Sum-check is foundational**: IP = PSPACE, GKR, Spartan, Lasso, and most multilinear SNARKs build on sum-check. The protocol's comeback in practical systems (Chapter 19) shows it wasn't just theoretically elegant but practically powerful.

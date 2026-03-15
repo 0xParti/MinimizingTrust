@@ -149,7 +149,7 @@ The starting point. A prover and verifier exchange messages. The verifier uses r
 
 Think of it as courtroom cross-examination. The prover (witness) wants to convince the verifier (judge) of some claim. The judge cannot independently verify the facts; they weren't there, they don't have the evidence. But through clever questioning, the judge can probe for inconsistencies. An honest witness has nothing to hide; their answers will be consistent. A lying witness must maintain a web of fabrications, and random probing questions will eventually find a thread that unravels it.
 
-The class **IP** contains all languages with such protocols where the verifier runs in polynomial time. The theorem **IP = PSPACE** (Shamir, 1990) shows this class is remarkably large, far larger than NP. The verifier's random questions, combined with the prover's unbounded computational power, can verify claims that no static certificate could capture.
+The class **IP** contains all *languages* with such protocols where the verifier runs in polynomial time. A language here is a set of strings $\mathcal{L} \subseteq \{0,1\}^*$, the formal way complexity theory encodes decision problems: $x \in \mathcal{L}$ means the answer to the problem on input $x$ is "yes." The theorem **IP = PSPACE** (Shamir, 1990) shows this class is remarkably large, far larger than NP. The verifier's random questions, combined with the prover's unbounded computational power, can verify claims that no static certificate could capture.
 
 ### Multi-Prover Interactive Proofs (MIP)
 
