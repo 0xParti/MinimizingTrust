@@ -401,7 +401,7 @@ This requires summing over $2^{\nu-j}$ terms. Across all rounds, the prover's to
 
 $$O\left(\sum_{j=1}^{\nu} (d+1) \cdot 2^{\nu-j}\right) = O(d \cdot 2^\nu)$$
 
-The prover does work proportional to the size of the hypercube, but crucially, this is what the prover would need to do anyway to compute the sum. The sum-check protocol doesn't add significant overhead to the prover.
+The prover does work proportional to the size of the hypercube, but crucially, this is what the prover would need to do anyway to compute the sum. The sum-check protocol doesn't add significant overhead to the prover. Note that achieving $O(2^{\nu-j})$ per round (rather than recomputing from scratch each time) requires an algorithmic trick: maintaining and folding intermediate arrays so that each round reuses the previous round's work. Chapter 19 develops this technique in detail.
 
 **Verifier complexity**: In each round, the verifier:
 
