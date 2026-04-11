@@ -454,6 +454,8 @@ Typical choices: $\rho = 1/4$ to $1/16$ (blow-up factor 4x to 16x).
 - But stronger soundness per query (fewer queries needed)
 - Net effect often neutral on total proof size
 
+Chapter 20 quantifies this tradeoff for STARK provers, showing how grinding (proof-of-work) and batched FRI interact with the blowup factor to determine the optimal operating point for prover speed versus proof size.
+
 ### Coset Domains
 
 The examples above used multiplicative subgroups directly: $D_0 = \{1, \omega, \omega^2, \ldots\}$ where $\omega^n = 1$. In practice, FRI implementations typically use **cosets** instead: sets of the form $D = g \cdot H = \{g, g\omega, g\omega^2, \ldots\}$ where $H$ is a multiplicative subgroup and $g \notin H$ is a generator offset.

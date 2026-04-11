@@ -491,3 +491,49 @@ Row $j$ of $f_{\text{joint}} = \sum_i \gamma^i f_i$ has coefficients $M_{\text{j
 ### Why Dory Achieves Logarithmic Verification
 
 Why does Dory achieve logarithmic verification while IPA requires linear time? IPA's linear cost comes from computing folded generators. Dory sidesteps this entirely: the verifier works with commitments in $\mathbb{G}_T$, updating accumulators each round without touching generators. The algebraic structure of pairings ($e(aG_1, bG_2) = e(G_1, G_2)^{ab}$) lets the verifier "absorb" folding challenges into commitments. The precomputed $\chi_k$ values handle the generator contributions.
+
+
+## HyperKZG and Zeromorph: KZG for multilinear polynomials
+
+Hyrax and Dory build new commitment schemes from scratch. A different strategy reuses the existing univariate KZG infrastructure (trusted setup, pairing verification, batching) and adds a reduction layer that converts multilinear evaluation claims into univariate ones. HyperKZG (Setty, 2023) and Zeromorph (Kohrita and Towa, 2023) both take this approach, with different trade-offs.
+
+### The shared problem
+
+A multilinear polynomial $f(x_1, \ldots, x_n)$ over $n$ variables has $N = 2^n$ coefficients (its evaluations on the Boolean hypercube). The prover commits to $f$ by interpreting these $N$ values as coefficients of a univariate polynomial $\hat{f}(X) = \sum_{i=0}^{N-1} f(i) \cdot X^i$ and computing a standard KZG commitment $[\hat{f}]_1 = \hat{f}(\tau) \cdot G_1$ using a powers-of-tau SRS.
+
+Commitment is straightforward. The difficulty is *opening*: given a multilinear evaluation point $r = (r_1, \ldots, r_n)$, proving that $f(r_1, \ldots, r_n) = v$ using only the univariate commitment $[\hat{f}]_1$. The multilinear evaluation $f(r)$ is not the same as the univariate evaluation $\hat{f}(r)$ at some single point. A reduction is needed.
+
+### HyperKZG
+
+HyperKZG (an adaptation of Gemini by Setty) reduces the multilinear evaluation to $n$ univariate claims via a protocol resembling sum-check. The prover sends $n$ auxiliary univariate polynomials, one per variable, that represent the intermediate "partial bindings" as each $x_i$ is fixed to $r_i$. The verifier checks consistency between consecutive polynomials using KZG openings.
+
+The protocol proceeds in $n$ rounds. In round $i$, the prover has a polynomial $f_i$ of degree $2^{n-i} - 1$ (starting from $f_0 = \hat{f}$). The prover splits $f_i$ into even and odd coefficients, commits to the odd-coefficient polynomial, and the verifier sends challenge $r_i$. The prover computes $f_{i+1}(X) = f_i^{\text{even}}(X) + r_i \cdot f_i^{\text{odd}}(X)$, halving the degree. After $n$ rounds, $f_n$ is a constant equal to $f(r_1, \ldots, r_n)$.
+
+Verification requires $O(\log N)$ group operations and 3 pairings (via batching). Proof size is $O(\log N)$ group elements plus $O(\log N)$ field elements. The prover runs in $O(N)$ field operations.
+
+### Zeromorph
+
+Zeromorph takes a more algebraic route. It uses the identity that for any multilinear $f$ and evaluation point $r = (r_1, \ldots, r_n)$:
+
+$$f(X_1, \ldots, X_n) - f(r_1, \ldots, r_n) = \sum_{i=1}^{n} (X_i - r_i) \cdot q_i(X_1, \ldots, X_n)$$
+
+where each $q_i$ is a quotient polynomial. This is the multilinear analogue of the univariate fact that $(X - r)$ divides $f(X) - f(r)$. Zeromorph maps this identity to the univariate setting: the prover commits to univariate encodings of the $q_i$ and proves the divisibility relation holds under the encoding.
+
+The result is a proof with $n + 3$ group elements (slightly smaller than HyperKZG) and verification with $O(\log N)$ group operations plus 3 pairings. Zeromorph also achieves the zero-knowledge property more cheaply: adding ZK costs only $n + 5$ extra group operations, compared to an extra $O(N)$-size MSM in naive approaches.
+
+### Comparison and practical relevance
+
+| Property | HyperKZG | Zeromorph | Dory | Hyrax |
+|----------|----------|-----------|------|-------|
+| Setup | Trusted (SRS) | Trusted (SRS) | Transparent | Transparent |
+| Commitment size | $O(1)$ | $O(1)$ | $O(1)$ | $O(\sqrt{N})$ |
+| Proof size | $O(\log N)$ | $O(\log N)$ | $O(\log N)$ | $O(\sqrt{N})$ |
+| Verification | $O(\log N)$ + 3 pairings | $O(\log N)$ + 3 pairings | $O(\log N)$ pairings | $O(\sqrt{N})$ |
+| Prover | $O(N)$ | $O(N)$ | $O(N)$ | $O(N)$ |
+| ZK overhead | Moderate | Low ($n + 5$ ops) | Low | Low |
+
+HyperKZG and Zeromorph occupy the same niche: constant-size commitments with logarithmic proofs, leveraging existing KZG infrastructure. Their main advantage over Dory and Hyrax is compatibility with the powers-of-tau ceremonies already deployed for Groth16 and PLONK. Systems that already have a trusted setup (Ethereum's KZG ceremony, for example) can adopt HyperKZG or Zeromorph with no additional setup cost.
+
+In practice, Jolt uses HyperKZG as its default PCS (with Zeromorph as an alternative). Nova's implementation also supports HyperKZG. For systems that require transparency, Dory or hash-based schemes (Basefold, FRI) are preferred.
+
+Recent work (Mercury, Samaritan) pushes further toward $O(1)$ proof size while maintaining $O(N)$ prover time, representing the current frontier of KZG-based multilinear commitments.
