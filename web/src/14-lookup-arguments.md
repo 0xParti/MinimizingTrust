@@ -237,7 +237,7 @@ The verifier checks the polynomial identities (initialization, recursion) via th
 
 ## Comparison: Custom Gates vs. Lookup Tables
 
-Both custom gates and lookup tables extend PLONK beyond vanilla arithmetic, but they solve fundamentally different problems.
+Both custom gates and lookup tables extend PLONK beyond vanilla arithmetic, but they solve different problems.
 
 Custom gates add terms to the universal gate equation. For example, adding a selector $Q_{\text{pow5}}$ enables $a^5$ computation in a single constraint:
 
@@ -247,7 +247,7 @@ This works well for Poseidon S-boxes, which need fifth powers. The constraint is
 
 Lookup tables solve this by shifting complexity from constraint degree to table size. Instead of encoding "x is in $[0, 65535]$" as a high-degree polynomial, we precompute a table of valid values and prove membership via the grand product. As we saw in the Verification section, the verifier never touches the table directly, so verification cost scales with the number of lookups, not the table size.
 
-The tradeoff is that lookups add overhead. Each lookup requires entries in the sorted vector $s$, contributions to the accumulator polynomial, and additional commitment openings. For a simple boolean check, this machinery is overkill. For a 64-bit range check or an 8-bit XOR operation, it's essential.
+The tradeoff is that lookups add overhead. Each lookup requires entries in the sorted vector $s$, contributions to the accumulator polynomial, and additional commitment openings. For a simple boolean check, this machinery is overkill. For a 64-bit range check or an 8-bit XOR operation, lookups are necessary.
 
 | Problem | Custom Gate | Lookup Table |
 |---------|-------------|--------------|
@@ -304,7 +304,7 @@ cq pre-computes quotient polynomials for the table, amortizing table processing 
 
 Caulk (2022) asked a different question: what if the table is *huge* but you only perform a few lookups? Plookup's prover work scales linearly with table size, making it impractical for tables of size $2^{30}$ or larger.
 
-The core idea: encode the set (or table) $\{t_1, \ldots, t_d\}$ as a polynomial $t(X) = \prod_{j=1}^{d}(X - t_j)$, whose roots are exactly the set elements. To prove that a value $v$ is in the set, observe that $(X - v)$ divides $t(X)$ iff $v$ is a root. KZG lets you prove this divisibility via a quotient polynomial $q(X) = t(X)/(X-v)$, without revealing which root $v$ is. The quotient commitment can be computed from the table commitment using properties of KZG, and crucially, this computation is sublinear in $d$.
+The core idea: encode the set (or table) $\{t_1, \ldots, t_d\}$ as a polynomial $t(X) = \prod_{j=1}^{d}(X - t_j)$, whose roots are exactly the set elements. To prove that a value $v$ is in the set, observe that $(X - v)$ divides $t(X)$ iff $v$ is a root. KZG lets you prove this divisibility via a quotient polynomial $q(X) = t(X)/(X-v)$, without revealing which root $v$ is. The quotient commitment can be computed from the table commitment using properties of KZG, and this computation is sublinear in $d$.
 
 Prover work is $O(m^2 + m \log d)$ for $m$ lookups into a table of size $d$, sublinear in $d$ when $m \ll d$. The trade-off: Caulk requires trusted setup (KZG), and the quadratic term in $m$ limits scalability for many lookups.
 
@@ -322,7 +322,7 @@ Halo2's lookup API lets developers define tables declaratively. The proving syst
 
 ## Lasso and Jolt
 
-All the protocols above (Plookup, LogUp, Caulk, Halo2) share a fundamental limitation: the prover must commit to polynomials whose degree scales with table size.
+All the protocols above (Plookup, LogUp, Caulk, Halo2) share a limitation: the prover must commit to polynomials whose degree scales with table size.
 
 For Plookup, the sorted vector $s$ has length $n + d$ (lookups plus table). For LogUp, the multiplicity polynomial has degree $d$. For Caulk, the table polynomial $t(X)$ must be committed during setup. In every case, a table of size $2^{20}$ means million-coefficient polynomials. A table of size $2^{64}$ means polynomials with more coefficients than atoms in a grain of sand.
 

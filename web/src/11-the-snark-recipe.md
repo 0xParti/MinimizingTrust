@@ -221,7 +221,7 @@ The only polynomial requiring commitment is $\tilde{Z}$ (too large to send expli
 - Prover sends $C_Z = \text{KZG.Commit}(\tilde{Z})$ at the start
 - Final evaluation $\tilde{Z}(r_1, \ldots, r_n)$ comes with a KZG opening proof
 
-**Fiat-Shamir**: Each challenge $r_i$ is computed as $\text{Hash}(\text{transcript})$. The final proof is the transcript of round polynomials plus the opening proof.
+In the **Fiat-Shamir** transform, each challenge $r_i$ is computed as $\text{Hash}(\text{transcript})$. The final proof is the transcript of round polynomials plus the opening proof.
 
 ### Proof Size Analysis
 

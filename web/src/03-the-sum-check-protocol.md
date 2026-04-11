@@ -12,7 +12,7 @@ When the paper was released, it didn't just solve a problem. It caused a crisis.
 
 The engine powering this revolution was a single elegant idea: the **sum-check protocol**.
 
-The sum-check protocol takes a claim that seems fundamentally expensive to verify, the sum of a polynomial over all points of a high-dimensional domain, and reduces it to something trivial: a single evaluation at a random point. The verifier's work scales *linearly* with the number of variables, not exponentially with the size of the domain.
+The sum-check protocol takes a claim that seems expensive to verify, the sum of a polynomial over all points of a high-dimensional domain, and reduces it to something trivial: a single evaluation at a random point. The verifier's work scales *linearly* with the number of variables, not exponentially with the size of the domain.
 
 This chapter develops the sum-check protocol from first principles. We'll see exactly how the protocol works, why it's sound, and how any lie propagates through the protocol until it becomes a simple falsehood the verifier can catch. Along the way, we'll trace through complete worked examples with actual field values, because this protocol is too important to understand only abstractly.
 
@@ -76,7 +76,7 @@ The verifier performs two checks:
 
 1. **Consistency check**: Verify that $g_1(0) + g_1(1) = H$. This ensures the prover's polynomial is consistent with the claimed total sum.
 
-2. **Degree check**: Verify that $g_1$ has degree at most $d$ in $X_1$. This is essential for soundness; without it, the protocol breaks completely. (We'll see why shortly.)
+2. **Degree check**: Verify that $g_1$ has degree at most $d$ in $X_1$. This is necessary for soundness; without it, the protocol breaks completely. (We'll see why shortly.)
 
 If either check fails, the verifier rejects. Otherwise, she samples a random field element $r_1 \leftarrow \mathbb{F}$ and sends it to the prover.
 
@@ -90,7 +90,14 @@ $$g_1(r_1) = \sum_{(b_2, \ldots, b_\nu) \in \{0,1\}^{\nu-1}} g(r_1, b_2, \ldots,
 
 Suppose the true sum is $H^* = 6$ but the prover claims $H = 100$. The honest polynomial is $s_1(X) = 2X + 2$, with $s_1(0) + s_1(1) = 6$. The prover needs a polynomial passing through $(0, a)$ and $(1, b)$ where $a + b = 100$.
 
-Without a degree bound, the prover is a wizard. He can conjure a polynomial that passes through the lie at $x = 0$ and $x = 1$, yet looks exactly like the honest polynomial everywhere else. A degree-$(|\mathbb{F}| - 1)$ polynomial can match $s_1$ at every point except 0 and 1, making it indistinguishable from the honest polynomial at any random challenge $r_1 \notin \{0, 1\}$.
+Without a degree bound, the cheating prover can construct a degree-$(|\mathbb{F}| - 1)$ polynomial $g_1$ with two properties:
+
+1. $g_1(0) + g_1(1) = 100$ (passes the consistency check with the false claim $H = 100$)
+2. $g_1(r) = s_1(r)$ for every $r \notin \{0, 1\}$ (agrees with the honest polynomial everywhere the verifier might query)
+
+A degree-$(|\mathbb{F}| - 1)$ polynomial has $|\mathbb{F}|$ coefficients, enough freedom to prescribe its value at every point in $\mathbb{F}$ independently. So the prover sets $g_1(0) = a$, $g_1(1) = b$ (with $a + b = 100$), and $g_1(r) = s_1(r)$ for all other $r$.
+
+Here is why this is devastating. The verifier samples some $r_1 \notin \{0, 1\}$ and computes the reduced claim $V_1 = g_1(r_1)$. Since $g_1(r_1) = s_1(r_1)$, this reduced claim is *correct*: it equals the true partial sum $\sum_{b_2, \ldots, b_\nu} g(r_1, b_2, \ldots, b_\nu)$. From this point on, the prover can follow the honest protocol for rounds 2 through $\nu$, and the final oracle check will pass. The false sum $H = 100$ was injected in round 1, but the cheat left no trace in any subsequent round.
 
 The degree bound is the handcuffs. It forces the polynomial to be *stiff*. If it must pass through the wrong sum, its stiffness forces it to miss the honest polynomial almost everywhere else.
 

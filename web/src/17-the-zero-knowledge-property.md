@@ -127,7 +127,7 @@ This brings us back to the question posed in the introduction: if a simulator ca
 
 Perfect and statistical zero-knowledge seem strictly stronger than computational. Are they always preferable?
 
-No. There are fundamental limits.
+No. There are limits.
 
 **Theorem (Fortnow, Aiello-Håstad).** Any language with a statistical zero-knowledge proof lies in $\text{AM} \cap \text{coAM}$.
 
@@ -135,7 +135,7 @@ The class $\text{AM}$ (Arthur-Merlin) consists of languages decidable by a two-m
 
 The intersection $\text{AM} \cap \text{coAM}$ is believed to be much smaller than NP. Under standard complexity-theoretic conjectures, it contains no NP-complete problems. The implication is stark: statistical zero-knowledge proofs for NP-complete problems likely do not exist.
 
-The intuition is that statistical zero-knowledge is *too good* at hiding. If a simulator can reproduce the verifier's view without the witness, and no unbounded distinguisher can tell the difference, then the proof isn't leveraging the witness in any essential way. An all-powerful observer could use the simulator itself to decide membership: simulate the transcript, check if the distribution is close to what a real execution would produce, and conclude whether $x \in \mathcal{L}$. This effectively places both $\mathcal{L}$ and its complement in AM. For NP-hard problems, where the witness should be "hard to avoid using," this is too much to ask.
+The intuition is that statistical zero-knowledge is *too good* at hiding. If a simulator can reproduce the verifier's view without the witness, and no unbounded distinguisher can tell the difference, then the proof isn't leveraging the witness in any meaningful way. An all-powerful observer could use the simulator itself to decide membership: simulate the transcript, check if the distribution is close to what a real execution would produce, and conclude whether $x \in \mathcal{L}$. This effectively places both $\mathcal{L}$ and its complement in AM. For NP-hard problems, where the witness should be "hard to avoid using," this is too much to ask.
 
 The way forward is to relax both soundness and zero-knowledge:
 
@@ -187,7 +187,7 @@ The simulator receives the same auxiliary input $z$ as the verifier. The key req
 
 This definition handles composed protocols. Even if the verifier has side information about the statement or witness, the proof reveals nothing new. The simulator, given the same side information, produces indistinguishable transcripts.
 
-Auxiliary-input ZK is essential for security in complex systems where many proofs interleave.
+Auxiliary-input ZK is necessary for security in complex systems where many proofs interleave.
 
 
 ## Key Takeaways

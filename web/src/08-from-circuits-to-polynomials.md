@@ -597,7 +597,7 @@ The pattern is clear: anything involving bits is expensive. For years, circuit d
 
 ## Lookup Arguments: Breaking the Bit Decomposition Wall
 
-The constraint costs above create a fundamental problem. A silicon CPU executes `a XOR b` in one cycle. In R1CS, that same XOR costs ~25 constraints: decompose both operands into bits, check bitness, compute per-bit XOR, reconstruct. For a 64-bit instruction set, every operation explodes into hundreds of constraints. Building a zkVM this way is like simulating a Ferrari using wooden gears.
+The constraint costs above create a fundamental problem. A silicon CPU executes `a XOR b` in one cycle. In R1CS, that same XOR costs ~25 constraints: decompose both operands into bits, check bitness, compute per-bit XOR, reconstruct. For a 64-bit instruction set, every operation requires hundreds of constraints. Building a zkVM this way is like simulating a Ferrari using wooden gears.
 
 **Lookup arguments** solve this by replacing *computation* with *table membership*. Instead of proving *how* you computed a result, prove *that* the result appears in a precomputed table.
 

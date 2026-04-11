@@ -530,7 +530,7 @@ Folding schemes have a reputation in the zkVM community for being where security
 
 **Deferred verification.** Traditional recursion verifies at each step: if something is wrong, you catch it immediately. Folding defers *all* verification to the final SNARK. Errors compound silently across thousands of folds before manifesting. Debugging becomes archaeology, trying to identify which of 10,000 folds went wrong.
 
-**The commitment to $T$ is critical.** The cross-term $T$ must be committed *before* the verifier sends challenge $r$. If the prover can open this commitment to different values after seeing $r$, soundness breaks completely: the prover can fold unsatisfied instances and make them appear satisfied. Nova uses Pedersen commitments (computationally binding under discrete log), so breaking the binding property would require solving discrete log. But implementation bugs in commitment handling have caused real vulnerabilities.
+**The commitment to $T$ must be binding.** The cross-term $T$ must be committed *before* the verifier sends challenge $r$. If the prover can open this commitment to different values after seeing $r$, soundness breaks completely: the prover can fold unsatisfied instances and make them appear satisfied. Nova uses Pedersen commitments (computationally binding under discrete log), so breaking the binding property would require solving discrete log. But implementation bugs in commitment handling have caused real vulnerabilities.
 
 **Accumulator state is prover-controlled.** Between folding steps, the prover holds the running accumulated instance $(z_{acc}, E_{acc}, u_{acc})$. The final SNARK proves this accumulated instance is satisfiable, but doesn't directly verify it came from honest folding. A malicious prover who can inject a satisfiable-but-fake accumulated instance breaks the chain of trust. The "decider" circuit must carefully check that public inputs match the accumulator state.
 
@@ -772,6 +772,124 @@ Folding's verifier is structurally simpler: a few scalar multiplications on comm
 
 CycleFold applies to Nova, HyperNova, and ProtoStar, making all of them practical over curve cycles like Pasta (Pallas/Vesta) or BN254/Grumpkin.
 
+
+## BlindFold: Folding for Zero-Knowledge
+
+Chapter 18 posed a retrofit problem: how do you take a proof system designed for succinctness and soundness and make it zero-knowledge? The two classical techniques, masking polynomials and commit-and-prove, both work but carry per-invocation overhead that compounds in multi-stage protocols. Folding offers a third path.
+
+The problem is concrete. In a sum-check protocol proving $H = \sum_{b \in \{0,1\}^n} g(b)$, each round polynomial $g_j(X_j)$ is a deterministic function of the witness and the prior challenges. The verifier receives these polynomials in the clear. Their coefficients are linear combinations of the witness entries, and after enough rounds (or across multiple sum-check invocations over the same witness), the verifier accumulates enough linear constraints to recover the witness entirely. Chapter 18 showed that the round polynomials of a simple two-variable example leak the witness directly.
+
+No simulator can produce correctly distributed round polynomials without the witness, because the verifier can cross-check them against the final polynomial commitment opening. The protocol is sound but not zero-knowledge.
+
+### The Idea
+
+BlindFold (Section 7 of HyperNova, Kothapalli, Setty, Tzialla, 2023) takes a different approach from masking or wrapping. The prover replaces every round polynomial with a Pedersen commitment to its coefficients. For a degree-$d$ round polynomial $g_j(X) = c_0 + c_1 X + \cdots + c_d X^d$, the prover sends commitments $C_k = c_k G + \rho_k H$ instead of the field elements $c_k$. The verifier sees only opaque group elements.
+
+This immediately hides the witness. But the verifier can no longer check anything: the consistency check $g_j(0) + g_j(1) = V_{j-1}$ requires knowing the actual coefficients, and the evaluation check $g_j(\gamma_j) = V_j$ (where $\gamma_j$ is the Fiat-Shamir challenge) requires evaluating the polynomial. The verifier is holding sealed commitments and cannot perform arithmetic on the hidden values.
+
+BlindFold's resolution: encode every check the sum-check verifier would perform as a constraint in an R1CS, then prove the R1CS is satisfied using Nova folding. The prover does not mask the polynomials; she commits to them and proves, as a separate statement, that the committed values are correct.
+
+### The Verifier R1CS
+
+Both prover and verifier construct the same R1CS from the public Fiat-Shamir transcript. The witness vector $Z$ contains all the hidden data:
+
+$$Z = (u, \; c_0^{(1)}, c_1^{(1)}, \ldots, c_d^{(1)}, \; c_0^{(2)}, \ldots, c_d^{(2)}, \; \ldots, \; c_0^{(R)}, \ldots, c_d^{(R)}, \; V_0, V_1, \ldots, V_R, \; \text{aux}_1, \ldots)$$
+
+where $c_k^{(j)}$ is the $k$-th coefficient of the $j$-th round polynomial, $u$ is the relaxation scalar (initially 1), $V_j$ are the intermediate claims, and auxiliary entries handle binding constraints between sum-check stages.
+
+Each sum-check round $j$ contributes two constraints:
+
+**Consistency.** The verifier checks $g_j(0) + g_j(1) = V_{j-1}$. For $g_j(X) = c_0 + c_1 X + \cdots + c_d X^d$, this reads:
+
+$$2c_0 + c_1 + c_2 + \cdots + c_d = V_{j-1}$$
+
+This is a single R1CS constraint. In the relaxed form, it becomes $(2c_0 + c_1 + \cdots + c_d) \cdot u = V_{j-1}$, encoded with the $A$-row having entries $(2, 1, 1, \ldots, 1)$ at the coefficient positions and the $B$-row selecting $u$.
+
+**Evaluation at $\gamma_j$.** The verifier checks $g_j(\gamma_j) = V_j$:
+
+$$c_0 + \gamma_j c_1 + \gamma_j^2 c_2 + \cdots + \gamma_j^d c_d = V_j$$
+
+Since $\gamma_j$ is derived from the Fiat-Shamir transcript and known to both parties, the powers $\gamma_j^k$ are constants baked into the $A$-matrix. No witness variables are needed for the challenge itself, and no auxiliary multiplication constraints are needed to compute its powers. This keeps the constraint count low: one linear constraint per evaluation check.
+
+**Binding constraints between stages.** In multi-stage protocols, the output of one sum-check stage feeds into the next. These binding constraints take the form $\text{output} = \sum_i \alpha_i \prod_k f_{ik}$, where each factor is either a witness variable (a polynomial opening) or a Fiat-Shamir challenge (baked constant). Products of witness variables require auxiliary R1CS constraints chained through intermediate values: $f_0 \cdot f_1 = \text{aux}_0$, then $\text{aux}_0 \cdot f_2 = \text{aux}_1$, and so on.
+
+**Size.** For $R$ total sum-check rounds across all stages, the R1CS has $2R + O(\text{stages})$ constraints. In Jolt's proof of `fib(50)`, $R \approx 100$, yielding roughly 256 constraints after padding to a power of two. This is the *entire* sum-check verifier expressed as a constraint system.
+
+### The Algebraic One-Time Pad
+
+The R1CS is tiny, but proving it directly with Spartan would reintroduce the original problem: Spartan's own sum-check messages would leak information about the witness. BlindFold breaks this circularity by folding the real witness with a random one before running Spartan.
+
+Let $(Z_1, u_1, E_1)$ be the real relaxed R1CS instance, with $u_1 = 1$ and $E_1 = \mathbf{0}$ (a fresh, non-relaxed instance). The prover samples a uniformly random witness $W_2 \leftarrow \mathbb{F}^n$, computes the error vector $E_2 = (AZ_2) \circ (BZ_2) - u_2 \cdot (CZ_2)$ needed for relaxed R1CS satisfaction, and commits to both $Z_2$ and $E_2$.
+
+Using the folding protocol from earlier in this chapter, the prover computes the cross-term
+
+$$T[i] = (AZ_1)[i] \cdot (BZ_2)[i] + (AZ_2)[i] \cdot (BZ_1)[i] - u_1 \cdot (CZ_2)[i] - u_2 \cdot (CZ_1)[i]$$
+
+commits to $T$, derives the folding challenge $r$ from the Fiat-Shamir transcript, and folds:
+
+$$Z_f = Z_1 + r \cdot Z_2, \qquad u_f = u_1 + r \cdot u_2, \qquad E_f = E_1 + r \cdot T + r^2 \cdot E_2$$
+
+As established in the folding section, the folded instance satisfies relaxed R1CS: $(AZ_f) \circ (BZ_f) = u_f \cdot (CZ_f) + E_f$. But the key property for zero-knowledge is distributional.
+
+**Claim.** For any fixed $Z_1$ and any $r \neq 0$, the distribution of $Z_f = Z_1 + r \cdot Z_2$ over uniform $Z_2 \leftarrow \mathbb{F}^n$ is uniform over $\mathbb{F}^n$.
+
+*Proof.* The map $Z_2 \mapsto Z_1 + r \cdot Z_2$ is an affine bijection on $\mathbb{F}^n$ for $r \neq 0$. A bijection preserves uniformity. $\square$
+
+This is the algebraic one-time pad. In the classical one-time pad, $c = m \oplus k$ is uniform for uniform key $k$, regardless of message $m$. Here, $Z_f = Z_1 + r \cdot Z_2$ is uniform for uniform $Z_2$, regardless of $Z_1$. The analogy is exact: both provide perfect (information-theoretic) secrecy.
+
+Since $Z_f$ is uniformly distributed and independent of $Z_1$, any protocol run on $(Z_f, u_f, E_f)$ reveals nothing about the real witness. Spartan can now prove the folded R1CS in the clear, without needing to be zero-knowledge itself.
+
+### The Full Protocol
+
+**Phase 1: Blinded sum-check.** The prover runs sum-check normally but replaces every round polynomial with Pedersen commitments to its coefficients. Instead of sending $(c_0, c_1, \ldots, c_d)$, the prover sends $(C_0, C_1, \ldots, C_d)$ where each $C_k = c_k G + \rho_k H$. The verifier participates as usual, sending Fiat-Shamir challenges and absorbing commitments into the transcript, but defers all verification to Phase 2.
+
+**Phase 2: BlindFold proof.**
+
+1. Both parties construct the verifier R1CS from the public transcript (same matrices, same baked challenges).
+
+2. The prover assembles the real witness $Z_1$ (all polynomial coefficients from Phase 1, plus intermediate claims and binding values). The corresponding commitments come from Phase 1. This is a standard R1CS instance: $u_1 = 1$, $E_1 = \mathbf{0}$.
+
+3. The prover samples a uniformly random witness $Z_2$, computes $E_2$, and commits to both.
+
+4. The prover computes the cross-term $T$, commits to it, derives the folding challenge $r$, and folds: $Z_f = Z_1 + r \cdot Z_2$, $u_f = 1 + r \cdot u_2$, $E_f = r \cdot T + r^2 \cdot E_2$.
+
+5. The prover runs Spartan on the folded instance $(Z_f, u_f, E_f)$. Spartan proves relaxed R1CS satisfaction via two sum-checks. The outer sum-check (over $\log m$ variables, where $m$ is the constraint count) checks the main constraint equation; the inner sum-check (over $\log n$ variables) reduces the matrix-vector product claims to a single polynomial evaluation. For the tiny verifier R1CS ($m \approx 256$), this means roughly 8 outer rounds and 12 inner rounds, totaling about 20 round polynomials.
+
+**Verification.** The verifier receives both the blinded commitments from Phase 1 and the BlindFold proof from Phase 2. She reconstructs the R1CS from the public transcript, folds the commitment-level instances homomorphically (no witness needed), verifies the Spartan proof over the folded instance, and checks the polynomial commitment openings. She never sees any witness value.
+
+### The Simulator
+
+The zero-knowledge argument is clean because the one-time pad does almost all the work.
+
+**Simulator $\mathcal{S}$ (no access to the real witness):**
+
+1. **Phase 1.** Sample random coefficients $\hat{c}_k^{(j)} \leftarrow \mathbb{F}$ and commit to them. Pedersen commitments to any value are uniformly random group elements, so these commitments are identically distributed to the real ones.
+
+2. **Phase 2.** The simulated "real" witness $\hat{Z}_1$ (the random coefficients) satisfies some R1CS with some error. Sample $Z_2 \leftarrow \mathbb{F}^n$ uniformly, compute $E_2$, derive $r$, and fold: $Z_f = \hat{Z}_1 + r \cdot Z_2$. By the claim above, $Z_f$ is uniform over $\mathbb{F}^n$. Run Spartan honestly on $(Z_f, u_f, E_f)$.
+
+**Why indistinguishable.** In both the real and simulated executions, $Z_f$ is uniformly random (because $Z_2$ is uniform and $r \neq 0$). Since Spartan operates on identically distributed inputs, its transcripts are identically distributed. The only difference lies in the Phase 1 commitments, which are computationally indistinguishable under the discrete logarithm assumption (Pedersen hiding). The folding step provides *perfect* masking; the overall ZK guarantee is *computational* only because of the commitment scheme.
+
+### Cost
+
+The efficiency comes from a confluence of factors.
+
+**The verifier R1CS is tiny.** A sum-check with 100 rounds produces roughly 200 constraints. Spartan's proof over 200 constraints involves about 20 round polynomials total.
+
+**Folding is linear.** Computing the cross-term $T$ requires one pass through the R1CS matrices. For a 256-constraint system, this is negligible.
+
+**The blinded proof can be smaller than the original.** Group elements (32 bytes each) replace $d + 1$ field elements per round. In many configurations, the committed Phase 1 proof $\pi$ is *shorter* than the original non-ZK proof.
+
+| Component | Size | Notes |
+|-----------|------|-------|
+| Phase 1 (blinded sum-check) | Often shorter than original | Commitments compress field elements |
+| Phase 2 (BlindFold proof) | ~3 KB | Spartan over the small verifier R1CS |
+| **Net overhead** | **~3 KB** | |
+
+**Amortization across stages.** In multi-stage protocols like Jolt (which chains 7+ sum-check stages), masking polynomials and $\Sigma$-protocols pay their overhead *per stage*. BlindFold encodes all stages' verifier checks into a single R1CS and folds once. The marginal cost of adding another sum-check stage is two more R1CS constraints.
+
+When a16z's Jolt zkVM shipped BlindFold support in 2025, it was among the first production systems to offer genuine zero-knowledge as a native feature of the proving pipeline, rather than an expensive wrapper.
+
+
 ## Choosing a Strategy
 
 **Use composition** when:
@@ -829,6 +947,10 @@ Traditional recursion has a high threshold: verifier circuits typically require 
 
 9. **Folding wins when $|F| \ll |V|$.** If your step function is smaller than the verifier circuit, folding transforms recursion from impractical to efficient. For large $|F|$, the advantage shrinks; the computation dominates regardless.
 
+### Folding for Zero-Knowledge
+
+10. **BlindFold uses folding as an algebraic one-time pad.** Replace sum-check round polynomials with Pedersen commitments, encode the verifier's checks as a tiny R1CS ($O(\text{rounds})$ constraints), fold the real witness with a random one ($Z_f = Z_1 + r \cdot Z_2$ is uniform for uniform $Z_2$), and prove the folded instance with Spartan. The folded witness leaks nothing; Spartan need not be zero-knowledge itself. Cost: ~3 KB overhead, negligible prover time.
+
 ### Practical Guidance
 
-10. **The design heuristic.** Composition for combining complementary systems (STARK speed + Groth16 size). Traditional recursion for constant-size proofs at every step. Folding for minimal per-step overhead on long sequential computations. CycleFold for practical curve-cycle deployment.
+11. **The design heuristic.** Composition for combining complementary systems (STARK speed + Groth16 size). Traditional recursion for constant-size proofs at every step. Folding for minimal per-step overhead on long sequential computations. CycleFold for practical curve-cycle deployment. BlindFold for retrofitting zero-knowledge onto sum-check-based systems.

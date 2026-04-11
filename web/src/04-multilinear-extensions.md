@@ -43,7 +43,7 @@ For example:
 
 - A database of $2^n$ records indexed by $n$-bit keys
 
-Why does the hypercube matter? Because computation is fundamentally boolean. A memory address is a bit string. A circuit's inputs are bits. A satisfying assignment to a boolean formula is a point in $\{0,1\}^n$. When we want to verify a computation, the objects we care about—wire values, memory contents, constraint satisfaction—are naturally indexed by binary strings. The hypercube $\{0,1\}^n$ is where computational problems live.
+Why does the hypercube matter? Because computation is fundamentally boolean. A memory address is a bit string. A circuit's inputs are bits. A satisfying assignment to a boolean formula is a point in $\{0,1\}^n$. When we want to verify a computation, the objects we care about (wire values, memory contents, constraint satisfaction) are naturally indexed by binary strings. The hypercube $\{0,1\}^n$ is where computational problems live.
 
 But polynomials live over fields, not just $\{0,1\}$. We want a polynomial that agrees with $f$ on the hypercube but extends smoothly to all of $\mathbb{F}^n$. This extension is what lets us apply the algebraic machinery (Schwartz-Zippel, sum-check) that makes verification efficient.
 

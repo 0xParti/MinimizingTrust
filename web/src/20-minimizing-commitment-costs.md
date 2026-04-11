@@ -439,7 +439,7 @@ The selector function (despite involving $\text{row}_t(i)$ and $\text{col}_t(i)$
 
 The prover performs roughly $5M$ field multiplications, or five per actual trace element, regardless of how elements are distributed across tables. No padding and no wasted commitment.
 
-For the verifier, something remarkable happens. The verification circuit depends only on $m = \log_2(M)$ (the log of total trace area), not on the individual table heights $h_y$. Whether the trace has 100 tables of equal size or 100 tables of wildly varying sizes, the verifier does the same work.
+For the verifier, something useful happens. The verification circuit depends only on $m = \log_2(M)$ (the log of total trace area), not on the individual table heights $h_y$. Whether the trace has 100 tables of equal size or 100 tables of wildly varying sizes, the verifier does the same work.
 
 This is the solution to the universal recursion problem from the beginning of this section. When proving proofs of proofs, the verifier circuit becomes the statement being proved. A circuit whose size depends on table configuration creates the combinatorial explosion we feared. But a circuit depending only on total trace area yields one universal recursion circuit.
 

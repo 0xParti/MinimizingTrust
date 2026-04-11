@@ -270,7 +270,7 @@ That's **156× fewer constraints**: the difference between feasible and impracti
 
 ### Security Considerations
 
-Algebraic hashes have less cryptanalytic history than SHA-256. Poseidon has received significant analysis (Grassi et al. 2019, subsequent Gröbner basis attacks), and current parameters include security margins. But conservative applications may:
+Algebraic hashes have less cryptanalytic history than SHA-256. Poseidon has received sustained analysis (Grassi et al. 2019, subsequent Gröbner basis attacks), and current parameters include security margins. But conservative applications may:
 
 - Use more rounds than the minimum recommended
 - Fall back to SHA-256 for security-critical operations outside circuits
@@ -396,7 +396,7 @@ Prove over Pallas, verify in a Vesta circuit; prove over Vesta, verify in a Pall
 
 > **The BN254/Grumpkin Cycle**
 >
-> While Pallas/Vesta is the most famous cycle (used in Halo 2), the BN254/Grumpkin cycle is crucial for Ethereum developers. Since BN254 is precompiled on Ethereum, systems like Aztec use this cycle to verify recursive proofs on-chain cheaply. Grumpkin is a curve whose base field matches BN254's scalar field, enabling the same recursive trick while staying compatible with Ethereum's existing infrastructure.
+> While Pallas/Vesta is the most famous cycle (used in Halo 2), the BN254/Grumpkin cycle matters for Ethereum developers. Since BN254 is precompiled on Ethereum, systems like Aztec use this cycle to verify recursive proofs on-chain cheaply. Grumpkin is a curve whose base field matches BN254's scalar field, enabling the same recursive trick while staying compatible with Ethereum's existing infrastructure.
 
 ## Group Operations
 
@@ -432,7 +432,7 @@ Compute $\sum_i s_i \cdot G_i$ for scalars $s_i$ and points $G_i$.
 
 **Pippenger's algorithm**: Group scalars by their bit patterns. Reduces work from $O(n \cdot \log |s|)$ to $O(n / \log n \cdot \log |s|)$.
 
-MSM dominates KZG commitment time. Parallelization and GPU implementation are essential for practical SNARKs.
+MSM dominates KZG commitment time. Parallelization and GPU implementation are necessary for practical SNARKs.
 
 
 ## Key Takeaways
@@ -469,4 +469,4 @@ MSM dominates KZG commitment time. Parallelization and GPU implementation are es
 
 13. **Projective coordinates**: Avoid field inversions by representing points as ratios. Essential for efficient elliptic curve operations.
 
-14. **MSM optimization**: Multi-scalar multiplication dominates KZG commitment time. Pippenger's algorithm and GPU parallelization are critical for practical provers.
+14. **MSM optimization**: Multi-scalar multiplication dominates KZG commitment time. Pippenger's algorithm and GPU parallelization are necessary for practical provers.

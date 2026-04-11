@@ -16,7 +16,7 @@ Why should you believe it?
 
 The server might be compromised. The operator might be malicious. The hardware might be faulty. The software might contain bugs. Even if everything works correctly, how would you *know*? The only evidence you have is the answer itself, and the answer, by itself, proves nothing.
 
-Here's the fundamental asymmetry: executing a computation takes resources (time, memory, energy). But *checking* whether the computation was done correctly also takes resources. In many cases, the same resources. If you could check the answer cheaply, you wouldn't have outsourced the computation in the first place.
+Here's the asymmetry: executing a computation takes resources (time, memory, energy). But *checking* whether the computation was done correctly also takes resources. In many cases, the same resources. If you could check the answer cheaply, you wouldn't have outsourced the computation in the first place.
 
 This is the **trust problem in computation**: how do you verify without redoing all the work?
 
@@ -73,13 +73,13 @@ Twenty-eight soldiers died because a computation was trusted without verificatio
 
 Whether the error comes from a hacker in the server room or a rounding bug in the floating-point unit, the result is the same: a wrong answer accepted as truth. Validity proofs don't care about intent; they care about correctness. They catch malice and accident alike.
 
-The remarkable discovery of the 1980s and 1990s was that cheap verification *is* possible.
+The discovery of the 1980s and 1990s was that cheap verification *is* possible.
 
 
 
 ## Interactive Proofs: The Breakthrough
 
-The insight came from complexity theory, and it involved a conceptual leap: *interaction* and *randomness* together can create verification power that neither possesses alone.
+The insight came from complexity theory. It involved a conceptual leap: *interaction* and *randomness* together can create verification power that neither possesses alone.
 
 A computationally unbounded prover claims to have solved a problem. A polynomially bounded verifier wants to check this claim. The verifier cannot solve the problem themselves (that's the whole point), but they can engage in a conversation with the prover.
 
@@ -119,7 +119,7 @@ $$\Pr[\text{cheating succeeds}] \leq \frac{10^6}{2^{256}} \approx 2^{-236}$$
 
 This is so small it's effectively zero. One random evaluation suffices.
 
-This is the **Schwartz-Zippel lemma** in action. We'll see it again and again throughout this book. It's perhaps the most important tool in interactive proofs: random evaluation catches disagreement between polynomials with overwhelming probability.
+This is the **Schwartz-Zippel lemma** in action. We'll see it again and again throughout this book. It is the central tool in interactive proofs. Random evaluation catches disagreement between polynomials with overwhelming probability.
 
 
 
@@ -201,7 +201,7 @@ PCPs work the same way, but with vastly more redundancy. The proof is not the ra
 
 The technology: low-degree polynomial encoding. The witness is interpreted as evaluations of a polynomial, then extended to many more points. Polynomial structure ensures that errors propagate: a polynomial that's wrong at even one point must disagree with the correct polynomial almost everywhere (Schwartz-Zippel, again). Random queries catch these disagreements with high probability.
 
-This is remarkable. A satisfying assignment to a million-variable formula might require a million bits to write down. But there exists an encoding, a PCP, where checking validity requires reading only, say, 3 bits. The encoding has redundancy; errors anywhere propagate everywhere, detectable by sparse sampling.
+Consider what this means. A satisfying assignment to a million-variable formula might require a million bits to write down. But there exists an encoding, a PCP, where checking validity requires reading only, say, 3 bits. The encoding has redundancy; errors anywhere propagate everywhere, detectable by sparse sampling.
 
 ### The MIP-PCP Connection
 
@@ -243,7 +243,7 @@ In a standard PCP (as described above), the proof is a string of symbols and the
 
 Think of it as a library where you can't open the books (that would reveal the witness). You can only ask the librarian to weigh books in specific combinations. "Put 2 copies of book 1 on the scale, plus 3 copies of book 3, plus 1 copy of book 7, and tell me the total weight." The librarian answers with a single number. You ask several such questions. From these weighted sums, you try to verify some property of the books without ever seeing their contents.
 
-The linearity constraint is extraordinarily powerful. If the verifier is restricted to weighted-sum queries, we can use cryptography to *enforce* this restriction. Here's the key insight: **certain cryptographic structures only allow weighted-sum operations, nothing else**.
+The linearity constraint turns out to be exactly what we need. If the verifier is restricted to weighted-sum queries, we can use cryptography to *enforce* this restriction. Here's the key insight: **certain cryptographic structures only allow weighted-sum operations, nothing else**.
 
 Elliptic curve groups have this property. In an elliptic curve group, you can add points together and multiply points by numbers, but you cannot multiply two points together. Think of it like a calculator that has + and × buttons, but the × only works when one input is a regular number. If the proof values are encoded as elliptic curve points, then anyone holding those points can only compute weighted sums of them.
 

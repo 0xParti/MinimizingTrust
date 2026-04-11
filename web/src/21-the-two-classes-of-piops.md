@@ -4,7 +4,7 @@ Every modern SNARK, stripped to its essence, follows the same recipe: a Polynomi
 
 But within this unifying framework, two distinct philosophies have emerged. They use different polynomial types, different domains, different proof strategies. They lead to systems with different performance profiles.
 
-Understanding when to use which is not academic curiosity; it's essential for SNARK system design.
+Understanding when to use which is not academic curiosity; it shapes every SNARK design decision.
 
 ## The Divide
 
@@ -98,7 +98,7 @@ For arbitrary $H$, computing $Z_H(r)$ requires $O(N)$ operations: a factor of $(
 
 $$Z_H(X) = X^N - 1$$
 
-The verifier computes $Z_H(r) = r^N - 1$ in $O(\log N)$ time via repeated squaring. This simple structure, an accident of multiplicative group theory, makes quotienting practical. Chapter 13 develops this further: roots of unity also enable FFT-based polynomial arithmetic and the shift structure essential for accumulator checks.
+The verifier computes $Z_H(r) = r^N - 1$ in $O(\log N)$ time via repeated squaring. This simple structure, an accident of multiplicative group theory, makes quotienting practical. Chapter 13 develops this further: roots of unity also enable FFT-based polynomial arithmetic and the shift structure needed for accumulator checks.
 
 ### Soundness
 
@@ -279,7 +279,7 @@ The comparisons above reveal a pattern. Quotienting and sum-check differ not jus
 
 The wiring story reinforces this. Permutation arguments treat all wire patterns uniformly: a random scramble costs the same as a structured dataflow. Memory checking adapts: tensor decomposition exploits address structure, virtualization skips commitment to state tables, and read-only versus read-write falls out of the same framework.
 
-A useful heuristic: if you know exactly what your circuit looks like at compile time and it fits comfortably in memory, quotienting's simplicity wins. If your circuit's shape depends on runtime data, or if you're pushing toward billions of constraints, sum-check's adaptivity becomes essential.
+A useful heuristic: if you know exactly what your circuit looks like at compile time and it fits comfortably in memory, quotienting's simplicity wins. If your circuit's shape depends on runtime data, or if you're pushing toward billions of constraints, sum-check's adaptivity wins.
 
 
 ## Key Takeaways

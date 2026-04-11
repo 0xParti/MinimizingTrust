@@ -409,3 +409,11 @@ Both achieve the same essential goal: reduce exponentially many constraint check
 5. **The vanishing polynomial** $Z_H(X) = X^n - 1$ captures all roots of unity. A polynomial vanishes on $H$ iff $Z_H$ divides it.
 
 6. **Constraint compression**: $n$ constraints "$C(\omega^i) = 0$" become one divisibility "$Z_H | C$", verified by one random check.
+
+7. **Lagrange interpolation** over roots of unity has a clean closed form exploiting the structure of $Z_H$.
+
+8. **Cosets** extend the domain while preserving FFT-friendliness.
+
+9. **Quotient arguments** prove evaluation claims: to show $P(z) = y$, prove $(X-z)$ divides $P(X) - y$.
+
+10. **The FFT exists because of roots of unity.** The algorithm is a direct consequence of the symmetries $\omega^{n/2} = -1$ and $(\omega^k)^2 = \omega^{2k}$.

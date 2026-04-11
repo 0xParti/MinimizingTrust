@@ -32,7 +32,7 @@ STARKs abandon elliptic curves entirely. They ask a more primitive question: *wh
 
 A collision-resistant hash function is perhaps the most conservative cryptographic assumption we have. SHA-256, Blake3, Keccak: these primitives are analyzed relentlessly, deployed universally, and trusted implicitly. They offer no algebraic structure, no homomorphisms, no elegant equations. Just a box that takes input and produces output, where finding two inputs with the same output is computationally infeasible.
 
-The quantum story here is fundamentally different from discrete log. Grover's algorithm provides a quadratic speedup for unstructured search, reducing the security of a 256-bit hash from $2^{256}$ to $2^{128}$ operations. This is manageable: use a larger hash output and security is restored. Contrast this with Shor's exponential speedup against discrete log, which breaks the problem entirely rather than merely weakening it.
+The quantum story here differs from discrete log in kind. Grover's algorithm provides a quadratic speedup for unstructured search, reducing the security of a 256-bit hash from $2^{256}$ to $2^{128}$ operations. This is manageable: use a larger hash output and security is restored. Contrast this with Shor's exponential speedup against discrete log, which breaks the problem entirely rather than merely weakening it.
 
 This seems like a step backward. Algebraic structure is what made polynomial commitments possible. KZG works because $g^{p(\tau)}$ preserves polynomial relationships, because the commitment scheme respects the algebra of the underlying object. A hash function respects nothing. $H(a + b) \neq H(a) + H(b)$. The hash of a polynomial evaluation tells you nothing about the polynomial.
 
@@ -119,7 +119,7 @@ is a polynomial of known degree. If $C(X)$ doesn't vanish on $H'$ (if the trace 
 >
 > The degree of the constraint polynomial $C(X)$ directly impacts prover cost. If a transition constraint involves $P_0(X)^3$, that term has degree $3(T-1)$ (since $P_0$ has degree $T-1$). The composition polynomial inherits this: $\deg(\text{Comp}) \approx \deg(\text{constraint}) \times T$. The prover must commit to this polynomial over the LDE domain, and FRI must prove its degree bound.
 >
-> This creates a fundamental trade-off. Higher-degree constraints let you express more complex transitions in a single step, but they blow up the prover's work. A degree-8 constraint over a million-step trace produces a composition polynomial of degree ~8 million, requiring proportionally more commitment and FRI work. Most practical AIR systems keep constraint degree between 2 and 4, accepting more trace columns (more registers) to avoid high-degree terms. The art of AIR design is balancing expressiveness against this degree bottleneck.
+> This creates a trade-off. Higher-degree constraints let you express more complex transitions in a single step, but they blow up the prover's work. A degree-8 constraint over a million-step trace produces a composition polynomial of degree ~8 million, requiring proportionally more commitment and FRI work. Most practical AIR systems keep constraint degree between 2 and 4, accepting more trace columns (more registers) to avoid high-degree terms. The art of AIR design is balancing expressiveness against this degree bottleneck.
 
 Transition constraints enforce the rules at every step, but they say nothing about *which* computation we're proving. We also need **boundary constraints** to pin down the inputs and outputs. In our $3^8$ example:
 
@@ -287,7 +287,7 @@ For Mersenne primes like $p = 2^{31} - 1$, the circle group has particularly nic
 
 - The group has order $p + 1 = 2^{31}$, a perfect power of 2
 - This enables FFT-like algorithms directly, without the $(p-1)$ divisibility constraint
-- Mersenne primes have extremely fast modular arithmetic (reduction is just addition and shift)
+- Mersenne primes have fast modular arithmetic (reduction is just addition and shift)
 
 The group operation on the circle is defined via the "complex multiplication" formula:
 $$(x_1, y_1) \cdot (x_2, y_2) = (x_1 x_2 - y_1 y_2, x_1 y_2 + x_2 y_1)$$
@@ -312,7 +312,7 @@ Circle STARKs require adapting the polynomial machinery:
 - FRI folding uses the circle structure
 - Some constraint types require reformulation
 
-The implementation complexity is higher. But for systems targeting maximum prover speed, particularly zkVMs where prover time dominates, Circle STARKs offer a path to significant performance improvements.
+The implementation complexity is higher. But for systems targeting maximum prover speed, particularly zkVMs where prover time dominates, Circle STARKs offer a path to concrete performance improvements.
 
 ### The Broader Lesson
 

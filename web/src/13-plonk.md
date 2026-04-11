@@ -8,7 +8,7 @@ The result was PLONK (2019): **P**ermutations over **L**agrange-bases for **O**e
 
 PLONK's modularity extends to the commitment scheme. The core is a **Polynomial IOP**: an interactive protocol where the prover sends polynomials and the verifier queries evaluations. Compile it with KZG for constant-size proofs with trusted setup. Compile with FRI for larger proofs without trust assumptions. The IOP is unchanged; only the cryptographic layer differs.
 
-The cost of universality is larger proofs (~400-500 bytes versus 128) and more verification work (~10 pairings versus 3). Whether this trade-off makes sense depends on deployment constraints: Groth16 remains preferred when proof size or verification cost is critical; PLONK variants dominate when development velocity or custom gates matter more.
+The cost of universality is larger proofs (~400-500 bytes versus 128) and more verification work (~10 pairings versus 3). Whether this trade-off makes sense depends on deployment constraints: Groth16 remains preferred when proof size or verification cost is the priority; PLONK variants dominate when development velocity or custom gates matter more.
 
 ## Architecture: Gates and Copy Constraints
 
@@ -36,7 +36,7 @@ Each selector has one value per gate. For $Q_L$, we have a vector $(Q_{L,0}, Q_{
 
 The witness structure differs from R1CS. In R1CS (Chapter 8), the witness is a single flattened vector $Z = (1, \text{public inputs}, \text{private inputs}, \text{intermediate values})$. Each wire has exactly one index in $Z$. When two constraints reference the same wire, they use the same index; wiring is implicit in the indexing scheme.
 
-PLONK structures the witness differently: three separate vectors $(a, b, c)$, each of length $n$ (the number of gates). Entry $a_i$ is gate $i$'s left input; $b_i$ is its right input; $c_i$ is its output. When the same value appears in multiple positions (say, a variable feeding two different gates) it occupies multiple slots in these vectors. This has a crucial consequence: PLONK needs explicit "copy constraints" to enforce that slots holding the same logical wire actually contain the same value. We'll see how this works shortly.
+PLONK structures the witness differently: three separate vectors $(a, b, c)$, each of length $n$ (the number of gates). Entry $a_i$ is gate $i$'s left input; $b_i$ is its right input; $c_i$ is its output. When the same value appears in multiple positions (say, a variable feeding two different gates) it occupies multiple slots in these vectors. This has a direct consequence: PLONK needs explicit "copy constraints" to enforce that slots holding the same logical wire actually contain the same value. We'll see how this works shortly.
 
 To make this concrete, consider $y = (x + z) \cdot z$ with $x = 3$, $z = 2$, so $y = 10$.
 
@@ -441,7 +441,7 @@ The prover:
 2. Evaluates all relevant polynomials at $\zeta$:
 
    - Witness: $a(\zeta), b(\zeta), c(\zeta)$
-   - Accumulator: $Z(\zeta)$, and crucially $Z(\zeta\omega)$ (the shifted evaluation)
+   - Accumulator: $Z(\zeta)$, and $Z(\zeta\omega)$ (the shifted evaluation)
    - Permutation: $S_{\sigma_1}(\zeta), S_{\sigma_2}(\zeta)$
 3. Sends evaluations to verifier
 4. Computes batched opening proofs (we explain the linearization trick in the verification section below)
@@ -540,11 +540,11 @@ This is 4-5× larger than Groth16's 128 bytes. The cost buys universality: one s
 
 ## Why Roots of Unity?
 
-PLONK's use of roots of unity (multiplicative subgroup of order $2^k$) is not arbitrary. Three properties make them essential:
+PLONK's use of roots of unity (multiplicative subgroup of order $2^k$) is not arbitrary. Three properties make them necessary:
 
 - Polynomial operations (interpolation, multiplication, division) run in $O(n \log n)$ via FFT. Without roots of unity, these cost $O(n^2)$.
 - The vanishing polynomial has a simple form: $Z_H(X) = X^n - 1$. Compact representation, efficient evaluation.
-- The accumulator's recursive relation compares $Z(X)$ and $Z(X\omega)$. Multiplication by $\omega$ shifts through the domain cyclically, which is essential for encoding the step-by-step product check.
+- The accumulator's recursive relation compares $Z(X)$ and $Z(X\omega)$. Multiplication by $\omega$ shifts through the domain cyclically, which encodes the step-by-step product check.
 
 Groth16 uses an arithmetic progression $\{1, 2, \ldots, m\}$ because its prover doesn't interpolate; it computes linear combinations of precomputed basis polynomials. The FFT advantage doesn't apply.
 

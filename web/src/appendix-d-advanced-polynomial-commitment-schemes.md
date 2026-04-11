@@ -26,7 +26,7 @@ $$\tilde{f}(r_1, \ldots, r_n) = \sum_{b \in \{0,1\}^n} f_b \cdot \text{eq}(b, r)
 
 where $\text{eq}(b, r) = \prod_{i=1}^{n} (b_i r_i + (1-b_i)(1-r_i))$.
 
-The crucial observation: $\text{eq}$ factors across the split. If we partition the evaluation point $r = (r_L, r_R)$ where $r_L = (r_1, \ldots, r_{n/2})$ and $r_R = (r_{n/2+1}, \ldots, r_n)$, then:
+The key observation: $\text{eq}$ factors across the split. If we partition the evaluation point $r = (r_L, r_R)$ where $r_L = (r_1, \ldots, r_{n/2})$ and $r_R = (r_{n/2+1}, \ldots, r_n)$, then:
 
 $$\text{eq}((a, b), r) = \text{eq}(a, r_L) \cdot \text{eq}(b, r_R)$$
 
@@ -263,7 +263,7 @@ Both IPA and Hyrax (with Bulletproofs) achieve logarithmic proof size, but Hyrax
 
 ### Connection to Dory
 
-Hyrax's square-root verification is a significant improvement over IPA's linear verification, but can we do better? **Dory** answers yes by combining Hyrax's matrix structure with pairings.
+Hyrax's square-root verification is an improvement over IPA's linear verification, but can we do better? **Dory** answers yes by combining Hyrax's matrix structure with pairings.
 
 The key observation: Hyrax's verifier bottleneck is the MSM $C' = \sum_a L[a] \cdot C_a$. This is $O(\sqrt{N})$ group operations. Dory eliminates this by:
 
@@ -319,7 +319,7 @@ where $r_{\text{fin}}$ is a final blinding factor. This produces one $\mathbb{G}
 | Tier 2 ($\mathbb{G}_T$) | Provides succinctness: one element regardless of polynomial size |
 | | Binding under SXDH assumption in Type III pairings |
 
-The AFGHO commitment is hiding because $r_{\text{fin}} \cdot e(H_1, H_2)$ is uniformly random in $\mathbb{G}_T$. Both tiers are additively homomorphic, which is crucial for the evaluation protocol.
+The AFGHO commitment is hiding because $r_{\text{fin}} \cdot e(H_1, H_2)$ is uniformly random in $\mathbb{G}_T$. Both tiers are additively homomorphic, which the evaluation protocol relies on.
 
 ### From Coefficients to Matrix Form
 

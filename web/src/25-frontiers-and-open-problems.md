@@ -6,7 +6,7 @@ In 2020, SNARKs felt similarly settled. We had Groth16 for minimal proofs and PL
 
 This chapter is a reminder that we are not at the end of history. The "fundamental laws" of ZK are still being written. The techniques described here are the Special Relativity moments of our decade: advances that didn't refine existing theory but rewrote it.
 
-The frontiers span a remarkable range: from the algebraic structure of binary fields to the engineering of GPU kernels, from quantum threat models to the economics of decentralized proving markets. What unites them is a common goal: making proofs smaller, faster, and more trustworthy.
+The frontiers span a wide range: from the algebraic structure of binary fields to the engineering of GPU kernels, from quantum threat models to the economics of decentralized proving markets. What unites them is a common goal: making proofs smaller, faster, and more trustworthy.
 
 This chapter surveys those frontiers. Some involve hardness assumptions we cannot yet prove. Others involve efficiency gaps between what theory permits and what practice achieves. A few touch questions so deep that resolving them would reshape our understanding of computation itself. Think of what follows as a map of the territory we have not yet conquered.
 
@@ -42,7 +42,7 @@ Binius combines several innovations:
 
 What does "operating in a tower" mean concretely? Each level is a field extension: $\mathbb{F}_2$ contains just $\{0,1\}$ with XOR addition; $\mathbb{F}_{2^8}$ contains 8-bit elements (bytes); $\mathbb{F}_{2^{128}}$ provides cryptographic security. The key insight: *elements of smaller fields are also elements of larger fields*. A bit in $\mathbb{F}_2$ can be viewed as an element of $\mathbb{F}_{2^{128}}$; it's just a very special element.
 
-This enables a crucial optimization: store witness data in the smallest field that fits (bits stay bits, bytes stay bytes), perform arithmetic at the appropriate level, and only "lift" to the full tower when random challenges enter. The 256× overhead of representing a single bit as a 256-bit field element vanishes.
+This enables a natural optimization: store witness data in the smallest field that fits (bits stay bits, bytes stay bytes), perform arithmetic at the appropriate level, and only "lift" to the full tower when random challenges enter. The 256× overhead of representing a single bit as a 256-bit field element vanishes.
 
 (Note: this "tower" is unrelated to the "tower of proofs" in Chapter 22's recursion discussion. There, "tower" refers to proofs-of-proofs: $\pi_1 \to \pi_2 \to \pi_3$. Here, "tower" refers to nested field extensions. Both exploit hierarchical structure (recursion avoids re-proving entire computations; field towers avoid doing large-field arithmetic on small values) but the mechanisms are distinct.)
 
@@ -140,7 +140,7 @@ The zkVM landscape has stratified into distinct architectural approaches, each w
 
 *Note on continuations:* Continuations are a specific flavor of recursion. Instead of proving the entire computation history at each step, you prove only the current segment plus a commitment to the previous segment's final state (a memory root or hash). This lets you pause and resume computation at arbitrary points, which is critical for programs that run longer than a single proof cycle allows. Think of it as a checkpoint system: each segment proves "I started from this checkpoint and reached that checkpoint," rather than "I verified everything that came before me."
 
-**SP1 (Succinct).** The precompile optimizer. Cross-table lookup architecture with a flexible precompile system that accelerates common operations (signature verification, hashing) by 5-10× over raw RISC-V. A *precompile* is essentially a "cheat code" for the VM: instead of executing a SHA-256 hash step-by-step through thousands of RISC-V instructions, the VM recognizes the operation and delegates it to a specialized, hand-optimized sub-circuit. Think of it as a GPU inside the CPU specifically for heavy cryptographic math. SP1 Hypercube (2025) moved from STARKs to multilinear polynomials, achieving real-time Ethereum proving: 99.7% of L1 blocks proven in under 12 seconds on 16 GPUs. First general-purpose zkVM to eliminate proximity gap conjectures. The team estimates a real-time prover cluster could be built for ~100K USD in hardware.
+**SP1 (Succinct).** The precompile optimizer. Cross-table lookup architecture with a flexible precompile system that accelerates common operations (signature verification, hashing) by 5-10× over raw RISC-V. A *precompile* is essentially a "cheat code" for the VM: instead of executing a SHA-256 hash step-by-step through thousands of RISC-V instructions, the VM recognizes the operation and delegates it to a specialized, hand-optimized sub-circuit. Think of it as a GPU inside the CPU specifically for heavy cryptographic math. SP1 Hypercube (2025) moved from STARKs to multilinear polynomials, achieving real-time Ethereum proving: 99.7% of L1 blocks proven in under 12 seconds on 16 GPUs. First general-purpose zkVM to eliminate proximity gap conjectures. The team estimates a real-time prover cluster could be built for ~$100K in hardware.
 
 **Zisk (Polygon spinoff).** The latency minimizer. Spun out of Polygon's zkEVM team (led by co-founder Jordi Baylina) in June 2025, with all Polygon zkEVM IP transferred to the new entity. Built on RISC-V 64, designed from the ground up for low-latency distributed proving. Features a 1.5GHz zkVM execution engine, highly parallelized proof generation, GPU-optimized code, and advanced aggregation circuits. The architecture targets real-time Ethereum block proving via massive parallelization across prover clusters.
 
@@ -212,7 +212,7 @@ These workloads share a common structure: massive parallelism with minimal branc
 
 ### Current Approaches
 
-GPUs provide 10-100× speedup for MSM and NTT, which are massively parallel by nature. Libraries like cuSNARK and ICICLE offer CUDA implementations. FPGAs offer energy efficiency and latency advantages, with the ability to implement custom arithmetic units for specific field sizes. ASICs represent the ultimate optimization: custom chips designed specifically for ZK proving. Several companies are developing these, betting that proof generation will become a significant computational market.
+GPUs provide 10-100× speedup for MSM and NTT, which are massively parallel by nature. Libraries like cuSNARK and ICICLE offer CUDA implementations. FPGAs offer energy efficiency and latency advantages, with the ability to implement custom arithmetic units for specific field sizes. ASICs represent the ultimate optimization: custom chips designed specifically for ZK proving. Several companies are developing these, betting that proof generation will become a large computational market.
 
 ### Open Problems
 
@@ -236,7 +236,7 @@ Three main approaches have emerged. Recursive aggregation proves that you verifi
 
 ### Open Problems
 
-Recursion adds significant prover overhead since proving verification is expensive. Can we aggregate proofs without proving verification? Some approaches use algebraic structure (e.g., aggregating KZG openings), but general solutions remain elusive.
+Recursion adds prover overhead since proving verification is expensive. Can we aggregate proofs without proving verification? Some approaches use algebraic structure (e.g., aggregating KZG openings), but general solutions remain elusive.
 
 Incremental aggregation poses another challenge. Given an aggregate of $n$ proofs, how do we add proof $n+1$ without recomputing from scratch? Naive recursion requires touching all previous proofs.
 
@@ -292,7 +292,7 @@ Proof of inference is more tractable. Small neural networks (thousands to tens o
 
 Scaling to large models is the central challenge. Can we prove inference for models with millions of parameters? The constraint count is daunting, but perhaps structure (repeated layers, sparse activations) can be exploited.
 
-Non-linearities create a specific bottleneck. ReLU, softmax, and other activation functions are expensive in arithmetic circuits. Approximating them efficiently, or designing "ZK-friendly" architectures that use amenable non-linearities, could unlock significant improvements.
+Non-linearities create a specific bottleneck. ReLU, softmax, and other activation functions are expensive in arithmetic circuits. Approximating them efficiently, or designing "ZK-friendly" architectures that use amenable non-linearities, could unlock real improvements.
 
 Current approaches often require hand-optimized circuits for specific model architectures. Model-agnostic techniques that work for *any* architecture without manual optimization remain elusive.
 
@@ -330,11 +330,11 @@ These questions matter beyond intellectual curiosity. Tight lower bounds would t
 
 ## Closing Perspective
 
-The frontiers we've surveyed span a remarkable range: from the algebraic structure of binary fields to the engineering of GPU kernels, from quantum threat models to the economics of decentralized proving markets. What unites them is a common goal: making proofs smaller, faster, and more trustworthy.
+The frontiers we've surveyed span a wide range: from the algebraic structure of binary fields to the engineering of GPU kernels, from quantum threat models to the economics of decentralized proving markets. What unites them is a common goal: making proofs smaller, faster, and more trustworthy.
 
 The field is young. Systems that seemed optimal five years ago have been superseded. Techniques dismissed as impractical have become standard. The gap between theory and practice has narrowed faster than anyone predicted.
 
-Some patterns emerge from the chaos. Post-quantum concerns are driving a shift toward hash-based systems. zkVMs are becoming the default abstraction for provable computation. Multilinear polynomials are displacing univariate encodings. Hardware acceleration is transitioning from optional to essential. Formal verification is gaining recognition as necessary, not nice-to-have.
+Some patterns emerge from the chaos. Post-quantum concerns are driving a shift toward hash-based systems. zkVMs are becoming the default abstraction for provable computation. Multilinear polynomials are displacing univariate encodings. Hardware acceleration is transitioning from optional to necessary. Formal verification is gaining recognition as necessary, not nice-to-have.
 
 But predictions are dangerous in a field moving this fast. The most important development of the next five years may not appear on any current research agenda. It may come from an unexpected connection between existing techniques, or from a problem domain no one is currently targeting.
 

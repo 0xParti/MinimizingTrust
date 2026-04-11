@@ -6,7 +6,7 @@ Then Jens Groth published a paper that seemed to violate the laws of physics. He
 
 `[Proof: 0x1a2b3c...] #Zcash`
 
-This was not just optimization. It was perfection. Groth proved mathematically that for pairing-based systems, you literally cannot get smaller than 3 group elements. He had found the floor.
+This was not just optimization. It was the theoretical minimum. Groth proved mathematically that for pairing-based systems, you literally cannot get smaller than 3 group elements. He had found the floor.
 
 The paper, "On the Size of Pairing-based Non-interactive Arguments," became the most deployed SNARK in history. When Zcash launched its Sapling upgrade in 2018, it used Groth16. When Tornado Cash and dozens of other privacy applications needed succinct proofs, they used Groth16. The answer to "what's the smallest possible proof?" turned out to be the answer the entire field needed.
 
@@ -138,7 +138,7 @@ $$g_1^{\frac{\beta \cdot A_j(\tau) + \alpha \cdot B_j(\tau) + C_j(\tau)}{\delta}
 
 These encode the basis polynomials $A_j, B_j, C_j$ directly. Change the circuit, change the basis polynomials, and these elements no longer make cryptographic sense.
 
-More fundamentally: computing these elements requires knowing $\alpha, \beta, \gamma, \delta$ in the clear. After the ceremony, these secrets are destroyed. They cannot be recovered to compute new circuit-specific values.
+At a deeper level, computing these elements requires knowing $\alpha, \beta, \gamma, \delta$ in the clear. After the ceremony, these secrets are destroyed. They cannot be recovered to compute new circuit-specific values.
 
 This is Groth16's central tradeoff. The circuit-specific encoding enables the minimal proof size. It also mandates a new ceremony for every circuit.
 

@@ -2,7 +2,7 @@
 
 In 1960, Irving Reed and Gustave Solomon were trying to solve a practical problem: how do you send data through space?
 
-The spacecraft transmitting from millions of miles away couldn't retransmit lost bits. The signal would be corrupted by cosmic radiation, hardware glitches, and the fundamental noise of the universe. Reed and Solomon needed a way to encode information so that even after some of it was destroyed, the original could be perfectly recovered.
+The spacecraft transmitting from millions of miles away couldn't retransmit lost bits. The signal would be corrupted by cosmic radiation, hardware glitches, and the irreducible noise of the universe. Reed and Solomon needed a way to encode information so that even after some of it was destroyed, the original could be perfectly recovered.
 
 Their solution was startlingly simple. Instead of sending raw data, they evaluated a polynomial at many points and transmitted the evaluations. A polynomial of degree $d$ is uniquely determined by $d+1$ points, so if you send many more than $d+1$ evaluations, some can be corrupted or lost, and the receiver can still reconstruct the original polynomial from what remains.
 
@@ -107,7 +107,7 @@ Both encodings are useful in different contexts. Coefficient encoding is natural
 
 Why does a polynomial passing through $n$ specified points always exist and why is it unique?
 
-Picture a flexible curve that you need to pin down at specific points. With one point, infinitely many curves pass through it. With two points, you've constrained the curve more, but many still fit. The remarkable fact: with $n$ points, there's *exactly one* polynomial of degree at most $n-1$ that passes through all of them. The points completely determine the curve.
+Picture a flexible curve that you need to pin down at specific points. With one point, infinitely many curves pass through it. With two points, you've constrained the curve more, but many still fit. The uniqueness guarantee: with $n$ points, there's *exactly one* polynomial of degree at most $n-1$ that passes through all of them. The points completely determine the curve.
 
 **Theorem (Lagrange Interpolation).** Given $n$ distinct points $(x_1, y_1), (x_2, y_2), \ldots, (x_n, y_n)$ in a field $\mathbb{F}$, there exists a unique polynomial $p(x)$ of degree at most $n-1$ such that $p(x_i) = y_i$ for all $i$.
 
@@ -641,7 +641,7 @@ Over special domains, specifically the $n$-th roots of unity in a field, polynom
 
 Without FFT, evaluating a degree-$n$ polynomial at $n$ points takes $O(n^2)$ operations. With FFT over roots of unity, it's $O(n \log n)$.
 
-This speedup is essential for practical ZK systems. Prover complexity in many SNARKs is dominated by FFT operations.
+This speedup is necessary for practical ZK systems. Prover complexity in many SNARKs is dominated by FFT operations.
 
 ### 5. Composability
 
@@ -653,13 +653,13 @@ Polynomials compose predictably:
 
 - Sums $p + q$ have degree $\max(d_p, d_q)$
 
-This predictability is essential for analyzing protocols. When the verifier asks for $p(r) \cdot q(r)$, they know the result should come from a polynomial of degree $d_p + d_q$, and can set the soundness parameters accordingly.
+This predictability enables rigorous protocol analysis. When the verifier asks for $p(r) \cdot q(r)$, they know the result should come from a polynomial of degree $d_p + d_q$, and can set the soundness parameters accordingly.
 
 
 
 ## The Polynomial Paradigm: A Unified View
 
-We can now state the polynomial paradigm that underlies essentially all modern ZK proofs:
+We can now state the polynomial paradigm that underlies nearly all modern ZK proofs:
 
 1. **Represent** the computation as polynomials: witness values, constraint evaluations, everything becomes polynomial data
 

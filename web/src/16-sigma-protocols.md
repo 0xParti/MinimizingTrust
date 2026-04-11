@@ -24,11 +24,11 @@ The paper became a classic, despite the fact that most children would probably s
 
 This chapter develops the mathematics behind the cave. A prover commits to something random. A verifier challenges with something random. The prover responds with something that combines both randomnesses with their secret. The verifier checks a simple algebraic equation. If it holds, accept; if not, reject.
 
-This is a $\Sigma$-protocol. The name comes from the shape of the message flow: three arrows forming the Greek letter $\Sigma$ when drawn between prover and verifier. The structure is so fundamental that it appears everywhere cryptography touches authentication: digital signatures, identification schemes, credential systems, and as building blocks within the complex SNARKs we've studied.
+This is a $\Sigma$-protocol. The name comes from the shape of the message flow: three arrows forming the Greek letter $\Sigma$ when drawn between prover and verifier. The structure is so pervasive that it appears everywhere cryptography touches authentication: digital signatures, identification schemes, credential systems, and as building blocks within the complex SNARKs we've studied.
 
 Why study something so simple after the machinery of Groth16 and STARKs?
 
-Because $\Sigma$-protocols crystallize the *essential* ideas of zero-knowledge. The simulator that we'll construct, picking the response first then computing what the commitment "must have been," is the archetype of all simulation arguments. The special soundness property (that two accepting transcripts with different challenges allow witness extraction) is the template for proofs of knowledge everywhere. And the Fiat-Shamir transform, which converts interaction into non-interaction, was developed precisely for $\Sigma$-protocols.
+Because $\Sigma$-protocols crystallize the *core* ideas of zero-knowledge. The simulator that we'll construct, picking the response first then computing what the commitment "must have been," is the archetype of all simulation arguments. The special soundness property (that two accepting transcripts with different challenges allow witness extraction) is the template for proofs of knowledge everywhere. And the Fiat-Shamir transform, which converts interaction into non-interaction, was developed precisely for $\Sigma$-protocols.
 
 Understand $\Sigma$-protocols, and the zero-knowledge property itself becomes clear. This chapter prepares the ground for Chapter 17, where we formalize what "zero-knowledge" means. Here, we see it in its simplest form.
 
@@ -180,7 +180,7 @@ The prover demonstrates knowledge of the commitment opening without revealing wh
 
 ### Proving Relations on Committed Values
 
-The homomorphic property enables something remarkable: proving statements about committed values without revealing them.
+The homomorphic property enables proving statements about committed values without revealing them.
 
 For addition, given commitments $C_1, C_2, C_3$, we can prove that the committed values satisfy $m_1 + m_2 = m_3$.
 

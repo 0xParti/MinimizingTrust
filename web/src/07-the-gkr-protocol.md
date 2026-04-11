@@ -6,7 +6,7 @@ Verifying the computation by re-running it defeats the purpose of outsourcing. Y
 
 In 2008, Shafi Goldwasser, Yael Kalai, and Guy Rothblum published a theoretical solution. They proposed a protocol where a supercomputer could prove a massive calculation to a laptop, and the laptop could verify it in seconds. While it took a decade for hardware and cryptographic engineering to catch up to their math, every modern rollup and scaling solution on Ethereum is spiritually a descendant of that 2008 paper.
 
-The sum-check protocol is extraordinary. It transforms exponentially large sums ($2^n$ terms) into verification that runs in $O(n)$ time, logarithmic in the sum size. But every application we've seen requires a custom polynomial tailored to that specific problem. Each new computation demands a new arithmetization.
+The sum-check protocol is versatile. It transforms exponentially large sums ($2^n$ terms) into verification that runs in $O(n)$ time, logarithmic in the sum size. But every application we've seen requires a custom polynomial tailored to that specific problem. Each new computation demands a new arithmetization.
 
 What if we want to verify *any* computation, not just counting problems? The GKR protocol provides a *universal* framework for verifying any computation that can be expressed as an arithmetic circuit (which turns out to be everything). Rather than designing a new protocol for each problem, GKR gives us a machine: feed in a circuit, get out an efficient verification protocol.
 
@@ -159,7 +159,7 @@ $$f_i(z, b, c) = \widetilde{\text{add}}_i(z, b, c) \cdot (\tilde{W}_{i+1}(b) + \
 
 The sum collapses to exactly what gate $z$ should compute.
 
-**The magic**: This identity expresses the output of layer $i$ as a *sum*, and we know how to verify sums efficiently using sum-check!
+This identity expresses the output of layer $i$ as a *sum*, which is exactly what sum-check can verify.
 
 
 
