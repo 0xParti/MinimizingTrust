@@ -505,7 +505,7 @@ SPARK reduces this to $O(T)$ by precomputing lookup tables.
 
 Total: $O(m + n + T)$, linear in the sparse representation size.
 
-The remaining question is who checks the lookups. The prover claims to have read the correct $\widetilde{\text{eq}}$ values from the precomputed tables, but the verifier does not have those tables. SPARK resolves this with a *memory-checking argument*: a protocol that verifies the prover's reads against the table contents by comparing random fingerprints of both. If any lookup is incorrect, the fingerprints mismatch with high probability. Chapter 20 develops this technique in full. The overhead is $O(\log T)$ in proof size and verification time, preserving SPARK's linear prover efficiency.
+The remaining question is who checks the lookups. The prover claims to have read the correct $\widetilde{\text{eq}}$ values from the precomputed tables, but the verifier does not have those tables. SPARK resolves this with a *memory-checking argument*: a protocol that verifies the prover's reads against the table contents by comparing random fingerprints of both. If any lookup is incorrect, the fingerprints mismatch with high probability. Chapter 21 develops this technique in full. The overhead is $O(\log T)$ in proof size and verification time, preserving SPARK's linear prover efficiency.
 
 ### The full Spartan protocol
 
@@ -618,6 +618,6 @@ The practical landscape reflects this. For applications where post-quantum secur
 
 7. **Spartan reduces R1CS to sum-check.** The zero-on-hypercube reduction converts "$g$ vanishes on $\{0,1\}^n$" into a single sum-check weighted by $\widetilde{\text{eq}}(\tau, x)$, which acts as a random linear combination preventing cancellation. An outer sum-check ($O(m)$) plus batched inner sum-checks ($O(n)$) plus SPARK ($O(T)$) handle the full R1CS constraint system.
 
-8. **Sum-check graphs structure complex protocols.** Each sum-check ends with evaluation claims. If the polynomial is committed, open it. If it is virtual, another sum-check proves the evaluation. The result is a DAG where depth determines sequential stages and width enables batching. Chapter 20 develops this perspective.
+8. **Sum-check graphs structure complex protocols.** Each sum-check ends with evaluation claims. If the polynomial is committed, open it. If it is virtual, another sum-check proves the evaluation. The result is a DAG where depth determines sequential stages and width enables batching. Chapter 21 develops this perspective.
 
 9. **The PCP path and the sum-check path are converging.** The IP → PCP → Kilian → Fiat-Shamir pipeline contains an architectural redundancy (interaction removed, reintroduced, removed again). Sum-check + Fiat-Shamir skips this. But the PCP lineage produced STARKs, which offer post-quantum security via hash-based commitments. Sum-check systems need a post-quantum PCS to match, and those remain less mature. Binius bridges both traditions: sum-check over binary fields with FRI-based commitments.

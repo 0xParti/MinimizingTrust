@@ -35,16 +35,17 @@
 # Advanced Topics
 
 - [Fast Sum-Check Proving](./19-fast-sum-check-proving.md)
-- [Minimizing Commitment Costs](./20-minimizing-commitment-costs.md)
-- [The Two Classes of PIOPs](./21-the-two-classes-of-piops.md)
-- [Composition and Recursion](./22-composition-and-recursion.md)
-- [Choosing a SNARK](./23-choosing-a-snark.md)
+- [Fast STARK Proving](./20-fast-stark-proving.md)
+- [Minimizing Commitment Costs](./21-minimizing-commitment-costs.md)
+- [The Two Classes of PIOPs](./22-the-two-classes-of-piops.md)
+- [Composition and Recursion](./23-composition-and-recursion.md)
+- [Choosing a SNARK](./24-choosing-a-snark.md)
 
 # Broader Context
 
-- [MPC and ZK Parallel Paths](./24-mpc-and-zk-parallel-paths.md)
-- [Frontiers and Open Problems](./25-frontiers-and-open-problems.md)
-- [ZK in the Cryptographic Landscape](./26-zk-in-the-cryptographic-landscape.md)
+- [MPC and ZK Parallel Paths](./25-mpc-and-zk-parallel-paths.md)
+- [Frontiers and Open Problems](./26-frontiers-and-open-problems.md)
+- [ZK in the Cryptographic Landscape](./27-zk-in-the-cryptographic-landscape.md)
 
 # Appendices
 

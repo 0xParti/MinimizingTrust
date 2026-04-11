@@ -338,7 +338,7 @@ Algebraically, this works because the objects being folded have low-degree polyn
 
 Another way to see it: one way to test if a polynomial is zero is to evaluate at a random point. Folding is this idea applied recursively with structure. Each fold is a random evaluation in disguise, and the structure ensures that evaluations compose coherently across rounds.
 
-This paradigm extends beyond what we cover here. *Nova* and *folding schemes* (Chapter 22) fold entire R1CS instances: not polynomials, but constraint systems. The same principle applies: random linear combination of two instances yields a "relaxed" instance that's satisfiable iff both originals were.
+This paradigm extends beyond what we cover here. *Nova* and *folding schemes* (Chapter 23) fold entire R1CS instances: not polynomials, but constraint systems. The same principle applies: random linear combination of two instances yields a "relaxed" instance that's satisfiable iff both originals were.
 
 
 

@@ -74,7 +74,7 @@ An **execution trace** is a complete record of a computation's execution: every 
 
 The key insight: checking that a trace is valid is much easier than producing the computation. Validity checking is *local*. To verify a trace, you only need to check that each step follows from the previous one according to the program's rules. The prover does the hard computational work; the circuit does the much easier work of checking consistency.
 
-For simple computations (evaluating a polynomial, computing a hash), the trace is just the sequence of intermediate values at each gate. For more complex computations like CPU execution, the trace includes registers, program counters, and memory operations. The machinery for handling such traces (time consistency, memory consistency via permutation arguments) is developed in Chapter 20 in the context of efficient proving techniques. Here, we focus on the simpler case: a circuit where the witness captures all intermediate gate values.
+For simple computations (evaluating a polynomial, computing a hash), the trace is just the sequence of intermediate values at each gate. For more complex computations like CPU execution, the trace includes registers, program counters, and memory operations. The machinery for handling such traces (time consistency, memory consistency via permutation arguments) is developed in Chapter 21 in the context of efficient proving techniques. Here, we focus on the simpler case: a circuit where the witness captures all intermediate gate values.
 
 
 
@@ -412,7 +412,7 @@ In practice:
 
 We now have three constraint formats (R1CS, PLONKish, AIR) each with distinct strengths. But this proliferation creates fragmentation: tools, optimizations, and folding schemes must be reimplemented for each format.
 
-Why do we need yet another format? The answer is folding (Chapter 21). Newer protocols like Nova and HyperNova work by "folding" two proof instances into one. R1CS folds easily, but PLONKish constraints do not. **Customizable Constraint Systems (CCS)** was invented to give us both: the expressiveness of PLONK's custom gates with the foldability of R1CS's matrix structure. CCS provides a unifying abstraction that captures all three formats without overhead.
+Why do we need yet another format? The answer is folding (Chapter 23). Newer protocols like Nova and HyperNova work by "folding" two proof instances into one. R1CS folds easily, but PLONKish constraints do not. **Customizable Constraint Systems (CCS)** was invented to give us both: the expressiveness of PLONK's custom gates with the foldability of R1CS's matrix structure. CCS provides a unifying abstraction that captures all three formats without overhead.
 
 ### The CCS Framework
 

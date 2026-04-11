@@ -119,7 +119,7 @@ is a polynomial of known degree. If $C(X)$ doesn't vanish on $H'$ (if the trace 
 >
 > The degree of the constraint polynomial $C(X)$ directly impacts prover cost. If a transition constraint involves $P_0(X)^3$, that term has degree $3(T-1)$ (since $P_0$ has degree $T-1$). The composition polynomial inherits this: $\deg(\text{Comp}) \approx \deg(\text{constraint}) \times T$. The prover must commit to this polynomial over the LDE domain, and FRI must prove its degree bound.
 >
-> This creates a trade-off. Higher-degree constraints let you express more complex transitions in a single step, but they blow up the prover's work. A degree-8 constraint over a million-step trace produces a composition polynomial of degree ~8 million, requiring proportionally more commitment and FRI work. Most practical AIR systems keep constraint degree between 2 and 4, accepting more trace columns (more registers) to avoid high-degree terms. The art of AIR design is balancing expressiveness against this degree bottleneck.
+> This creates a trade-off. Higher-degree constraints let you express more complex transitions in a single step, but they blow up the prover's work. A degree-8 constraint over a million-step trace produces a composition polynomial of degree ~8 million, requiring proportionally more commitment and FRI work. Most practical AIR systems keep constraint degree between 2 and 4, accepting more trace columns (more registers) to avoid high-degree terms. The art of AIR design is balancing expressiveness against this degree bottleneck. Chapter 20 quantifies this tradeoff and develops the AIR design patterns (auxiliary columns, periodic columns, wide versus tall traces) that production systems use to minimize prover cost.
 
 Transition constraints enforce the rules at every step, but they say nothing about *which* computation we're proving. We also need **boundary constraints** to pin down the inputs and outputs. In our $3^8$ example:
 
@@ -187,7 +187,7 @@ This last sub-step is the **AIR-FRI link**: it connects FRI (which only proves l
 
 Why is this sound? The prover committed to the trace *before* learning the query points (Fiat-Shamir). If the trace violates any constraint, the composition polynomial has poles and isn't low-degree; FRI catches this. If the trace is valid but the prover committed to a *different* composition polynomial, the opened value and the locally recomputed value disagree at most points (Schwartz-Zippel); the random queries catch this.
 
-There is a subtle gap in standard FRI: the verifier only queries points in the LDE domain $D$, so a cheating prover could commit to a function that's low-degree on $D$ but encodes wrong trace values. **DEEP-FRI** (introduced in Chapter 10) closes this gap. The verifier samples a random point $z$ *outside* $D$ and requires the prover to open the trace polynomials there. Since honest trace polynomials are globally low-degree, they can be evaluated anywhere; a cheater who faked values only on $D$ cannot consistently answer at $z$. In the STARK context, this means the AIR-FRI link is checked at a point the prover could not have anticipated when constructing the trace commitment, which is why most STARK implementations use DEEP-FRI rather than standard FRI.
+There is a subtle gap in standard FRI: the verifier only queries points in the LDE domain $D$, so a cheating prover could commit to a function that's low-degree on $D$ but encodes wrong trace values. **DEEP-FRI** (introduced in Chapter 10) closes this gap. The verifier samples a random point $z$ *outside* $D$ and requires the prover to open the trace polynomials there. Since honest trace polynomials are globally low-degree, they can be evaluated anywhere; a cheater who faked values only on $D$ cannot consistently answer at $z$. In the STARK context, this means the AIR-FRI link is checked at a point the prover could not have anticipated when constructing the trace commitment, which is why most STARK implementations use DEEP-FRI rather than standard FRI. Chapter 20 develops the full DEEP-ALI optimization, showing how it also eliminates the separate composition polynomial commitment.
 
 
 
@@ -312,11 +312,11 @@ Circle STARKs require adapting the polynomial machinery:
 - FRI folding uses the circle structure
 - Some constraint types require reformulation
 
-The implementation complexity is higher. But for systems targeting maximum prover speed, particularly zkVMs where prover time dominates, Circle STARKs offer a path to concrete performance improvements.
+The implementation complexity is higher. But for systems targeting maximum prover speed, particularly zkVMs where prover time dominates, Circle STARKs offer a path to concrete performance improvements. Chapter 20 develops Circle FRI's folding mechanism in detail, traces the full prover pipeline over M31, and shows how Stwo achieves over 500,000 Poseidon2 hashes per second.
 
 ### The Broader Lesson
 
-Circle STARKs exemplify a general principle: *match the algebraic structure to hardware capabilities*. Traditional STARKs chose fields for mathematical convenience (large primes with smooth multiplicative order). Circle STARKs choose fields for computational efficiency (Mersenne primes with fast reduction), then build the necessary mathematical structure (the circle group) around that choice. Binius (Chapter 25) pushes this further by working over binary tower fields, where addition is XOR and field elements match the computer's native data types. As proof systems mature, field choice increasingly reflects hardware realities rather than purely mathematical aesthetics.
+Circle STARKs exemplify a general principle: *match the algebraic structure to hardware capabilities*. Traditional STARKs chose fields for mathematical convenience (large primes with smooth multiplicative order). Circle STARKs choose fields for computational efficiency (Mersenne primes with fast reduction), then build the necessary mathematical structure (the circle group) around that choice. Binius (Chapter 26) pushes this further by working over binary tower fields, where addition is XOR and field elements match the computer's native data types. As proof systems mature, field choice increasingly reflects hardware realities rather than purely mathematical aesthetics.
 
 
 ## Key Takeaways

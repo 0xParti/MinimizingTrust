@@ -71,13 +71,14 @@ for chapter in \
     ../web/src/17-the-zero-knowledge-property.md \
     ../web/src/18-making-proofs-zero-knowledge.md \
     ../web/src/19-fast-sum-check-proving.md \
-    ../web/src/20-minimizing-commitment-costs.md \
-    ../web/src/21-the-two-classes-of-piops.md \
-    ../web/src/22-composition-and-recursion.md \
-    ../web/src/23-choosing-a-snark.md \
-    ../web/src/24-mpc-and-zk-parallel-paths.md \
-    ../web/src/25-frontiers-and-open-problems.md \
-    ../web/src/26-zk-in-the-cryptographic-landscape.md \
+    ../web/src/20-fast-stark-proving.md \
+    ../web/src/21-minimizing-commitment-costs.md \
+    ../web/src/22-the-two-classes-of-piops.md \
+    ../web/src/23-composition-and-recursion.md \
+    ../web/src/24-choosing-a-snark.md \
+    ../web/src/25-mpc-and-zk-parallel-paths.md \
+    ../web/src/26-frontiers-and-open-problems.md \
+    ../web/src/27-zk-in-the-cryptographic-landscape.md \
     ../web/src/appendix-a-cryptographic-primitives.md \
     ../web/src/appendix-b-historical-timeline.md \
     ../web/src/appendix-c-field-equations-cheat-sheet.md \
