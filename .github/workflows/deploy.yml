@@ -27,9 +27,8 @@ jobs:
 
       - name: Install mdbook-katex
         run: |
-          mkdir -p /tmp/mdbook-katex
-          curl -sSL https://github.com/lzanini/mdbook-katex/releases/download/v0.9.4/mdbook-katex-v0.9.4-x86_64-unknown-linux-gnu.tar.gz | tar -xz -C /tmp/mdbook-katex
-          sudo mv /tmp/mdbook-katex/mdbook-katex /usr/local/bin/
+          curl -sSL https://github.com/lzanini/mdbook-katex/releases/download/0.9.3-binaries/mdbook-katex-v0.9.3-x86_64-unknown-linux-gnu.tar.gz | tar -xz
+          sudo mv mdbook-katex /usr/local/bin/
 
       - name: Build mdBook
         run: mdbook build web
