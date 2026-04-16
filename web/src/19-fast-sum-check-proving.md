@@ -1,5 +1,7 @@
 # Chapter 19: Fast Sum-Check Proving
 
+> *This chapter, along with Chapters 20 and 21, forms Part VI on prover optimization. These three chapters are optional on a first read: the rest of the book stands without them. They are essential for anyone designing or implementing a prover, and reward repeat reading once the foundations feel solid.*
+>
 > *Most chapters in this book can be read with pencil and paper. This one assumes you've already internalized the sum-check protocol (Chapter 3) and multilinear extensions (Chapter 4), not as definitions to look up, but as tools you can wield. If those still feel foreign, consider this chapter a preview of where the road leads, and return when the foundations feel solid.*
 
 In 1992, the sum-check protocol solved the problem of succinct verification. Lund, Fortnow, Karloff, and Nisan had achieved something that sounds impossible: verifying a sum over $2^n$ terms while the verifier performs only $O(n)$ work. Exponential compression in verification time. The foundation of succinct proofs.
@@ -438,18 +440,16 @@ Both approaches reduce R1CS to polynomial claims. QAP reduces to divisibility; S
 
 ### The Zero-on-Hypercube Reduction
 
-Here is Spartan's key insight: checking that $g$ vanishes on the Boolean hypercube reduces to a single sum-check. The technique works for any polynomial, not just R1CS errors.
+Spartan's R1CS encoding requires checking that $g$ vanishes on the Boolean hypercube, i.e., $g(x) = 0$ for all $x \in \{0,1\}^{\log m}$. The technique that handles this reduces $2^n$ separate equality checks to a single sum-check, and works for any polynomial, not just R1CS errors.
 
-**The problem:** We want to verify that $g(x) = 0$ for all $x \in \{0,1\}^{\log m}$.
-
-A natural first attempt: prove $\sum_{x \in \{0,1\}^n} g(x) = 0$ via sum-check. If $g$ vanishes on the hypercube, this sum is indeed zero. But the converse fails: if $g(0,0) = 5$ and $g(0,1) = -5$ with $g(1,0) = g(1,1) = 0$, then $\sum_x g(x) = 0$ despite $g$ being nonzero at two points. Positive and negative values cancel. A bare sum cannot distinguish "all zeros" from "zeros that happen to add up."
+A natural first attempt is to prove $\sum_{x \in \{0,1\}^n} g(x) = 0$ via sum-check. If $g$ vanishes on the hypercube, this sum is indeed zero. But the converse fails. Suppose $g(0,0) = 5$ and $g(0,1) = -5$ with $g(1,0) = g(1,1) = 0$; then $\sum_x g(x) = 0$ despite $g$ being non-zero at two points. Positive and negative values cancel. A bare sum cannot distinguish "all zeros" from "zeros that happen to add up."
 
 The fix is to weight each term with a pseudorandom coefficient so that accidental cancellation becomes overwhelmingly unlikely. Recall from Chapter 4 the equality polynomial $\widetilde{\text{eq}}: \mathbb{F}^n \times \mathbb{F}^n \to \mathbb{F}$:
 $$\widetilde{\text{eq}}(\tau, x) = \prod_{i=1}^{n} \left(\tau_i x_i + (1-\tau_i)(1-x_i)\right)$$
 
 On Boolean inputs, each factor equals 1 when $\tau_i = x_i$ and 0 when they differ, so the product is the indicator $\mathbf{1}[\tau = x]$. The formula extends smoothly to all field elements: this is the multilinear extension of the equality indicator over $\{0,1\}^n \times \{0,1\}^n$. By the MLE evaluation formula (Chapter 4), $\sum_x \widetilde{\text{eq}}(\tau, x) \cdot f(x) = \tilde{f}(\tau)$ for any $f$ with multilinear extension $\tilde{f}$.
 
-**The reduction:** Sample random $\tau \in \mathbb{F}^{\log m}$ and check:
+The reduction works as follows. The verifier samples random $\tau \in \mathbb{F}^{\log m}$ and asks the prover to demonstrate:
 $$\sum_{x \in \{0,1\}^{\log m}} \widetilde{\text{eq}}(\tau, x) \cdot g(x) = 0$$
 
 This sum is a random linear combination of $\{g(x)\}_{x \in \{0,1\}^n}$, with coefficients determined by $\tau$. If every $g(x) = 0$, the sum is trivially zero. If even one $g(x^*) \neq 0$, the sum is nonzero with high probability because the pseudorandom weights prevent cancellation. The equality polynomial turns "check $2^n$ values are all zero" into "check one random linear combination is zero."

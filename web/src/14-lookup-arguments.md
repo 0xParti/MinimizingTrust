@@ -290,9 +290,39 @@ This matters for several reasons:
 
 3. **Better cross-table lookups.** When a circuit uses multiple tables (range, XOR, opcodes), LogUp handles them in a unified sum rather than separate grand products.
 
-LogUp-GKR combines LogUp with the GKR protocol for even greater efficiency. The multiplicities $m_j$ are verified via sum-check rather than explicit commitment, reducing prover work for large tables.
+**Worked Example:** Lookups $f = \{2, 2, 5\}$ into table $t = \{1, 2, 3, 4, 5\}$ over $\mathbb{F}_{97}$.
 
-In practice, the prover commits to a "running sum" polynomial analogous to Plookup's accumulator $Z(X)$. At each domain point, it accumulates one term $\frac{1}{\gamma + f_i}$ from the lookups and subtracts the corresponding table contributions. If the lookup is valid, the sum telescopes to zero.
+The multiplicities are $m_1 = 0, m_2 = 2, m_3 = 0, m_4 = 0, m_5 = 1$. The verifier sends random challenge $\gamma = 10$. Both sides evaluate at $X = \gamma$:
+
+Left side (lookups):
+
+$$\frac{1}{10 - 2} + \frac{1}{10 - 2} + \frac{1}{10 - 5} = \frac{1}{8} + \frac{1}{8} + \frac{1}{5}$$
+
+Over $\mathbb{F}_{97}$: $8^{-1} \equiv 85$ and $5^{-1} \equiv 39$ (since $8 \times 85 = 680 = 7 \times 97 + 1$ and $5 \times 39 = 195 = 2 \times 97 + 1$). So the left side is $85 + 85 + 39 = 209 \equiv 15 \pmod{97}$.
+
+Right side (table with multiplicities):
+
+$$\frac{0}{10 - 1} + \frac{2}{10 - 2} + \frac{0}{10 - 3} + \frac{0}{10 - 4} + \frac{1}{10 - 5} = \frac{2}{8} + \frac{1}{5} = 2 \cdot 85 + 39 = 170 + 39 = 209 \equiv 15 \pmod{97}$$
+
+Both sides equal 15. The identity holds.
+
+Verification: $15 = 15$ $\checkmark$
+
+If we had tried to look up $f = \{2, 2, 9\}$ (with $9 \notin t$), the left side would include $\frac{1}{10 - 9} = \frac{1}{1} = 1$. The left sum becomes $85 + 85 + 1 = 171 \equiv 74 \pmod{97}$. No assignment of multiplicities to the table entries can make the right side equal 74, so the check fails with overwhelming probability over the choice of $\gamma$.
+
+### The LogUp bus
+
+LogUp's additive structure enables a pattern that has become the standard architecture in STARK-based zkVMs: the **bus argument**. When a system has multiple specialized components (an ALU chip, a memory chip, a program counter chip), each component produces or consumes values that must be consistent across components. A CPU chip "sends" an addition operation $(a, b, c)$ to the ALU chip, which "receives" it and checks $a + b = c$.
+
+The bus formalizes this as a global sum constraint. Each sender contributes $+\frac{1}{\gamma - v}$ for a value $v$ it sends. Each receiver contributes $-\frac{1}{\gamma - v}$ for a value $v$ it receives. If every sent value is received exactly once, the global sum is zero:
+
+$$\sum_{\text{sends}} \frac{1}{\gamma - v_i} - \sum_{\text{receives}} \frac{1}{\gamma - v_j} = 0$$
+
+This is just the LogUp identity rewritten: senders play the role of lookups $f$, receivers play the role of table $t$. The zero-sum condition replaces the multiset equality check. Each component adds one auxiliary "running sum" column to its trace, accumulating its contribution row by row. The boundary constraint asserts that the global sum of all components' final running-sum values is zero.
+
+The bus scales linearly with the number of components ($O(k)$ for $k$ tables) rather than quadratically ($O(k^2)$) as pairwise permutation arguments would require. Every major STARK-based zkVM (SP1, RISC Zero, Stwo, OpenVM) now uses LogUp bus arguments for inter-component consistency. Chapter 20 discusses how interaction columns implementing LogUp fit into the STARK prover pipeline.
+
+LogUp-GKR combines the bus with the GKR protocol (Chapter 7) for even greater efficiency. Instead of committing to a helper column for the reciprocals $\frac{1}{\gamma - v}$, the prover uses a GKR interactive proof to verify the fractional sums directly. This eliminates helper columns entirely, adding only $O(\log n)$ interaction rounds. StarkWare's Stwo prover uses LogUp-GKR over Mersenne31.
 
 ### cq (Cached Quotients)
 

@@ -340,7 +340,9 @@ Polynomial commitment schemes (Chapters 9-10) provide the cryptographic foundati
 
 The SNARK recipe (Chapter 11) explains how these pieces assemble. Groth16 (Chapter 12), PLONK (Chapter 13), lookup arguments (Chapter 14), and STARKs (Chapter 15) are complete systems, each optimizing different aspects.
 
-$\Sigma$-protocols (Chapter 16) and zero-knowledge (Chapters 17-18) add privacy. The prover optimization chapters (Chapters 19-22) develop the latest techniques for fast sum-check and STARK proving, minimizing commitment costs, and comparing the two PIOP paradigms.
+$\Sigma$-protocols (Chapter 16) and zero-knowledge (Chapters 17-18) add privacy.
+
+Chapters 19-21 form Part VI on prover optimization, covering fast sum-check proving, fast STARK proving, and techniques for minimizing commitment costs. These chapters are optional on a first read: they go into engineering depth that matters for implementers but is not required to understand the rest of the book. Chapter 22 then synthesizes by comparing the two PIOP paradigms (quotienting vs. sum-check) and is part of the main thread.
 
 Composition and recursion (Chapter 23) enable proofs about proofs: unlimited computation with constant verification. The book concludes with system selection guidance (Chapter 24), MPC's parallel path (Chapter 25), open frontiers (Chapter 26), and the broader cryptographic landscape (Chapter 27).
 

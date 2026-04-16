@@ -369,7 +369,9 @@ This transforms evaluation proofs into degree bounds:
 | $f(z) = v$ (honest) | is a polynomial of degree $\deg(f) - 1$ |
 | $f(z) \neq v$ (cheating) | has a pole at $z$; not a polynomial at all |
 
-To prove $f(z) = v$, the prover constructs $q(X)$ and proves it's low-degree using FRI. But FRI alone only shows $q$ is low-degree; it doesn't show that $q$ is actually $\frac{f(X) - v}{X - z}$. The verifier must also spot-check the relationship $f(x) - v = (x - z) \cdot q(x)$ at random points. If both checks pass, the quotient is (close to) a polynomial *and* correctly derived from $f$, which means $f(z) = v$.
+To prove $f(z) = v$, the prover constructs $q(X)$ and runs FRI configured with degree bound $d - 1$ to prove that $q$ has degree $< d - 1$. This is not the same as proving $q$ is merely "low-degree" in some vague sense; FRI must target the *specific* bound $d - 1$ matching the claimed degree of $f$. If a cheating prover submitted a $q$ of degree $d$ (one too high), FRI with bound $d - 1$ would catch it.
+
+But FRI on $q$ alone is not sufficient. It shows $q$ has the right degree; it does not show that $q$ is actually $\frac{f(X) - v}{X - z}$ rather than some unrelated polynomial of the same degree. The verifier must also spot-check the relationship $f(x) - v = (x - z) \cdot q(x)$ at random query points. If both checks pass, the quotient has the right degree *and* is correctly derived from $f$, which together imply $f(z) = v$.
 
 ### The Full Protocol
 
@@ -414,6 +416,10 @@ After $k$ rounds, $q_k$ is a constant $c$. Prover sends $c$.
 The verifier never sees the full polynomials $f$ or $q$. They only see $\lambda$ spot-checked evaluations, verified against the Merkle commitments.
 
 Note that FRI doesn't speed anything up. It *is* the low-degree test. Without FRI, you'd have a Merkle commitment but no way to prove anything about degree: the prover could commit to arbitrary garbage. FRI is what makes this a *polynomial* commitment scheme rather than just a vector commitment.
+
+There is a subtlety in the protocol above that deserves explicit attention. The FRI run proves $q$ has degree $< d - 1$, and the spot-check proves $q$ is consistent with $f$. Together these imply $f(z) = v$, *but only if $f$ itself has degree $< d$*. What if the prover committed to a high-degree $f$ (or arbitrary non-polynomial values) in the Merkle tree? Then $q = (f(X) - v)/(X - z)$ could pass the degree check by coincidence: a high-degree $f$ minus $v$, divided by $(X - z)$, might produce a low-degree quotient if the high-degree terms cancel. The spot-check at query points would still pass because it verifies $f(x) - v = (x - z) \cdot q(x)$, which holds by construction regardless of the degree of $f$.
+
+In the standalone FRI-as-PCS protocol presented here, $f$ needs its own degree proof. The prover must either run a separate FRI instance on $f$ to establish $\deg(f) < d$, or bundle $f$ into a batched FRI alongside $q$ (the next section shows how). In the STARK setting (Chapter 15), this issue is handled differently: FRI runs on the *composition polynomial*, which is a random linear combination of constraint quotients. The composition polynomial's degree bound implicitly constrains the trace polynomials, so no separate degree proof for the trace is needed. But in any context where FRI serves as a general-purpose PCS for opening evaluations, the degree of the committed polynomial must be established independently.
 
 ### Batching
 
