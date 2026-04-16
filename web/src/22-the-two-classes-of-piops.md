@@ -10,9 +10,11 @@ Understanding when to use which is not academic curiosity; it shapes every SNARK
 
 The two paradigms differ in their fundamental approach to constraint verification. At the deepest level, the split is *geometric*: where does your data live?
 
-**Quotienting-based PIOPs** (Groth16, PLONK, STARKs) place data on a **circle**. Evaluation points are roots of unity, cycling around the unit circle in the complex plane. Constraints become questions about divisibility: does the error polynomial vanish on this circular domain? The machinery is algebraic (division, remainder, quotient) and the key algorithm is the FFT, which converts between point-values on the circle and polynomial coefficients.
+**Quotienting-based PIOPs** (Groth16, PLONK, STARKs) encode data as **univariate** polynomials of degree $< N$ and evaluate them on **roots of unity**, elements that cycle around the unit circle in the multiplicative group. Constraints become questions about divisibility: does the error polynomial vanish on this domain? The machinery is algebraic (division, remainder, quotient). PLONK and STARKs rely on the FFT to convert between evaluations and coefficients; Groth16 uses the same roots-of-unity domain for its QAP but performs its heavy work through MSMs in the exponent rather than FFTs.
 
-**Sum-check-based PIOPs** (Spartan, HyperPlonk, Jolt) place data on a **hypercube**. Evaluation points are vertices of the $n$-dimensional Boolean cube $\{0,1\}^n$. Constraints become questions about sums: does the weighted average over all vertices equal zero? The machinery is probabilistic (randomization collapses exponentially many constraints into one) and the key algorithm is the halving trick, which scans data linearly.
+**Sum-check-based PIOPs** (Spartan, HyperPlonk, Jolt) encode data as **multilinear** polynomials, $n$ variables each of degree 1, and evaluate them on the **Boolean hypercube** $\{0,1\}^n$. Constraints become questions about sums: does the weighted average over all vertices equal zero? The machinery is probabilistic (randomization collapses exponentially many constraints into one) and the key algorithm is the halving trick, which scans data linearly.
+
+The polynomial type and the domain are linked. Univariate polynomials need a structured evaluation domain with FFT-friendly symmetry (roots of unity provide this). Multilinear polynomials need the $\{0,1\}^n$ hypercube because that is where their Lagrange basis is defined and where the halving trick's fold-in-half structure applies. Choosing one determines the other.
 
 For a decade, the circle dominated because its mathematical tools (pairings, FFTs) matured first. But the hypercube has risen recently because it fits better with how computers actually work: bits, arrays, and linear memory scans.
 
@@ -24,25 +26,25 @@ The divide between paradigms has a history.
 
 ### The PCP Era (1990s-2000s)
 
-The theoretical foundations came from PCPs (Probabilistically Checkable Proofs). These were non-interactive by construction: a single, static proof string that the verifier queries at random positions.
+The theoretical foundations came from PCPs (Probabilistically Checkable Proofs). A PCP is a single, static proof string that the verifier queries at random positions, non-interactive by construction.
 
 PCPs used univariate polynomials implicitly. The prover encoded the computation as polynomial evaluations; the verifier checked random positions. Soundness came from low-degree testing and divisibility arguments, the ancestors of quotienting.
 
-Merkle trees provided commitment. Kilian showed how to make the proof succinct: hash the full proof, let the verifier query random positions, have the prover open those positions with Merkle paths.
+Merkle trees provided commitment. Kilian showed how to make the proof succinct by hashing the full proof string, letting the verifier query random positions, and having the prover open those positions with Merkle paths.
 
 ### The SNARK Era (2010s)
 
-Groth16, PLONK, and their relatives refined the quotienting approach. KZG's constant-size proofs made verification blazingly fast: just a few pairings. The trusted setup was an acceptable trade-off for many applications.
+Groth16, PLONK, and their relatives refined the quotienting approach. KZG's constant-size proofs made verification fast (just a few pairings), and the trusted setup was an acceptable trade-off for many applications.
 
 These systems dominated deployed ZK applications: Zcash, various rollups, privacy protocols. Quotienting became synonymous with "practical SNARKs."
 
 ### The Sum-Check Renaissance (2020s)
 
-Systems like Spartan, Lasso, and Jolt demonstrated that sum-check-based designs achieve the fastest prover times. The key insight, crystallized in Chapter 19: interaction is a resource, and removing it twice (once in the PIOP, once via Fiat-Shamir) is wasteful.
+Systems like Spartan, Lasso, and Jolt demonstrated that sum-check-based designs achieve the fastest prover times. The key insight, crystallized in Chapter 19, is that interaction is a resource, and removing it twice (once in the PIOP, once via Fiat-Shamir) is wasteful.
 
 GKR's layer-by-layer virtualization, combined with efficient multilinear PCS, enabled provers to approach linear time. Virtual polynomials slashed commitment costs.
 
-The modern view: quotienting and sum-check are both valid tools. Neither dominates universally. Choose based on your specific application's constraints.
+The modern view is that quotienting and sum-check are both valid tools. Neither dominates universally. The choice depends on the application's specific constraints.
 
 
 
@@ -69,7 +71,7 @@ Define univariate polynomials by Lagrange interpolation:
 
 These are univariate low-degree extensions of the vectors, anchored at the roots of unity.
 
-### The Key Identity
+### From pointwise constraints to divisibility
 
 The constraint $a_i \cdot b_i = c_i$ for all $i$ is equivalent to saying that $\hat{a}(\alpha) \cdot \hat{b}(\alpha) - \hat{c}(\alpha) = 0$ for all $\alpha \in H$.
 
@@ -131,7 +133,7 @@ Define multilinear polynomials, the unique extensions that are linear in each va
 
 Where quotienting uses Lagrange interpolation over roots of unity to get univariate polynomials of degree $N-1$, sum-check uses multilinear extension over the hypercube to get $n$-variate polynomials of degree 1 in each variable. Both encodings uniquely determine the original vector; they just live in different polynomial spaces.
 
-### The Key Identity
+### From pointwise constraints to a random linear combination
 
 The constraint $a_w \cdot b_w = c_w$ for all $w \in \{0,1\}^n$ means:
 
@@ -139,7 +141,7 @@ $$\tilde{a}(w) \cdot \tilde{b}(w) - \tilde{c}(w) = 0 \quad \text{for all } w \in
 
 Define $g(x) = \tilde{a}(x) \cdot \tilde{b}(x) - \tilde{c}(x)$. We want $g$ to vanish on the hypercube.
 
-Here's the key move: instead of proving divisibility, we take a *random linear combination*. Define:
+Instead of proving divisibility (which would require a quotient polynomial), sum-check takes a *random linear combination*. Define:
 
 $$q(r) = \sum_{w \in \{0,1\}^n} \widetilde{\text{eq}}(r, w) \cdot g(w)$$
 
@@ -180,17 +182,9 @@ The prover's dominant costs: sum-check field operations, PCS opening proofs.
 | **Interaction** | 1 round (after commitment) | $n$ rounds (sum-check) |
 | **Sparsity handling** | Quotient typically dense | Natural via prefix-suffix |
 
-> **Signal Processing vs. Statistics**
->
-> The two paradigms embody different engineering mindsets.
->
-> **Quotienting is signal processing.** It treats data like a sound wave. To check constraints, it runs a Fourier Transform (FFT) to convert the signal into a frequency domain where errors stick out like a sour note. Divisibility by $Z_H$ is the test: a clean signal has no energy at the forbidden frequencies.
->
-> **Sum-check is statistics.** It treats data like a population. To check constraints, it takes a random weighted average (expected value) over the whole population. If the average is zero, the population is healthy. No frequency analysis required, just a linear scan.
->
-> This explains the performance gap. FFTs require "shuffling" data across the entire memory space (butterfly operations), which causes cache misses on modern CPUs. Sum-check scans data linearly, which is cache-friendly and trivially parallelizable.
+The two paradigms embody different engineering mindsets, and an analogy helps sharpen the distinction. Quotienting is *signal processing*. It treats data like a sound wave, running a Fourier transform (FFT) to convert the signal into a frequency domain where errors stick out like a sour note. Divisibility by $Z_H$ is the test: a clean signal has no energy at the forbidden frequencies. Sum-check is *statistics*. It treats data like a population, taking a random weighted average over the whole population and checking whether that average is zero. No frequency analysis required, just a linear scan.
 
-The quotient polynomial is the key difference. Quotienting requires it; sum-check doesn't. For dense constraints, this may not matter much: the quotient is proportional to the constraint size. But for sparse constraints, the quotient can be far larger than the non-zero terms, wasting commitment effort.
+The performance gap follows from this distinction. FFTs require butterfly operations that shuffle data across the entire memory space (Chapter 20's discussion of cache misses in the NTT), while sum-check's halving trick scans data linearly, which is cache-friendly and trivially parallelizable. Sparsity widens the gap further. Quotienting always pays $O(N \log N)$ for the FFT regardless of how many constraints are non-trivial, and the quotient polynomial $Q(X)$ must be committed even when most of the constraint evaluations are zero. Sum-check's cost drops to $O(T)$ for $T$ non-zero terms, ignoring the zeros entirely (Chapter 19). At zkVM scale, where $T \ll N$, this difference is orders of magnitude. Prover speed is not the whole story, however. The PCS pairing and the "Choosing a Paradigm" sections below will show that quotienting recovers the advantage on proof size and verifier efficiency, dimensions where the tradeoff runs in the opposite direction.
 
 
 
@@ -240,7 +234,7 @@ The access indicator matrix $ra$ is sparse (each read touches exactly one cell) 
 | **Structured access** | No special benefit | Exploits sparsity naturally |
 | **Read-write memory** | Requires separate handling | Unified with wiring |
 
-Notice the algebraic shift: permutation arguments use **products** (accumulators that multiply ratios), while memory checking uses **sums** (access counts weighted by values). In finite fields, sums are generally cheaper than products. Sums linearize naturally (the sum of two access patterns is the combined access pattern), while products require careful accumulator bookkeeping. This is why memory checking integrates more cleanly with sum-check's additive structure.
+The algebraic structure reflects this split. Permutation arguments use **products** (accumulators that multiply ratios), while memory checking uses **sums** (access counts weighted by values). In finite fields, sums are generally cheaper than products. Sums linearize naturally (the sum of two access patterns is the combined access pattern), while products require careful accumulator bookkeeping. This is why memory checking integrates more cleanly with sum-check's additive structure.
 
 For circuits with random wiring, both approaches have similar cost. The permutation argument requires an accumulator commitment; memory checking requires access matrices. The difference emerges with structure: repeated reads from the same cell, locality in access patterns, or mixing read-only and read-write data all favor the memory checking view.
 
@@ -248,24 +242,13 @@ For circuits with random wiring, both approaches have similar cost. The permutat
 
 ## The PCS Connection
 
-Each PIOP paradigm pairs naturally with a matching polynomial commitment scheme.
+Each PIOP paradigm pairs with a matching polynomial commitment scheme, and the matching is not arbitrary. The reason is that every PIOP ends the same way: sum-check or quotient verification reduces the original claim to "evaluate this committed polynomial at a random point." The *shape* of that random point determines which PCS can serve it. A quotienting PIOP ends with a univariate evaluation query, "what is $f(r)$ for $r \in \mathbb{F}$?" A sum-check PIOP ends with a multilinear evaluation query, "what is $\tilde{f}(r_1, \ldots, r_n)$ for $r \in \mathbb{F}^n$?" The PCS must handle exactly the query type the PIOP produces.
 
-**Univariate PCS for quotienting:**
+**Univariate PCS for quotienting.** The query is a single field element $r$. KZG handles this with a single group element commitment and a constant-size opening proof (one pairing check), at the cost of a trusted setup and pairing-friendly curves. FRI handles it with Merkle commitments and logarithmic-size proofs via folding, transparent and post-quantum but larger. Both operate over the same roots-of-unity domain that the PIOP already uses for FFT-based quotient computation.
 
-- *KZG*: Single group element commitment, constant-size opening proofs, requires pairing-friendly curves and trusted setup
-- *FRI*: Merkle-based, logarithmic proofs, transparent (no trusted setup), post-quantum candidate
+**Multilinear PCS for sum-check.** The query is an $n$-dimensional point $r \in \mathbb{F}^n$. Bulletproofs/IPA handle this via recursive folding that halves the polynomial one variable at a time (logarithmic proofs, no trusted setup). Dory uses pairing-based inner products for efficient batch opening. Hyrax and Ligero use Merkle trees and linear codes. All commit to evaluation tables over $\{0,1\}^n$ and open at arbitrary points in $\mathbb{F}^n$, matching the query shape sum-check produces.
 
-Both work over the same roots-of-unity domain. The FFT is literally polynomial evaluation at roots of unity (Chapter 5), serving both the PIOP (quotient computation in evaluation form) and the PCS (commitment requires both forms).
-
-**Multilinear PCS for sum-check:**
-
-- *Bulletproofs/IPA*: Logarithmic proofs via recursive folding, no trusted setup, no pairings needed
-- *Dory*: Pairing-based with efficient batch opening
-- *Hyrax/Ligero*: Merkle and linear-code based
-
-These commit to evaluation tables over $\{0,1\}^n$ and open at arbitrary points in $\mathbb{F}^n$.
-
-In principle, any PIOP can use any PCS of the matching polynomial type. In practice, the best systems co-optimize PIOP and PCS: choices in one influence efficiency in the other.
+In principle, any PIOP can use any PCS of the matching polynomial type. In practice, the best systems co-optimize PIOP and PCS: the FFT that the quotienting PIOP uses for quotient computation is the same FFT that prepares the polynomial for KZG or FRI commitment, and the halving structure that sum-check uses for proving is the same halving structure that IPA uses for opening. The algorithm is shared; only its role changes.
 
 
 
@@ -284,18 +267,18 @@ A useful heuristic: if you know exactly what your circuit looks like at compile 
 
 ## Key Takeaways
 
-1. **The core distinction.** Quotienting proves "$Z_H$ divides the error polynomial" via a committed quotient. Sum-check proves "the weighted sum equals zero" via interactive reduction. Same goal, different algebra.
+1. **One choice determines the rest.** Quotienting uses univariate polynomials over roots of unity and proves constraints via divisibility ($Z_H$ divides the error). Sum-check uses multilinear polynomials over the Boolean hypercube and proves constraints via random linear combination. Polynomial type, domain, and constraint strategy are linked; choosing one determines the other two.
 
-2. **Domain shapes computation.** Roots of unity give FFT and simple $Z_H(X) = X^N - 1$. The Boolean hypercube gives tensor structure and the halving trick. Each domain has algebraic gifts; the proof strategy exploits them.
+2. **Quotienting is signal processing; sum-check is statistics.** Quotienting runs an FFT to move data into a frequency domain where errors violate divisibility. Sum-check takes a random weighted average and checks whether it vanishes. The FFT shuffles data across memory (cache misses); the halving trick scans linearly (cache-friendly). This explains the prover-speed gap.
 
-3. **The quotient is overhead.** Every quotienting proof commits to $Q(X)$. Sum-check needs no extra commitment beyond the original polynomials. For sparse constraints, this difference is dramatic.
+3. **Sparsity is where the paradigms diverge most in cost.** Quotienting pays $O(N \log N)$ for the FFT and commits a quotient polynomial $Q(X)$ regardless of how many constraints are non-trivial. Sum-check pays $O(T)$ for $T$ non-zero terms, ignoring the rest. When $T \ll N$ (the zkVM regime), the difference is orders of magnitude in prover time.
 
-4. **Sparsity changes everything.** Quotienting costs $O(N \log N)$ regardless of how many constraints are non-trivial. Sum-check costs $O(T)$ for $T$ non-zero terms. When $T \ll N$, sum-check wins by orders of magnitude.
+4. **Proof size and verifier cost favor quotienting.** KZG-compiled quotienting gives constant-size proofs verified in a few pairings. Sum-check proofs grow logarithmically and require $n$ rounds of verifier work. The prover-speed advantage of sum-check trades against this.
 
-5. **Wiring has two faces.** Quotienting encodes copy constraints as permutations, verified via a grand product accumulator. Sum-check encodes them as memory access, verified via sparse indicator matrices. Same constraint, different abstractions.
+5. **Wiring constraints expose a deep abstraction gap.** Quotienting encodes copy constraints as permutations (grand product accumulators over ratios). Sum-check encodes them as memory access (sparse indicator matrices verified via the $ra$/$wa$ machinery of Chapter 21). Same constraint, different algebraic worlds.
 
-6. **PIOP and PCS co-evolve.** Univariate PIOPs pair with KZG or FRI over roots of unity. Multilinear PIOPs pair with Bulletproofs, Dory, or Hyrax over the hypercube. Mixing paradigms is possible but rarely optimal.
+6. **The PCS must match the PIOP's query shape.** A quotienting PIOP ends with a univariate evaluation query ($f(r)$ for $r \in \mathbb{F}$); a sum-check PIOP ends with a multilinear one ($\tilde{f}(r_1, \ldots, r_n)$ for $r \in \mathbb{F}^n$). KZG and FRI serve the first; IPA, Dory, and Hyrax serve the second. The algorithms often coincide: the FFT that computes quotients is the same FFT that prepares KZG commitments; the halving that drives sum-check is the same halving that drives IPA opening.
 
-7. **Virtualization is sum-check's superpower.** Any polynomial computable from committed polynomials can be "virtual": defined implicitly, never committed. Quotienting requires explicit commitment to every polynomial that appears in a divisibility check.
+7. **Both paradigms avoid unnecessary commitments, by different mechanisms.** Sum-check systems use virtual polynomials (Chapter 21): any polynomial computable from committed ones is never committed. STARK-side quotienting uses DEEP-ALI (Chapter 20): the composition polynomial is reconstructed at a single out-of-domain point rather than committed. The principle is shared; the implementation diverges.
 
-8. **The design heuristic.** Fixed circuit, dense constraints, proof size matters: quotienting. Dynamic structure, sparse constraints, prover speed matters: sum-check. Neither dominates; choose based on your bottleneck.
+8. **Neither paradigm dominates; choose based on your bottleneck.** Fixed circuit, dense constraints, proof size matters: quotienting. Dynamic structure, sparse constraints, prover speed matters: sum-check. The two traditions are converging (Binius uses sum-check with FRI-based commitments; Plonky3 supports both frontends over the same small-field backend), but the choice still shapes every downstream design decision.

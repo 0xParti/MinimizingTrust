@@ -325,6 +325,8 @@ The techniques above make it tractable. Registers, RAM, and bytecode all reduce 
 
 What emerges is a surprising economy. A zkVM with $2^{32}$ bytes of addressable RAM, 32 registers, and a megabyte of bytecode commits roughly the same amount per cycle regardless of these sizes. The commitment cost tracks operations, not capacity. Memory becomes (in a sense) free. You pay for what you use, not what you could use.
 
+There is a deeper connection worth noting. Circuit *wiring* (the copy-constraint problem from Chapter 13) is itself a memory access pattern. When the output of gate $j$ feeds into gate $k$ as an input, the circuit is "reading" a value that was "written" by gate $j$. Quotienting-based systems handle this through permutation arguments (grand products over accumulated ratios). In the memory-checking framework developed here, the same constraint reduces to a read-write access pattern over a table of wire values, verified via the same $ra$/$wa$ machinery. Chapter 22 develops this parallel explicitly, showing that wiring constraints are where the two PIOP paradigms diverge most sharply in abstraction while converging in purpose.
+
 
 
 ## The Padding Problem and Jagged Commitments
