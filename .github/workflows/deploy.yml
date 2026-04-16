@@ -23,10 +23,13 @@ jobs:
       - name: Setup mdBook
         uses: peaceiris/actions-mdbook@v2
         with:
-          mdbook-version: 'latest'
+          mdbook-version: '0.4.48'
 
       - name: Install mdbook-katex
-        run: cargo install mdbook-katex --version 0.9.4
+        run: |
+          mkdir -p /tmp/mdbook-katex
+          curl -sSL https://github.com/lzanini/mdbook-katex/releases/download/v0.9.4/mdbook-katex-v0.9.4-x86_64-unknown-linux-gnu.tar.gz | tar -xz -C /tmp/mdbook-katex
+          sudo mv /tmp/mdbook-katex/mdbook-katex /usr/local/bin/
 
       - name: Build mdBook
         run: mdbook build web
