@@ -21,7 +21,7 @@ A comprehensive guide to Zero-Knowledge Proofs, covering:
 
 - **PDF**: [Download zkBook.pdf](zkBook.pdf)
 - **EPUB**: [Download zkBook.epub](zkBook.epub)
-- **Online**: [Read online](https://0xparti.github.io/zkBook/)
+- **Online**: [Read online](https://0xparti.github.io/MinimizingTrust/)
 
 ## Building from Source
 

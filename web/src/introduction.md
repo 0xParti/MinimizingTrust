@@ -10,7 +10,7 @@
 
 ---
 
-> **Note:** This book is a work in progress. If you find mistakes, typos, or have suggestions for improvements, please open a [pull request](https://github.com/0xParti/zkBook) or [issue](https://github.com/0xParti/zkBook/issues). Contributions are welcome!
+> **Note:** This book is a work in progress. If you find mistakes, typos, or have suggestions for improvements, please open a [pull request](https://github.com/0xParti/MinimizingTrust) or [issue](https://github.com/0xParti/MinimizingTrust/issues). Contributions are welcome!
 
 ---
 
