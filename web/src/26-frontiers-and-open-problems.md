@@ -8,7 +8,7 @@ In 2020, SNARKs felt similarly settled. Groth16 for minimal proofs, PLONK for un
 
 ## Small fields and Binius
 
-Every proof system in this book operates over large prime fields, typically 254-bit or 256-bit elements. But most real-world data is small: booleans, bytes, 32-bit integers. Representing a single bit as a 256-bit field element wastes 255 bits of capacity. This waste is not merely inelegant. Field multiplications dominate prover time, and each multiplication operates on the full 256 bits even when the meaningful data is a single bit. For bit-level operations like hashing, AES, or bitwise logic, the overhead approaches 256×.
+Every proof system in this book operates over large prime fields, typically 254-bit or 256-bit elements. But most real-world data is small: booleans, bytes, 32-bit integers. Representing a single bit as a 256-bit field element wastes 255 bits of capacity. The waste is expensive. Field multiplications dominate prover time, and each multiplication operates on the full 256 bits even when the meaningful data is a single bit. For bit-level operations like hashing, AES, or bitwise logic, the overhead approaches 256×.
 
 **Binius** attacks this problem directly by working over binary fields $\mathbb{F}_{2^k}$ where field elements are actual $k$-bit strings. A boolean is a 1-bit field element. A byte is an 8-bit field element. No padding, no waste.
 

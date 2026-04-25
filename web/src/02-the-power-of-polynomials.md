@@ -299,7 +299,7 @@ The applications in cryptography (verifiable computation, zero-knowledge proofs,
 
 ## Error-Correcting Codes: The Deeper Structure
 
-The polynomial fingerprinting protocol isn't just a clever trick; it's an instance of a profound mathematical structure that appears throughout ZK proofs: **error-correcting codes**.
+The polynomial fingerprinting protocol is an instance of a deeper mathematical structure that appears throughout ZK proofs: **error-correcting codes**.
 
 ### What Is an Error-Correcting Code?
 

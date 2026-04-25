@@ -447,7 +447,7 @@ For the common case of multilinear polynomials ($d = 1$), this halves communicat
 
 ## Why Sum-Check Enables Everything Else
 
-The sum-check protocol is not just one protocol among many; it's the foundation upon which much of modern verifiable computation is built.
+The sum-check protocol is the foundation upon which much of modern verifiable computation is built.
 
 The celebrated IP = PSPACE theorem, which shows that every problem solvable in polynomial space has an efficient interactive proof, uses sum-check as its core building block. The LFKN protocol arithmetizes quantified boolean formulas and applies sum-check recursively. To verify that an arithmetic circuit was evaluated correctly, the GKR protocol (Chapter 7) expresses the relationship between adjacent circuit layers as a sum over a hypercube, then uses sum-check to reduce a claim about one layer to a claim about the next, peeling back the circuit layer by layer until we reach the inputs.
 

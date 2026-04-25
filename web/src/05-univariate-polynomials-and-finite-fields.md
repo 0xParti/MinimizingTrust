@@ -130,7 +130,7 @@ They are identical. The DFT of the coefficient vector *is* the evaluation vector
 
 The FFT, then, is not "like" converting between polynomial representations. It *is* converting between polynomial representations. Coefficient form and evaluation form are the two natural bases for the same vector space, and the DFT matrix is the change-of-basis matrix. The FFT is the fast algorithm for this change of basis, made possible by the recursive structure of roots of unity.
 
-This is why the same algorithm appears in signal processing, image compression, and zero-knowledge proofs. They are not merely related applications; they are the same mathematical operation in different disguises.
+This is why the same algorithm appears in signal processing, image compression, and zero-knowledge proofs. They are the same mathematical operation in different disguises.
 
 
 ## Two Representations of Polynomials
@@ -248,6 +248,8 @@ $$P(13) = P_{\text{even}}(16) - 4 \cdot P_{\text{odd}}(16) = 4 - 4 = 0$$
 Verification: $P(4) = 5 + 3(4) + 16 + 2(64) = 5 + 12 + 16 + 128 = 161 \equiv 8 \pmod{17}$. Correct.
 
 The inverse FFT, going from evaluations back to coefficients, uses the same algorithm with $\omega^{-1}$ instead of $\omega$ and a factor of $1/n$.
+
+**A note on terminology.** When the FFT operates over a finite field rather than the complex numbers, it is called the **Number Theoretic Transform (NTT)**. The algorithm is identical. The only difference is the domain: complex roots of unity $e^{2\pi i k/n}$ become finite-field roots of unity $\omega^k \in \mathbb{F}_p$. Every FFT computation in this book is technically an NTT. Implementation papers and libraries (gnark, arkworks, Plonky2) use "NTT" exclusively, so recognizing the equivalence matters when moving from theory to code.
 
 
 

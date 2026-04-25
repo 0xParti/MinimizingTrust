@@ -6,7 +6,7 @@ For the next fifty years, this was cryptography's entire mission: move secrets f
 
 Then computers stopped being message carriers and became *thinkers*. The question changed. It was no longer enough to ask "can I send a secret?" Now we needed to ask: "can I *use* a secret without exposing it?"
 
-This is the dream of **programmable cryptography**: not just secure storage and transmission, but secure *computation*. The dream took many forms. "Can I prove I know a secret without revealing it?" led to zero-knowledge proofs. "Can we compute together while keeping our inputs private?" led to secure multiparty computation. "Can I encrypt data so someone else can compute on it?" led to fully homomorphic encryption. "Can I publish a program that reveals nothing about how it works?" led to program obfuscation.
+This is the dream of **programmable cryptography**: secure *computation* on secrets. The dream took many forms. "Can I prove I know a secret without revealing it?" led to zero-knowledge proofs. "Can we compute together while keeping our inputs private?" led to secure multiparty computation. "Can I encrypt data so someone else can compute on it?" led to fully homomorphic encryption. "Can I publish a program that reveals nothing about how it works?" led to program obfuscation.
 
 These are different philosophies about who computes, who learns, and what trust means. For decades they developed in parallel, each with its own community, its own breakthroughs, its own brick walls.
 

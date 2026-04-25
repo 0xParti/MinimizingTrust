@@ -3,8 +3,9 @@
 From this directory (`compile/`), run:
 
 ```bash
-./build-pdf.sh      # Build PDF
-./build-epub.sh     # Build EPUB
+./build-all.sh      # Build both PDF and EPUB
+./build-pdf.sh      # Build PDF only
+./build-epub.sh     # Build EPUB only
 ```
 
 These scripts automatically:

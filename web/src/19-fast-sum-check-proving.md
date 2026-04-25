@@ -552,7 +552,7 @@ With $T$ non-zero matrix entries, total prover work is $O(m + n + T)$, linear in
 
 Step back and consider what we've built. Spartan proves R1CS satisfaction, the standard constraint system for zkSNARKs, using only sum-check and polynomial commitments. No univariate polynomial encodings (like PLONK's permutation argument). No pairing-based trusted setup (like Groth16). No PCP constructions (like early STARKs).
 
-The architecture is minimal: multilinear polynomials, sum-check, commitment scheme. Three ideas, combined cleanly. This simplicity is not merely aesthetic. It's the reason Spartan became the template for subsequent systems. Lasso added lookup arguments; Jolt extended further to prove virtual machine execution. Each built on the same foundation.
+The architecture is minimal: multilinear polynomials, sum-check, commitment scheme. Three ideas, combined cleanly. This simplicity is the reason Spartan became the template for subsequent systems. Lasso added lookup arguments; Jolt extended further to prove virtual machine execution. Each built on the same foundation.
 
 Notice the graph structure emerging. Spartan has two levels: an outer sum-check (over constraints) and inner sum-checks (over matrix-vector products). The outer sum-check ends with a claim; the inner sum-checks prove that claim. This is exactly the depth-two graph from the remark at the chapter's start. More complex protocols like Lasso (for lookups) and Jolt (for full RISC-V execution) extend this graph to dozens of nodes across multiple stages, but the pattern remains: sum-checks reducing claims to other sum-checks, bottoming out at committed polynomials.
 
