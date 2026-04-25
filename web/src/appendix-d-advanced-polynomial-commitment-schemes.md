@@ -1,24 +1,22 @@
-# Appendix D: Advanced Polynomial Commitment Schemes
+# Appendix D: Advanced polynomial commitment schemes
 
-This appendix covers polynomial commitment schemes that achieve specialized trade-offs beyond the main KZG and IPA schemes presented in Chapter 9. These schemes are important for specific applications but involve more complex cryptographic machinery.
+This appendix covers polynomial commitment schemes that achieve specialized trade-offs beyond the KZG and IPA schemes of Chapter 9.
 
-## Hyrax: Square-Root Commitments via Tensor Structure
+## Hyrax
 
-Chapter 9's IPA scheme suffers from linear verification time: the verifier must compute the folded generators, doing $O(N)$ work for a polynomial with $N$ coefficients. **Hyrax** (Wahby et al., 2018) reduces verification to $O(\sqrt{N})$ by exploiting the tensor structure of multilinear polynomials. The key insight is that polynomial evaluation can be written as a vector-matrix-vector product, and this matrix structure enables a commitment scheme where the prover commits to rows separately.
-
-### The Core Idea: From Flat Vectors to Matrices
+Chapter 9's IPA scheme has linear verification time: the verifier must compute the folded generators, doing $O(N)$ work for a polynomial with $N$ coefficients. **Hyrax** (Wahby et al., 2018) reduces verification to $O(\sqrt{N})$ by exploiting the tensor structure of multilinear polynomials. Polynomial evaluation can be written as a vector-matrix-vector product, and this matrix structure enables a commitment scheme where the prover commits to rows separately.
 
 A multilinear polynomial $\tilde{f}$ over $n$ variables has $N = 2^n$ coefficients. The naive approach stores these as a flat vector $(f_0, f_1, \ldots, f_{N-1})$ and commits with a single Pedersen commitment using $N$ generators. Evaluation then requires $O(N)$ work.
 
-The key insight: **reshape the flat vector into a matrix**. Instead of a length-$N$ vector, arrange the coefficients as a $\sqrt{N} \times \sqrt{N}$ matrix $M$:
+Hyrax reshapes the flat vector into a $\sqrt{N} \times \sqrt{N}$ matrix $M$:
 
 $$\underbrace{(f_0, f_1, \ldots, f_{N-1})}_{\text{flat vector}} \quad \longrightarrow \quad \underbrace{M = \begin{pmatrix} f_0 & f_1 & \cdots & f_{\sqrt{N}-1} \\ f_{\sqrt{N}} & f_{\sqrt{N}+1} & \cdots & f_{2\sqrt{N}-1} \\ \vdots & \vdots & \ddots & \vdots \end{pmatrix}}_{\text{matrix form}}$$
 
 The entry $M[a][b]$ stores the coefficient $f_{a \cdot \sqrt{N} + b}$, which corresponds to the evaluation at the Boolean point whose binary representation concatenates $a$ and $b$.
 
-Why does this help? Because polynomial evaluation decomposes into a **vector-matrix-vector product**, and we can commit to rows separately. This reduces verification from $O(N)$ to $O(\sqrt{N})$.
+Polynomial evaluation then decomposes into a vector-matrix-vector product, and the prover can commit to rows separately, reducing verification from $O(N)$ to $O(\sqrt{N})$.
 
-### Tensor Structure of Multilinear Evaluation
+### Tensor structure of multilinear evaluation
 
 Recall from Chapter 5 that multilinear evaluation uses the equality polynomial:
 
@@ -51,13 +49,11 @@ Substitute the Lagrange vectors $L[a] = \text{eq}(a, r_L)$ and $R[c] = \text{eq}
 
 $$= \sum_{a,c} M[a][c] \cdot L[a] \cdot R[c] = \vec{L}^T M \vec{R}$$
 
-This is a rank-2 tensor contraction: two vectors contracting with a matrix. The key insight is that the factorization of $\text{eq}$ lets us separate the "row selection" ($\vec{L}$) from the "column selection" ($\vec{R}$).
+This is a rank-2 tensor contraction: two vectors contracting with a matrix. The factorization of $\text{eq}$ separates "row selection" ($\vec{L}$) from "column selection" ($\vec{R}$), which is what makes the matrix reshaping useful. A flat vector evaluation $\sum_i f_i \cdot \chi_i(r)$ requires touching all $N$ terms, but $\vec{L}^T M \vec{R}$ can be computed in two steps: first $\vec{u} = M^T \vec{L}$ (a length-$\sqrt{N}$ vector), then $\langle \vec{u}, \vec{R} \rangle$ (a single dot product). Each step involves only $\sqrt{N}$ operations.
 
-This is why the matrix reshaping matters: a flat vector evaluation $\sum_i f_i \cdot \chi_i(r)$ requires touching all $N$ terms, but the matrix form $\vec{L}^T M \vec{R}$ can be computed in two steps. First compute $\vec{u} = M^T \vec{L}$ (a length-$\sqrt{N}$ vector), then compute $\langle \vec{u}, \vec{R} \rangle$ (a single dot product). Each step involves only $\sqrt{N}$ operations.
+### The Hyrax commitment scheme
 
-### The Hyrax Commitment Scheme
-
-#### Public Parameters
+#### Public parameters
 
 Random generators $\vec{G} = (G_0, \ldots, G_{\sqrt{N}-1}) \in \mathbb{G}^{\sqrt{N}}$ and $H \in \mathbb{G}$ for blinding.
 
@@ -73,7 +69,7 @@ $$\text{Com}(M) = (C_0, C_1, \ldots, C_{\sqrt{N}-1})$$
 
 This requires $\sqrt{N}$ group elements, not one. The trade-off: larger commitment size for cheaper verification.
 
-### The Opening Protocol
+### The opening protocol
 
 To prove $\tilde{f}(r) = v$ where $r = (r_L, r_R)$:
 
@@ -129,7 +125,7 @@ So the dot product check verifies that the claimed value $v$ equals the polynomi
 
 The prover doesn't send $\vec{u}$ directly (which would leak information about $M$). Instead, both checks are combined into a ZK dot product protocol that proves consistency without revealing $\vec{u}$.
 
-### Zero-Knowledge Dot Product Protocol
+### Zero-knowledge dot product protocol
 
 Hyrax uses a Schnorr-style protocol for proving $\langle \vec{a}, \vec{u} \rangle = v$ where $\vec{u}$ is committed (with blinding) and $\vec{a}$ is public.
 
@@ -151,7 +147,7 @@ The first check ensures $\vec{z}$ opens the linear combination $D + c \cdot C$. 
 
 **Communication cost:** $O(\sqrt{N})$ field elements (the response vector $\vec{z}$).
 
-### Worked Example: Hyrax on a 4-Variable Polynomial
+### Worked example
 
 Let's trace through Hyrax for $n = 4$ variables, so $N = 16$ evaluations arranged as a $4 \times 4$ matrix.
 
@@ -217,7 +213,7 @@ Check: $\langle \vec{u}, \vec{R} \rangle = v = 5$ ✓
 
 The verifier performed two MSMs of size 4 (not 16), plus field arithmetic for the dot product. Total: $O(\sqrt{N})$ group operations.
 
-### Using Bulletproofs for Logarithmic Proof Size
+### Using Bulletproofs for logarithmic proof size
 
 The basic Hyrax protocol has $O(\sqrt{N})$ communication because the prover sends $\vec{z}$ (length $\sqrt{N}$) in the Schnorr-style dot product proof. This can be reduced to $O(\log N)$ by replacing Schnorr with Bulletproofs' inner product argument.
 
@@ -226,7 +222,7 @@ Bulletproofs (Bünz et al., 2018) proves $\langle \vec{a}, \vec{b} \rangle = c$ 
 - Proof size: $O(\sqrt{N} + \log \sqrt{N}) = O(\sqrt{N})$ (row commitments dominate)
 - Verifier time: $O(\sqrt{N})$ (MSM for $C'$ plus Bulletproofs verification on length-$\sqrt{N}$ vectors)
 
-### Generalized Trade-off: The $\iota$ Parameter
+### The $\iota$ parameter
 
 The Hyrax paper introduces a generalization parameter $\iota \geq 2$ that controls a communication vs. computation trade-off. Instead of a square matrix, arrange the coefficients as $N^{1/\iota} \times N^{(\iota-1)/\iota}$:
 
@@ -236,7 +232,7 @@ The Hyrax paper introduces a generalization parameter $\iota \geq 2$ that contro
 
 Higher $\iota$ reduces commitment size (fewer row commitments) at the cost of higher verification time (longer dot product vectors). Since the commitment is sent once but may be opened many times, the square-root case ($\iota = 2$) typically offers the best balance.
 
-### Hyrax: Properties and Trade-offs
+### Properties and trade-offs
 
 | Property | Hyrax (square-root, $\iota = 2$) |
 |----------|-------|
@@ -274,15 +270,13 @@ Where Hyrax achieves $O(\sqrt{N})$ verification, Dory achieves $O(\log N)$. The 
 
 ---
 
-## Dory: Logarithmic Verification Without Trusted Setup
+## Dory
 
 Hyrax reduces IPA's $O(N)$ verification to $O(\sqrt{N})$ by exploiting tensor structure. **Dory** (Lee, 2021) pushes further to $O(\log N)$ by combining Hyrax's matrix arrangement with pairings.
 
-The core idea is deferred verification. In IPA, the verifier recalculates the folded generators at each step, doing $O(n)$ work. Dory's verifier instead accumulates commitments and defers all verification to a single final pairing check. The algebraic structure of pairings makes this possible: the verifier can "absorb" all the folding challenges into target group elements, then verify everything at once.
+In IPA, the verifier recalculates the folded generators at each step, doing $O(n)$ work. Dory's verifier instead accumulates commitments in $\mathbb{G}_T$ and defers all verification to a single final pairing check. The algebraic structure of pairings makes this possible: the verifier "absorbs" folding challenges into target group elements without touching the original generators directly.
 
-> **Note:** Dory is one of the more advanced commitment schemes covered in this book. The two-tier structure, pairing-based folding, and binding arguments involve subtle cryptographic reasoning. Don't worry if the details don't click on first reading; the key intuition is that pairings allow verification to happen "in the target group" without the verifier touching the original generators directly.
-
-### Two-Tier Commitment Structure
+### Two-tier commitment structure
 
 Dory commits to polynomials using AFGHO commitments (Abe et al.'s structure-preserving commitments) combined with Pedersen commitments.
 
@@ -321,31 +315,15 @@ where $r_{\text{fin}}$ is a final blinding factor. This produces one $\mathbb{G}
 
 The AFGHO commitment is hiding because $r_{\text{fin}} \cdot e(H_1, H_2)$ is uniformly random in $\mathbb{G}_T$. Both tiers are additively homomorphic, which the evaluation protocol relies on.
 
-### From Coefficients to Matrix Form
+### From coefficients to matrix form
 
-**Why matrices?** A multilinear polynomial evaluation $f(r_1, \ldots, r_n)$ can be written as a vector-matrix-vector product. The evaluation point $(r_1, \ldots, r_n)$ splits into:
-- Row coordinates $(r_1, \ldots, r_{n/2})$: selects which row
-- Column coordinates $(r_{n/2+1}, \ldots, r_n)$: selects which column
+Dory uses the same tensor decomposition as Hyrax. The evaluation point $r = (r_1, \ldots, r_n)$ splits into row coordinates $r_L = (r_1, \ldots, r_{n/2})$ and column coordinates $r_R = (r_{n/2+1}, \ldots, r_n)$. Each half determines a vector of Lagrange coefficients $\vec{\ell}$ and $\vec{\rho}$ via the equality polynomial (see the Hyrax derivation above). The evaluation becomes a bilinear form:
 
-This mirrors the coefficient arrangement: $M[i][j] = f(\text{bits of } i \| \text{bits of } j)$.
+$$f(r) = \vec{\ell}^T M \vec{\rho}$$
 
-Each half determines a vector of **Lagrange coefficients** via the equality polynomial:
+Dory uses $\ell$ for row (left) and $\rho$ for column (right) coefficients, distinct from the evaluation point $r$.
 
-$$\ell_j = \text{eq}((r_1, \ldots, r_{n/2}), j) = \prod_{i=1}^{\log\sqrt{N}} \left( r_i \cdot j_i + (1 - r_i) \cdot (1 - j_i) \right)$$
-
-$$\rho_j = \text{eq}((r_{n/2+1}, \ldots, r_n), j) = \prod_{i=1}^{\log\sqrt{N}} \left( r_{n/2+i} \cdot j_i + (1 - r_{n/2+i}) \cdot (1 - j_i) \right)$$
-
-where $j_i \in \{0,1\}$ are the bits of index $j$. We use $\ell$ for row (left) and $\rho$ for column (right) coefficients, distinct from the evaluation point $r$.
-
-The evaluation becomes a bilinear form:
-
-$$f(r) = \sum_{i,j} M[i][j] \cdot \ell_i \cdot \rho_j = \vec{\ell}^T M \vec{\rho}$$
-
-**Worked example ($n=2$):** For $f(x_1, x_2) = c_{00}(1-x_1)(1-x_2) + c_{01}(1-x_1)x_2 + c_{10}x_1(1-x_2) + c_{11}x_1x_2$:
-
-$$f(r_1, r_2) = \underbrace{(1-r_1, r_1)}_{\vec{\ell}^T} \begin{pmatrix} c_{00} & c_{01} \\ c_{10} & c_{11} \end{pmatrix} \underbrace{\begin{pmatrix} 1-r_2 \\ r_2 \end{pmatrix}}_{\vec{\rho}}$$
-
-### The Opening Protocol (Dory-Innerproduct)
+### The opening protocol (Dory-Innerproduct)
 
 **The key reduction:** Polynomial evaluation becomes an inner product. Define two vectors:
 
@@ -356,18 +334,16 @@ Then $\langle \vec{v}_1, \vec{v}_2 \rangle = \vec{\ell}^T M \vec{\rho} = f(r)$. 
 
 **Goal:** Prove $\langle \vec{v}_1, \vec{v}_2 \rangle = v$ for committed vectors, which proves $f(r) = v$ for the polynomial.
 
-**The Language:** Dory proves membership in:
+Dory proves membership in the language:
 
 $$\mathcal{L}_{n,\Gamma_1,\Gamma_2,H_1,H_2} = \{(C, D_1, D_2) : \exists (\vec{v}_1, \vec{v}_2, r_C, r_{D_1}, r_{D_2}) \text{ s.t.}$$
 $$D_1 = \langle \vec{v}_1, \Gamma_2 \rangle + r_{D_1} H_T, \quad D_2 = \langle \Gamma_1, \vec{v}_2 \rangle + r_{D_2} H_T, \quad C = \langle \vec{v}_1, \vec{v}_2 \rangle + r_C H_T\}$$
 
 In words: $D_1$ commits to $\vec{v}_1$ (using $\Gamma_2$), $D_2$ commits to $\vec{v}_2$ (using $\Gamma_1$), and $C$ commits to their inner product. The protocol proves these three commitments are consistent, that the same vectors appear in all three.
 
-### How Verification Works (The Key Insight)
+### How verification works
 
-**The question:** The prover knows $\vec{\ell}$, $\vec{\rho}$, and $M$. The verifier can compute $\vec{\ell}$ and $\vec{\rho}$ from the evaluation point, but doesn't know $M$. How can the verifier check $f(r) = v$ without the matrix?
-
-**The answer:** The verifier never needs $M$ directly. Instead:
+The prover knows $\vec{\ell}$, $\vec{\rho}$, and $M$. The verifier can compute $\vec{\ell}$ and $\vec{\rho}$ from the evaluation point but doesn't know $M$. The verifier never needs $M$ directly. Instead:
 
 **Step 1: The verifier has** the commitment $C$ (which encodes $M$ cryptographically) and the claimed evaluation $v$.
 
@@ -402,7 +378,7 @@ The verifier computes this themselves from the claimed evaluation $v$. This is h
 
 **What remains to prove:** The prover must demonstrate that $\langle \vec{v}_2, \vec{v}_1 \rangle = v$. That is, the intermediate vector $\vec{v}_1$ (committed implicitly via the consistency check) inner-producted with $\vec{v}_2 = \vec{\ell}$ yields the claimed evaluation. This is where Dory-Reduce takes over.
 
-### The Folding Protocol (Dory-Reduce)
+### The folding protocol
 
 Each round halves the problem size. Given vectors of length $2m$, the round uses two challenges ($\beta$, then $\alpha$) and two prover messages:
 
@@ -454,7 +430,7 @@ where primes denote folded values, and $d$ is a final challenge.
 
 The verifier does no per-round pairing checks, only accumulator updates. Soundness comes from the final check verifying this invariant for the length-1 vectors.
 
-### Why Binding Works
+### Why binding works
 
 The prover provides row commitments $\vec{R}$ alongside the tier-2 commitment. Why can't the prover cheat by providing fake rows?
 
@@ -466,7 +442,7 @@ The prover provides row commitments $\vec{R}$ alongside the tier-2 commitment. W
 
 If the Dory proof verifies, then with overwhelming probability (under SXDH), the prover knew valid openings for all original commitments.
 
-### Dory: Properties and Trade-offs
+### Properties and trade-offs
 
 | Property | Dory |
 |----------|------|
@@ -488,7 +464,7 @@ $$R^{(\text{joint})}_j = \sum_{i=1}^{k} \gamma^i \cdot R^{(i)}_j$$
 
 Row $j$ of $f_{\text{joint}} = \sum_i \gamma^i f_i$ has coefficients $M_{\text{joint}}[j] = \sum_i \gamma^i M_i[j]$. By linearity of Pedersen commitments, $\langle M_{\text{joint}}[j], \Gamma_1 \rangle = \sum_i \gamma^i R^{(i)}_j = R^{(\text{joint})}_j$. The joint row commitments feed directly into Dory-Reduce, avoiding $k \cdot \sqrt{N}$ expensive MSM recomputations.
 
-### Why Dory Achieves Logarithmic Verification
+### Why Dory achieves logarithmic verification
 
 Why does Dory achieve logarithmic verification while IPA requires linear time? IPA's linear cost comes from computing folded generators. Dory sidesteps this entirely: the verifier works with commitments in $\mathbb{G}_T$, updating accumulators each round without touching generators. The algebraic structure of pairings ($e(aG_1, bG_2) = e(G_1, G_2)^{ab}$) lets the verifier "absorb" folding challenges into commitments. The precomputed $\chi_k$ values handle the generator contributions.
 

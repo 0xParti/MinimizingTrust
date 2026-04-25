@@ -4,7 +4,7 @@ The development of zero-knowledge proofs and succinct arguments spans four decad
 
 
 
-## The Theoretical Foundations (1985-1992)
+## Theoretical foundations (1985-1992)
 
 **1985: GMR (Interactive Proofs and Zero-Knowledge)**
 Goldwasser, Micali, and Rackoff introduce interactive proofs and define zero-knowledge. The paper "The Knowledge Complexity of Interactive Proof Systems" establishes the foundational concepts: completeness, soundness, and the simulation paradigm for zero-knowledge. A conceptual revolution: proving something is true without revealing why it's true.
@@ -32,17 +32,15 @@ Kilian shows how to compile PCPs using Merkle trees and collision-resistant hash
 
 
 
-## The ZK Winter (1992-2008)
+## The ZK winter (1992-2008)
 
-For sixteen years, zero-knowledge proofs remained a theoretical curiosity. The PCP theorem promised succinct proofs, but the constructions had astronomical overhead ($O(n^{10})$ blowup in early versions). Computers were too slow. The algorithms were too heavy. Cryptographers knew ZK was possible but not practical.
+For sixteen years, zero-knowledge proofs remained impractical. The PCP theorem promised succinct proofs, but the constructions had astronomical overhead ($O(n^{10})$ blowup in early versions). Researchers refined PCP constructions, developed new proof composition techniques, and explored connections to coding theory, but there were no implementations and no urgency.
 
-The field didn't stop entirely. Researchers refined PCP constructions, developed new proof composition techniques, and explored connections to coding theory. But there were no implementations, no applications, no urgency.
-
-Two events ended the winter. In 2008, Goldwasser, Kalai, and Rothblum published GKR, showing that sum-check could verify arithmetic circuits with manageable overhead. Then in 2009, Bitcoin launched. Suddenly there was a financial ecosystem that desperately needed what ZK could provide: privacy, scalability, trustless verification. Theoretical possibility met practical demand. The spring began.
+Two developments changed that. In 2008, Goldwasser, Kalai, and Rothblum published GKR, showing that sum-check could verify arithmetic circuits with manageable overhead. In 2009, Bitcoin launched, creating a financial ecosystem with urgent demand for privacy, scalability, and trustless verification. The tool and the demand arrived at roughly the same time.
 
 
 
-## The Path to Practical Systems (2008-2016)
+## Path to practical systems (2008-2016)
 
 **2008: GKR (Efficient Verification of Arithmetic Circuits)**
 Goldwasser, Kalai, and Rothblum develop a protocol for verifying layered arithmetic circuits using sum-check. The prover does polynomial work; the verifier does polylogarithmic work. Later refinements by Cormode, Mitzenmacher, and Thaler make it truly practical.
@@ -67,7 +65,7 @@ Giacomelli, Madsen, and Orlandi publish ZKBoo, the first practical implementatio
 
 
 
-## The Scaling Era (2017-2020)
+## The scaling era (2017-2020)
 
 **2017: STARKs (Transparent Scalable Arguments)**
 Ben-Sasson, Bentov, Horesh, and Riabzev introduce STARKs (Scalable Transparent ARguments of Knowledge). Based on FRI and hash functions, STARKs require no trusted setup and resist quantum attacks. Proofs are larger but prover time is quasi-linear.
@@ -87,9 +85,9 @@ Bowe, Grigg, and Hopwood demonstrate recursion using inner-product arguments ove
 **2019-2020: zk-Rollups Emerge**
 Teams including Loopring, zkSync, and StarkWare deploy zk-rollups on Ethereum. Transaction data lives on-chain; execution validity is proven off-chain. Throughput increases 100-1000×.
 
-### The Phylogenetic Tree
+### Three lineages
 
-By the end of this era, three distinct "species" of zero-knowledge proofs had evolved from a common ancestor:
+By the end of this era, three distinct lineages of zero-knowledge proofs had emerged from a common ancestor:
 
 ```
                     Interactive Proofs (1985)
@@ -109,11 +107,11 @@ By the end of this era, three distinct "species" of zero-knowledge proofs had ev
       PLONK (2019)    Circle STARKs      Jolt (2023)
 ```
 
-*The three main species of zero-knowledge proofs, each with distinct cryptographic foundations: pairings, hashes, and sum-check.*
+*Three lineages of zero-knowledge proofs, each with distinct cryptographic foundations: pairings, hashes, and sum-check.*
 
 
 
-## The Modern Era (2020-Present)
+## The modern era (2020-present)
 
 **2020-2022: Lookup Arguments Mature**
 Plookup (Gabizon, Williamson, and Maller, 2020), cq, and other lookup protocols become standard. Table-based constraint checking replaces expensive algebraic encoding for range checks, bitwise operations, and memory access.
@@ -139,9 +137,9 @@ StarkWare and others explore STARKs over small fields (Mersenne primes, binary t
 **2024-Present: Folding and IVC Proliferate**
 Nova variants (SuperNova, HyperNova, ProtoStar) extend folding to handle complex constraint types. Incrementally verifiable computation becomes practical for long-running programs.
 
-### The Convergence
+### Convergence
 
-Modern zkVMs are not new inventions. They are the confluence of three decades of distinct research streams:
+Modern zkVMs are the confluence of three decades of distinct research streams:
 
 ```
     SUM-CHECK              LOOKUPS              FOLDING
@@ -166,7 +164,7 @@ Modern zkVMs are not new inventions. They are the confluence of three decades of
 
 
 
-## Visual Timeline
+## Visual timeline
 
 ```
 1985 ─────── GMR: Interactive Proofs, Zero-Knowledge
@@ -198,26 +196,14 @@ Modern zkVMs are not new inventions. They are the confluence of three decades of
 
 
 
-## Key Themes
+## Key themes
 
-**From Theory to Practice (1985-2016)**: Early work established that zero-knowledge proofs exist for all of NP, but constructions were impractical. The path from GMR to Groth16 took 31 years of incremental improvement.
+**Theory to practice (1985-2016)**: Early work established that zero-knowledge proofs exist for all of NP, but constructions were impractical. The path from GMR to Groth16 took 31 years.
 
-**The Trusted Setup Debate (2016-2019)**: Groth16's efficiency came with per-circuit trusted setup. PLONK's universal setup and STARKs' transparency offered alternatives. The field fragmented into camps, each valid for different applications.
+**The trusted setup debate (2016-2019)**: Groth16's efficiency came with per-circuit trusted setup. PLONK's universal setup and STARKs' transparency offered alternatives. The field fragmented into camps, each valid for different applications.
 
-**The zkVM Vision (2020-Present)**: Rather than hand-crafting circuits for each application, prove correct execution of arbitrary programs. RISC-V and WASM emerge as target ISAs. Developer experience becomes a competitive advantage.
+**The zkVM vision (2020-present)**: Rather than hand-crafting circuits for each application, prove correct execution of arbitrary programs. RISC-V emerges as the dominant target ISA.
 
-**The Sum-Check Renaissance (2022-Present)**: After years of PCP-inspired constructions, the field rediscovers sum-check's elegance. Linear-time proving, virtual polynomials, and folding schemes push efficiency to theoretical limits.
+**The sum-check renaissance (2022-present)**: After years of PCP-inspired constructions, the field rediscovers sum-check's elegance. Linear-time proving, virtual polynomials, and folding schemes push efficiency toward theoretical limits.
 
-
-
-## Looking Forward
-
-The timeline is far from complete. Active research directions include:
-
-- **Post-quantum SNARKs**: Lattice-based and hash-based constructions that survive quantum computers
-- **Formal verification**: Machine-checked proofs of protocol security
-- **Hardware acceleration**: GPUs, FPGAs, and ASICs specialized for proving
-- **zkML**: Zero-knowledge proofs for machine learning inference
-- **Decentralized proving**: Distributed prover networks for large computations
-
-Each breakthrough opens new questions. The field accelerates.
+Chapter 26 surveys the active frontiers in detail.

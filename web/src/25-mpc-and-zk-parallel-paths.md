@@ -1,22 +1,22 @@
-# Chapter 25: MPC and ZK: Parallel Paths
+# Chapter 25: MPC and ZK parallel paths
 
 In 1982, Andrew Yao posed a puzzle that sounded like a parlor game. Two millionaires meet at a party. Each wants to know who is richer, but neither wants to reveal their actual wealth. Is there a protocol that determines who has more money without either party learning anything else?
 
-The question seems impossible. To compare two numbers, someone must see both numbers. A trusted third party could collect the figures, announce the winner, and burn the evidence. But what if there is no trusted party? What if the millionaires trust no one, not even each other?
+The question seems impossible. To compare two numbers, someone must see both numbers. A trusted third party could collect the figures, announce the winner, burn the evidence. But what if there is no trusted party? What if the millionaires trust no one, not even each other?
 
-The stakes extend far beyond money. Satellite operators need to check if their orbits will collide without revealing classified trajectories. Banks need to detect money laundering across institutions without exposing customer data. Nuclear inspectors need to verify warhead counts without learning weapon designs. In each case, the computation requires data that no single party can be trusted to see.
+The same tension appears wherever private data meets joint computation. Satellite operators want to check if their orbits will collide, but their trajectories are classified. Banks want to detect money laundering across institutions without opening their books to each other. Nuclear inspectors want to verify warhead counts without learning weapon designs. The underlying problem is always the same: the computation requires inputs that no single party should see.
 
 Yao proved the comparison can be done. Not by clever social arrangements or legal contracts, but by cryptography alone. The protocol he constructed, now called *garbled circuits*, allows two parties to jointly compute any function on their private inputs while revealing nothing but the output. Neither party sees the other's input. The trusted third party dissolves into mathematics.
 
-This was the birth of **Secure Multiparty Computation** (MPC). The field expanded rapidly. In 1988, Ben-Or, Goldwasser, and Wigderson showed that with an honest majority of participants, MPC could achieve *information-theoretic* security: no computational assumption required, just the mathematics of secret sharing. The same year, Chaum, Crépeau, and Damgård proved that with dishonest majorities, MPC remained possible under cryptographic assumptions. By the early 1990s, the core theoretical question was settled: any function computable by a circuit could be computed securely by mutually distrustful parties.
+This was the birth of **Secure Multiparty Computation** (MPC). The field expanded rapidly. In 1988, Ben-Or, Goldwasser, and Wigderson showed that with an honest majority of participants, MPC could achieve *information-theoretic* security with no computational assumption required, just the mathematics of secret sharing. The same year, Chaum, Crépeau, and Damgård proved that with dishonest majorities, MPC remained possible under cryptographic assumptions. By the early 1990s, the core theoretical question was settled. Any function computable by a circuit could be computed securely by mutually distrustful parties.
 
-The philosophical implications are striking. Computation, it turns out, does not require a single trusted processor. It can be *distributed* across adversaries who share nothing but a communication channel and a willingness to follow a protocol. The output emerges from the collaboration, but the inputs remain private. This is coordination without trust, agreement without revelation.
+Computation, it turns out, does not require a single trusted processor. It can be *distributed* across adversaries who share nothing but a communication channel and a willingness to follow a protocol. The output emerges from the collaboration, but the inputs remain private.
 
-### Why MPC Belongs in This Book
+### Why MPC belongs in this book
 
 Throughout this book, we've focused on trust between prover and verifier. The verifier need not believe the prover is honest; the proof itself carries the evidence. But there's another trust relationship we've quietly assumed: the prover has access to the witness. What if the witness is too sensitive to give to any single party?
 
-Consider a company that wants to prove its financial reserves exceed its liabilities without revealing the actual figures to the auditor, the proving service, or anyone else. The company holds the witness (the books), but generating a ZK proof requires computation. If the company lacks the infrastructure to prove locally, it faces a dilemma: outsource the proving and expose the witness, or don't prove at all.
+Consider a company that wants to prove its financial reserves exceed its liabilities without revealing the actual figures to the auditor, the proving service, or anyone else. The company holds the witness (the books), but generating a ZK proof requires computation. If the company lacks the infrastructure to prove locally, it faces a dilemma. Outsource the proving and expose the witness, or don't prove at all.
 
 MPC offers an escape. The company secret-shares its witness among multiple proving servers. Each server sees only meaningless fragments. Together, they compute the proof without any single server learning the books. The witness never exists in one place. Trust is distributed rather than concentrated.
 
@@ -24,51 +24,57 @@ This is one of several approaches to the "who runs the prover?" problem:
 
 **Prove locally.** Keep the witness on your own hardware. No trust required, but you need sufficient compute. For lightweight proofs this works; for zkVM-scale computation it may not.
 
-**Distribute via MPC.** Secret-share the witness among multiple servers. No single server learns anything. Requires the servers not to collude (honest majority or computational assumptions). This chapter develops the techniques.
+**Distribute via MPC.** The approach just described. Requires the servers not to collude (honest majority or computational assumptions). This chapter develops the techniques.
 
-**Hardware enclaves (TEEs).** Run the prover inside a Trusted Execution Environment like Intel SGX or ARM TrustZone. The enclave attests that it ran the correct code on hidden inputs. Trust shifts from the server operator to the hardware manufacturer: not trustless, but a different trust assumption.
+**Hardware enclaves (TEEs).** Run the prover inside a Trusted Execution Environment like Intel SGX or ARM TrustZone. The enclave attests that it ran the correct code on hidden inputs. Trust shifts from the server operator to the hardware manufacturer, not trustless but a different trust assumption.
 
-MPC and ZK also connect at a deeper level. MPC techniques directly yield ZK constructions through the "MPC-in-the-head" paradigm: simulate an MPC protocol inside the prover's mind, commit to the simulated parties' views, and let the verifier audit a subset. The parallel paths converge into a single construction.
+(Chapter 27 discusses a fourth approach, computing on encrypted data via FHE, as part of the broader programmable cryptography landscape.)
 
-This chapter traces both paths. We begin with the MPC problem itself, then develop two foundational approaches: secret-sharing protocols and garbled circuits. We examine oblivious transfer, the cryptographic primitive that enables input privacy. Finally, we show how MPC becomes ZK through the in-the-head transformation, completing the circle between these two pillars of programmable cryptography.
+MPC and ZK also connect at a deeper level. MPC techniques directly yield ZK constructions through the "MPC-in-the-head" paradigm, where the prover simulates an MPC protocol inside their own mind, commits to the simulated parties' views, then lets the verifier audit a subset. The parallel paths converge into a single construction.
 
 
 
-## The MPC Problem
+## The MPC problem
 
-The formal setting: $n$ parties hold private inputs $x_1, \ldots, x_n$. They want to learn $f(x_1, \ldots, x_n)$ for some agreed-upon function $f$, but nothing else. A trusted third party could collect everything, compute, and announce the result. MPC achieves the same outcome without the trusted party.
+The intuition from Yao's millionaires is clear enough, but building protocols requires a precise target. What exactly does it mean to compute "securely"?
 
-What does "nothing else" mean precisely? The security definition captures this through simulation: whatever a coalition of corrupt parties learns from the protocol, they could have computed from their own inputs and the output alone. The protocol leaks nothing beyond what the function itself reveals.
+The formal setting has $n$ parties holding private inputs $x_1, \ldots, x_n$. They want to learn $f(x_1, \ldots, x_n)$ for some agreed-upon function $f$, but nothing else. A trusted third party could collect everything, compute, then announce the result. MPC must achieve the same outcome without the trusted party. The question is what "nothing else" means, and against whom.
 
-### Who Might Cheat, and How?
+The answer uses the same simulation paradigm that defines zero-knowledge (Chapter 17). There, a proof is zero-knowledge if a simulator can produce a transcript indistinguishable from a real one without access to the witness. Here, an MPC protocol is secure if a simulator, given only the corrupt parties' inputs and the output, can produce a view indistinguishable from what those parties actually observed during the protocol. If such a simulator exists, the protocol leaks nothing beyond what the function itself reveals. The corrupt parties could have generated everything they saw on their own.
 
-The adversary model shapes everything. A **semi-honest** (or passive) adversary follows the protocol faithfully but tries to extract information from the messages it observes. Think of a curious employee who logs everything but doesn't forge packets. A **malicious** (or active) adversary can deviate arbitrarily: send wrong values, abort early, collude with others. Think of a compromised machine running modified software.
+Two parameters shape what kind of security is achievable: the adversary's behavior and the number of corrupt parties.
 
-Most efficient protocols assume semi-honest adversaries. Malicious security is achievable but roughly doubles the cost, requiring authentication on shares and consistency checks at gates. The SPDZ protocol (pronounced "speedz") pioneered practical malicious security, discussed later in this chapter.
+### Adversary models
 
-### How Many Can Collude?
+A **semi-honest** (or passive) adversary follows the protocol faithfully but tries to extract information from the transcript. Think of a curious employee who logs every packet but never forges one. A **malicious** (or active) adversary can deviate arbitrarily by sending wrong values, aborting early, or colluding with others. Think of a compromised machine running modified software.
 
-Protocols specify a threshold $t$: security holds as long as at most $t$ of the $n$ parties are corrupt. The critical boundary is $t = n/2$.
+Most efficient protocols assume semi-honest adversaries. Malicious security is achievable at higher cost, as we'll see later in this chapter.
+
+### Collusion thresholds
+
+How many parties can be corrupt before security breaks? Protocols specify a threshold $t$ so that security holds as long as at most $t$ of the $n$ parties are corrupt. The dividing line is $t = n/2$.
 
 With an **honest majority** ($t < n/2$), protocols can achieve information-theoretic security. No computational assumption, no cryptographic hardness. Even an unbounded adversary learns nothing. The mathematics of secret sharing suffices.
 
-With a **dishonest majority** ($t < n$, potentially $t = n-1$), information-theoretic security becomes impossible. If all but one party collude, they can simulate the entire protocol among themselves. Cryptographic assumptions become necessary: the adversary *could* break the scheme given infinite time, but doing so requires solving hard problems.
+With a **dishonest majority** ($t < n$, potentially $t = n-1$), information-theoretic security becomes impossible. If all but one party collude, they hold enough information to reconstruct any secret shared among the group. Cryptographic assumptions become necessary because the adversary *could* break the scheme given infinite time, but doing so requires solving hard problems.
+
+With the adversary model and threshold specified, the problem is precise. The question that remains is how to actually build such a protocol.
 
 
 
-## Secret-Sharing MPC
+## Secret-sharing MPC
 
-The BGW protocol, named after Ben-Or, Goldwasser, and Wigderson, takes a direct approach: secret-share each input, compute on the shares, and reconstruct only the output. To understand how this works, we need to understand what secret sharing actually does.
+The most natural approach is to keep data distributed throughout the entire computation. The BGW protocol, named after Ben-Or, Goldwasser, and Wigderson, does exactly this. Secret-share each input, compute on the shares, reconstruct only the output. To understand how this works, we need to understand what secret sharing actually does.
 
-### Shamir's Secret Sharing
+### Shamir's secret sharing
 
-The idea is elegant (Appendix A covers the full details, including reconstruction formulas and security properties). To share a secret $s$ among $n$ parties with threshold $t$, construct a random polynomial of degree $t-1$ that passes through the point $(0, s)$:
+Shamir's scheme (Appendix A covers the full details, including reconstruction formulas and security properties) distributes a secret $s$ among $n$ parties with threshold $t$ by constructing a random univariate polynomial of degree $t-1$ that passes through the point $(0, s)$:
 
 $$P(X) = s + a_1 X + a_2 X^2 + \cdots + a_{t-1} X^{t-1}$$
 
 The coefficients $a_1, \ldots, a_{t-1}$ are chosen uniformly at random. The secret $s$ is the constant term, recoverable as $P(0)$.
 
-Each party $i$ receives the share $s_i = P(i)$, the polynomial evaluated at their index. Any $t$ parties can pool their shares and use Lagrange interpolation to recover the polynomial, hence the secret. But $t-1$ shares reveal nothing: a degree $t-1$ polynomial is determined by $t$ points, so with only $t-1$ points, every possible secret is equally consistent with the observed shares.
+Each party $i$ receives the share $s_i = P(i)$, the polynomial evaluated at their index. Any $t$ parties can pool their shares and use Lagrange interpolation to recover the polynomial, hence the secret. But $t-1$ shares reveal nothing. A degree $t-1$ polynomial is determined by $t$ points, so with only $t-1$ points, every possible secret is equally consistent with the observed shares.
 
 **Concrete example.** Share the secret $s = 7$ among 3 parties with threshold $t = 2$. Choose a random linear polynomial passing through $(0, 7)$, say $P(X) = 7 + 3X$. The shares are:
 
@@ -76,21 +82,21 @@ Each party $i$ receives the share $s_i = P(i)$, the polynomial evaluated at thei
 - Party 2: $s_2 = P(2) = 13$
 - Party 3: $s_3 = P(3) = 16$
 
-Any two parties can reconstruct. Parties 1 and 3, holding $(1, 10)$ and $(3, 16)$, interpolate: the unique line through these points is $P(X) = 7 + 3X$, so $P(0) = 7$. But party 1 alone, holding only $(1, 10)$, knows nothing. Any line through $(1, 10)$ could have any $y$-intercept. The secret could be anything.
+Any two parties can reconstruct. Parties 1 and 3, holding $(1, 10)$ and $(3, 16)$, interpolate to find the unique line through these points: $P(X) = 7 + 3X$, so $P(0) = 7$. But party 1 alone, holding only $(1, 10)$, knows nothing. Any line through $(1, 10)$ could have any $y$-intercept. The secret could be anything.
 
 ### Setup
 
-Each party $i$ secret-shares their input $x_i$ by constructing a random polynomial $P_i(X)$ with $P_i(0) = x_i$ and sending share $P_i(j)$ to party $j$. After this initial exchange, party $j$ holds one share of every input: $P_1(j), P_2(j), \ldots, P_n(j)$. No single party can reconstruct any input, but the distributed shares encode everything needed to compute.
+Each party $i$ secret-shares their input $x_i$ by constructing a random polynomial $P_i(X)$ with $P_i(0) = x_i$ then sending share $P_i(j)$ to party $j$. After this initial exchange, party $j$ holds one share of every input: $P_1(j), P_2(j), \ldots, P_n(j)$. No single party can reconstruct any input, but the distributed shares encode everything needed to compute.
 
-### Linear Operations
+### Linear operations
 
-Here's where the magic happens. Shamir sharing is *linear*. If parties hold shares of secrets $a$ and $b$ encoded by polynomials $P_a$ and $P_b$, then adding the shares gives valid shares of $a + b$.
+Shamir sharing is *linear*, which makes addition and scalar multiplication free. If parties hold shares of secrets $a$ and $b$ encoded by polynomials $P_a$ and $P_b$, then adding the shares gives valid shares of $a + b$.
 
-Why? Party $j$ holds $P_a(j)$ and $P_b(j)$. When they compute $P_a(j) + P_b(j)$, this equals $(P_a + P_b)(j)$, the evaluation of the sum polynomial at $j$. The sum polynomial $P_a + P_b$ has constant term $P_a(0) + P_b(0) = a + b$. So the parties now hold valid Shamir shares of $a + b$, without any communication.
+Party $j$ holds $P_a(j)$ and $P_b(j)$. When they compute $P_a(j) + P_b(j)$, this equals $(P_a + P_b)(j)$, the evaluation of the sum polynomial at $j$. The sum polynomial $P_a + P_b$ has constant term $P_a(0) + P_b(0) = a + b$. So the parties now hold valid Shamir shares of $a + b$, without any communication.
 
 The same holds for scalar multiplication. If party $j$ holds share $P_a(j)$ and multiplies it by a public constant $c$, the result $c \cdot P_a(j)$ is the evaluation of the polynomial $c \cdot P_a$ at $j$. This polynomial has constant term $c \cdot a$. Each party scales locally; no messages needed.
 
-**Concrete example continued.** The previous example shared $a = 7$ via $P(X) = 7 + 3X$, giving shares $(10, 13, 16)$. Now suppose another party wants to share their private input $b = 5$. They construct $Q(X) = 5 + 2X$ and distribute:
+What this means in practice is that two parties can add their secrets without ever revealing them. Return to the earlier example: we shared $a = 7$ via $P(X) = 7 + 3X$, giving shares $(10, 13, 16)$. Now a second party shares their private input $b = 5$ by constructing $Q(X) = 5 + 2X$ and distributing:
 
 - Party 1: $q_1 = Q(1) = 7$
 - Party 2: $q_2 = Q(2) = 9$
@@ -102,19 +108,11 @@ To compute shares of $a + b$, each party adds their shares locally: party 1 comp
 
 Addition and scalar multiplication are free. The cost of MPC concentrates entirely on multiplication.
 
-### Multiplication: The Challenge
+### Multiplication
 
-Multiplication breaks the easy pattern. The product of two shares is *not* a valid share of the product. Shamir sharing uses polynomials of degree $t-1$. If parties locally multiply their shares $P_a(j) \cdot P_b(j)$, they get evaluations of the product polynomial $P_a \cdot P_b$, which has degree $2(t-1)$. This polynomial does encode $ab$ at zero, but the threshold has effectively doubled: now $2t-1$ parties are needed to reconstruct, not $t$. Repeated multiplications would make the degree explode.
+Multiplication breaks the easy pattern. The product of two shares is *not* a valid share of the product. Shamir sharing uses polynomials of degree $t-1$. If parties locally multiply their shares $P_a(j) \cdot P_b(j)$, they get evaluations of the product polynomial $P_a \cdot P_b$, which has degree $2(t-1)$. This polynomial does encode $ab$ at zero, but the threshold has effectively doubled so that $2t-1$ parties are now needed to reconstruct, not $t$. Repeated multiplications would make the degree explode.
 
-> **The Paint Analogy**
->
-> Adding secret shares is like adding cups of the same color paint: if I have 1 cup of Red and you have 1 cup of Red, together we have 2 cups of Red. Easy.
->
-> Multiplying is like mixing colors: Red times Blue makes Purple. You can't un-mix paint to recover the original colors. Worse, the "shade" of your result depends on both inputs in a non-linear way.
->
-> Beaver Triples are like pre-mixed paint samples from a store. We don't know the exact shades (the store mixed them secretly), but we know that Sample A mixed with Sample B produces Sample C. When we need to multiply our real secret colors, we use these pre-mixed samples as a reference point, adjusting our result without ever revealing the original colors we started with.
-
-Donald Beaver's solution is elegant. Before the computation begins, distribute shares of random *triples* $(u, v, w)$ satisfying $w = u \cdot v$. Nobody knows $u$, $v$, or $w$ individually, but everyone holds valid shares of all three.
+Donald Beaver's solution resolves this through preprocessed randomness. Before the computation begins, distribute shares of random *triples* $(u, v, w)$ satisfying $w = u \cdot v$. Nobody knows $u$, $v$, or $w$ individually, but everyone holds valid shares of all three.
 
 To describe the protocol, we use bracket notation: $[a]$ means "the parties collectively hold Shamir shares of $a$," with each party holding one evaluation $P_a(j)$. To multiply $[a]$ by $[b]$ using a triple:
 
@@ -122,37 +120,43 @@ To describe the protocol, we use bracket notation: $[a]$ means "the parties coll
 2. Parties reconstruct $\alpha$ and $\beta$ publicly by pooling shares (these values are masked by the random $u$ and $v$, so they reveal nothing about $a$ or $b$)
 3. Parties compute $[ab] = [w] + \alpha \cdot [v] + \beta \cdot [u] + \alpha\beta$ locally (each party $j$ uses their shares of $w$, $v$, $u$ plus the now-public $\alpha$, $\beta$)
 
-The algebra works because $ab = (u + \alpha)(v + \beta) = w + \alpha v + \beta u + \alpha\beta$. Each triple enables one multiplication and is consumed in the process. A preprocessing phase generates triples before inputs are known.
+The algebra works because $ab = (u + \alpha)(v + \beta) = w + \alpha v + \beta u + \alpha\beta$. Since $\alpha$, $\beta$, and $\alpha\beta$ are now public scalars, party $j$ can compute their share of $ab$ locally as $w_j + \alpha \cdot v_j + \beta \cdot u_j + \alpha\beta$. This is a linear combination of valid Shamir shares, so the result is itself a valid Shamir share of $ab$. No single party learns $ab$, but together the parties hold shares of a polynomial whose constant term is $ab$, ready to feed into subsequent gates.
 
-### Circuit Evaluation
+Intermediate values are never reconstructed. Each triple enables exactly one multiplication because $\alpha$ and $\beta$ are now public; reusing the same triple with different inputs would leak information. A fresh triple is needed for every multiplication gate, generated during a preprocessing phase before inputs are known.
 
-With these building blocks, any arithmetic circuit can be evaluated. Share the inputs. Process gates in topological order: addition gates require no communication, multiplication gates consume one Beaver triple each. After the final gate, reconstruct the output by combining shares.
+### Circuit evaluation
+
+With these building blocks, any arithmetic circuit can be evaluated. Share the inputs, process gates in topological order so that addition gates require no communication while multiplication gates consume one Beaver triple each, then reconstruct only the final output.
+
+The reconstruction step works like the earlier Shamir example, but now all parties contribute shares of the *same* value. Suppose the circuit's output wire carries the shared value $[y]$, with party $j$ holding share $R(j)$ for some degree $t-1$ polynomial $R$ with $R(0) = y$. Each party broadcasts their share. Given any $t$ shares, Lagrange interpolation recovers $R(0) = y$. Before this moment, no party knew $y$; after it, everyone does. This is the only point in the entire protocol where a shared value becomes public.
 
 The communication cost is $O(n^2)$ field elements per multiplication (each party sends one message to each other party). Round complexity equals the circuit's multiplicative depth, since multiplications at the same depth can proceed in parallel.
 
-## Garbled Circuits
+## Garbled circuits
 
-Secret-sharing MPC generalizes naturally to $n$ parties, but requires rounds proportional to circuit depth. Each multiplication forces a round of communication. For deep circuits or high-latency networks, this cost compounds. Is there another approach, one that computes the entire circuit in constant rounds regardless of depth?
+Secret-sharing MPC generalizes naturally to $n$ parties, but requires rounds proportional to circuit depth. Each multiplication forces a round of communication. For deep circuits or high-latency networks, this cost compounds quickly. Yao's garbled circuits take a completely different approach, designed specifically for the **two-party** case. There are no thresholds, no secret sharing, no multiple rounds of interaction. Instead, one round of communication suffices regardless of circuit depth.
 
-Yao's garbled circuits achieve exactly this for the **two-party** case. The approach is fundamentally asymmetric: one party (the *garbler*) encrypts the entire circuit and hands it to the other (the *evaluator*), who evaluates it blindly. The evaluator learns the output without learning any intermediate values, not even the structure of the gates they're evaluating.
+The setting is two parties, say Alice and Bob, each holding a private input. Neither trusts the other. They agree on a function $f$ and want to learn $f(x_A, x_B)$ without revealing their inputs to each other. The protocol assigns asymmetric roles: Alice becomes the *garbler*, who encrypts the entire circuit before sending it, and Bob becomes the *evaluator*, who runs the encrypted circuit blindly.
 
-### The Core Idea: Labels as Passwords
+The evaluator needs one label per input wire, but the two parties' inputs arrive through different channels. For the garbler's own input wires, the garbler knows their bits, so they simply send the corresponding labels directly. For the evaluator's input wires, the garbler holds both labels but must not learn which bit the evaluator has. A primitive called *oblivious transfer* (developed later in this chapter) lets the evaluator receive the label matching their bit without the garbler learning which one was chosen. The evaluator learns nothing beyond the final output; the garbler learns nothing about the evaluator's input.
 
-The key insight is to replace bits with passwords. Each wire in the circuit carries not a 0 or 1, but a random cryptographic label. For each wire, the garbler creates two labels: one that "means 0" and one that "means 1." The evaluator receives exactly one label per wire, the one corresponding to the actual value, but cannot tell which meaning it carries.
+### Labels as passwords
 
-Why does this help? The evaluator computes the entire circuit without ever learning any intermediate values. They hold passwords that encode the computation, but the passwords themselves reveal nothing. A random 128-bit string looks the same whether it means 0 or 1.
+If the evaluator must compute on the garbler's circuit without learning what the wires carry, something must replace the raw bits. The idea is to use passwords. Each wire in the circuit carries not a 0 or 1, but a random cryptographic label. For each wire, the garbler creates two labels: one that "means 0" and one that "means 1." The evaluator receives exactly one label per wire, the one corresponding to the actual value, but cannot tell which meaning it carries.
 
-### Garbling a Single Gate
+This separation between *holding* a value and *knowing* a value is what makes garbled circuits work. The evaluator holds passwords that encode the computation, but a random 128-bit string looks the same whether it means 0 or 1.
 
-How do gates compute on passwords instead of bits? The garbler precomputes all possible outputs and encrypts them so only the correct one can be recovered.
+### Garbling a single gate
 
-Consider an AND gate with input wires $L$ (left) and $R$ (right) and output wire $O$. The garbler generates six random labels, each a 128-bit string that doubles as a symmetric encryption key:
+Each gate computes on passwords instead of bits by having the garbler precompute all possible outputs and encrypt them so only the correct one can be recovered.
+
+Consider an AND gate with input wires $L$ (left) and $R$ (right) and output wire $O$. Suppose Alice (the garbler) holds the left input and Bob (the evaluator) holds the right input. Alice generates all six labels herself, two per wire, each a 128-bit string that doubles as a symmetric encryption key:
 
 - Wire $L$: labels $L_0$ and $L_1$ (meaning "left input is 0" and "left input is 1")
 - Wire $R$: labels $R_0$ and $R_1$
 - Wire $O$: labels $O_0$ and $O_1$
 
-The garbler creates these labels, so they know which label corresponds to which bit. The subscript in $L_0$ is the garbler's private bookkeeping: "this is the label I'll use when the left input is 0." The evaluator never sees this subscript. They receive a label like `9c2b...` with no indication of whether it means 0 or 1.
+Alice knows which label corresponds to which bit; the subscript in $L_0$ is her private bookkeeping. Bob will eventually receive exactly one label per wire: for wire $L$, Alice sends the label matching her own bit; for wire $R$, Bob obtains the label matching his bit via oblivious transfer (the primitive introduced above, detailed in its own section below). He ends up holding two labels (one per input wire) but has no way to tell which bit either one represents. He never learns the other label for either wire.
 
 The plain truth table for AND is:
 
@@ -163,7 +167,7 @@ The plain truth table for AND is:
 | 1    | 0     | 0      |
 | 1    | 1     | 1      |
 
-The garbler transforms this into a *garbled table* by encrypting each output label under the corresponding input labels:
+Alice now uses *all* her labels to build the garbled table, covering every possible input combination. She can do this because she created all six labels. The table encodes what the correct output label would be for each pair of inputs, encrypted so that only someone holding the right pair can recover it:
 
 | Encrypted Entry |
 |-----------------|
@@ -172,9 +176,9 @@ The garbler transforms this into a *garbled table* by encrypting each output lab
 | $\text{Enc}_{L_1, R_0}(O_0)$ |
 | $\text{Enc}_{L_1, R_1}(O_1)$ |
 
-The encryption $\text{Enc}_{L_a, R_b}(O_c)$ uses both input labels as the key. Only someone who knows *both* $L_a$ and $R_b$ can decrypt the corresponding row.
+The encryption $\text{Enc}_{L_a, R_b}(O_c)$ is a symmetric-key operation (AES in practice) that uses both input labels as the key. Only someone who knows *both* $L_a$ and $R_b$ can decrypt the corresponding row.
 
-But there's a problem: if the table rows stay in this order, the evaluator learns which row they decrypted and hence learns the input bits. The solution is simple: **randomly shuffle the rows**. After shuffling, the garbled table might look like:
+This table has a flaw in its current form. If the rows stay in this order, the evaluator learns which row they decrypted and hence learns the input bits. The fix is to **randomly shuffle the rows**. After shuffling, the garbled table might look like:
 
 | Shuffled Encrypted Entry |
 |--------------------------|
@@ -183,11 +187,13 @@ But there's a problem: if the table rows stay in this order, the evaluator learn
 | $\text{Enc}_{L_1, R_0}(O_0)$ |
 | $\text{Enc}_{L_0, R_1}(O_0)$ |
 
-Now the evaluator, holding one label for each input wire, tries to decrypt each row. Only one decryption succeeds (the one matching their labels), revealing the output label. They learn nothing about which row succeeded because the encryption includes authentication: wrong keys produce random garbage, not a valid label.
+Now Bob holds one label for each input wire. He tries to decrypt each of the four rows using his two labels as the key. Recall that each row was encrypted under a *specific pair* of labels via AES. AES decryption with the wrong key doesn't fail gracefully; it produces random-looking bytes. To tell valid from garbage, each row includes a small authentication tag (a known padding pattern or checksum) alongside the output label. When Bob decrypts with the correct pair, the tag checks out and he recovers the output label. When he decrypts with the wrong pair, the tag is garbled and he knows to discard the result. Exactly one row matches his labels, so he recovers exactly one output label.
 
-### Hash-Indexed Tables
+This doesn't leak which inputs were used. Bob knows *a* row succeeded, but the rows are shuffled and he doesn't know what bit his labels represent. The position of the successful row tells him nothing about Alice's input or his own in the context of the truth table.
 
-There's an elegant alternative to random shuffling. Instead of listing ciphertexts in random order and trying all four, use the hash of the input labels as a row index:
+### Hash-indexed tables
+
+Random shuffling forces the evaluator to try all four rows per gate. A more efficient approach uses the hash of the input labels as a row index:
 
 | Row Index | Encrypted Entry |
 |-----------|-----------------|
@@ -198,17 +204,11 @@ There's an elegant alternative to random shuffling. Instead of listing ciphertex
 
 The evaluator, holding labels $L_a$ and $R_b$, computes $H(L_a, R_b)$ and looks up that row directly. No trial decryptions needed. The hash reveals nothing about which row was accessed since the evaluator doesn't know the other labels to compute their hashes.
 
-This structure scales better: instead of trying all rows, the evaluator does one hash and one decryption per gate. For circuits with millions of gates, the difference matters.
+This structure scales better. Instead of trying all rows, the evaluator does one hash and one decryption per gate. For circuits with millions of gates, the difference matters.
 
-### How the Evaluator Proceeds
+### Chaining gates together
 
-With either approach (shuffled tables with trial decryption, or hash-indexed tables with direct lookup), the evaluator follows the same pattern. They hold one label per input wire, use those labels to decrypt exactly one entry from the garbled table, and obtain the output label. The output label becomes input to the next gate. The evaluator never learns which bit any label represents; they just propagate opaque 128-bit strings through the circuit.
-
-### Chaining Gates Together
-
-A single gate is not a computation. How do labels propagate through a circuit?
-
-The key is consistency: the output labels of one gate become the input labels of subsequent gates. The garbler ensures that the labels generated as outputs of gate $G_1$ are the same labels used as inputs in gate $G_2$. The evaluator, holding one label per wire, can evaluate gate after gate, each time recovering exactly one output label to feed forward.
+A single gate is not a computation. With either table approach (shuffled or hash-indexed), the evaluator decrypts one entry per gate and obtains an output label. That output label becomes input to the next gate. Labels propagate through the circuit because the garbler ensures consistency: the output labels of one gate are the same labels used as inputs in the next. The evaluator, holding one label per wire, evaluates gate after gate, each time recovering exactly one output label to feed forward.
 
 **Example: A tiny circuit.** Consider computing $(a \land b) \lor c$, which requires an AND gate followed by an OR gate.
 
@@ -236,19 +236,19 @@ The evaluator:
 3. Uses the $t$ label plus the $c$ label to evaluate the OR gate
 4. Obtains a label for the output wire
 
-At the final output, the garbler reveals the mapping: "If your output label is $X$, the result is 0; if it's $Y$, the result is 1." Only now does the evaluator learn the actual output bit. This isn't a security breach: the whole point is for both parties to learn $f(a, b)$. The protection is that intermediate wire mappings stay hidden, so the evaluator learns only the final answer, not the computation path that produced it.
+At the final output, the garbler reveals the mapping: "If your output label is $X$, the result is 0; if it's $Y$, the result is 1." Only now does the evaluator learn the actual output bit. This isn't a security breach since the whole point is for both parties to learn $f(a, b)$. The protection is that intermediate wire mappings stay hidden, so the evaluator learns only the final answer, not the computation path that produced it.
 
-### A Concrete Walkthrough
+### A concrete walkthrough
 
-The abstract description may still feel mysterious. Let's trace through a complete example with actual values: computing $a \land b$ where the garbler holds $a = 1$ and the evaluator holds $b = 0$.
+Let's trace a complete example to see how Alice (garbler) and Bob (evaluator) actually interact. They want to compute $a \land b$ where Alice holds $a = 1$ and Bob holds $b = 0$.
 
-**Setup.** The garbler generates random labels:
+**Step 1: Alice creates the garbled circuit (offline, before any communication).** Alice generates all labels for all wires, including Bob's input wire. She doesn't know Bob's input, so she creates labels for both possibilities:
 
-- Wire $a$: $L_0 = \texttt{3a7f...}$, $L_1 = \texttt{9c2b...}$
-- Wire $b$: $R_0 = \texttt{5e81...}$, $R_1 = \texttt{d4a3...}$
+- Wire $a$ (Alice's input): $L_0 = \texttt{3a7f...}$, $L_1 = \texttt{9c2b...}$
+- Wire $b$ (Bob's input): $R_0 = \texttt{5e81...}$, $R_1 = \texttt{d4a3...}$
 - Wire $out$: $O_0 = \texttt{72f9...}$, $O_1 = \texttt{1b6e...}$
 
-**Garbling.** The garbled table (before shuffling):
+She builds the garbled table, encrypting each output label under the pair of input labels that would produce it:
 
 | Input Labels | Output Label | Ciphertext |
 |--------------|--------------|------------|
@@ -257,102 +257,56 @@ The abstract description may still feel mysterious. Let's trace through a comple
 | $L_1, R_0$   | $O_0$        | $\text{Enc}_{\texttt{9c2b...,5e81...}}(\texttt{72f9...})$ |
 | $L_1, R_1$   | $O_1$        | $\text{Enc}_{\texttt{9c2b...,d4a3...}}(\texttt{1b6e...})$ |
 
-After random shuffling, the garbler sends the four ciphertexts in jumbled order.
+She randomly shuffles the rows and sends the four ciphertexts to Bob. At this point Bob has the encrypted circuit but no labels. He cannot decrypt anything yet.
 
-**Evaluation.** The two input labels arrive through different channels:
+**Step 2: Bob receives his input labels.** Two things happen through different channels:
 
-- *Garbler's input*: The garbler knows their own input is 1, so they simply send $L_1 = \texttt{9c2b...}$ directly. No special protocol needed.
-- *Evaluator's input*: The garbler holds both $R_0$ and $R_1$ but must not learn which the evaluator needs. The evaluator knows their bit is 0 but cannot reveal this. Via oblivious transfer, the evaluator receives $R_0 = \texttt{5e81...}$ without the garbler learning which label was transferred, and without the evaluator learning $R_1$.
+- *Alice's input*: Alice knows her bit is $a = 1$, so she sends $L_1 = \texttt{9c2b...}$ to Bob. She does not send $L_0$. Bob receives this label but has no way to tell it corresponds to the bit 1 rather than 0.
+- *Bob's input*: Alice holds both $R_0$ and $R_1$ but must not learn Bob's bit. Bob knows he wants $R_0$ (his bit is 0) but cannot tell Alice which one. Via oblivious transfer, Bob receives $R_0 = \texttt{5e81...}$ without Alice learning he chose it, and without Bob learning $R_1$.
 
-The evaluator tries decrypting each of the four ciphertexts with key $(\texttt{9c2b..., 5e81...})$. Only one decrypts successfully, yielding $O_0 = \texttt{72f9...}$.
+Bob now holds exactly one label per input wire: $\texttt{9c2b...}$ for wire $a$ and $\texttt{5e81...}$ for wire $b$.
 
-**Output.** The garbler reveals: "Output label $\texttt{72f9...}$ means 0." The evaluator learns the result: $1 \land 0 = 0$.
+**Step 3: Bob evaluates.** Bob tries to decrypt each of the four shuffled ciphertexts using his two labels as the key. Each row was encrypted under a *specific pair* of labels. Bob's pair is $(\texttt{9c2b..., 5e81...})$. Only the row that was encrypted under exactly this pair, the row corresponding to $(L_1, R_0)$, decrypts successfully, yielding $O_0 = \texttt{72f9...}$. The other three rows, encrypted under different label pairs, produce garbage when Bob tries them. He cannot decrypt them because he doesn't hold $L_0$ or $R_1$.
 
-What did the evaluator learn? Only the output. They never learned that their label $R_0$ "meant 0" or that the garbler's input was 1. The computation proceeded entirely on encrypted values.
+**Step 4: Output.** Alice reveals the output mapping: "Label $\texttt{72f9...}$ means 0, label $\texttt{1b6e...}$ means 1." Bob sees he holds $\texttt{72f9...}$, so the result is $1 \land 0 = 0$.
 
-### Yao's Protocol (Two Parties)
-
-With the mechanics clear, here's the full protocol:
-
-Party A (the garbler) has input $x$. Party B (the evaluator) has input $y$. They want to compute $f(x, y)$.
-
-In the **garbling phase**, A transforms the circuit into an encrypted version. For each wire $w$, A generates two random labels: $K_w^0$ (representing the bit 0) and $K_w^1$ (representing 1). For each gate, A creates a garbled table: four encryptions encoding the gate's truth table, randomly shuffled. A sends the garbled circuit (all garbled tables) to B.
-
-In the **evaluation phase**, B learns the output without learning intermediate values. A sends the labels for their own input wires (the $K_w^{x_w}$ values corresponding to their actual input $x$). B obtains labels for their input wires via *oblivious transfer* (explained below), a primitive that lets B receive the label for their bit without A learning which bit B chose. Now B holds one label per input wire. For each gate, B uses the two input labels as decryption keys, recovering exactly one output label from the garbled table. Gate by gate, B propagates labels through the circuit until reaching the output wires. The final labels map to the output bits.
-
-### Why It's Secure
-
-B learns only one label per wire: the one corresponding to the actual computation path. The other label remains hidden. Since labels are random, B cannot distinguish $K_w^0$ from $K_w^1$ and learns nothing about intermediate values, only the output.
-
-A learns nothing about B's input because the oblivious transfer hides B's choice. A sees only the garbled circuit and the labels for their own input.
-
-### The Free-XOR Optimization
-
-The basic protocol requires four encryptions per gate: one for each row of the truth table, covering all four input combinations $(0,0), (0,1), (1,0), (1,1)$. Can we do better for certain gate types?
-
-A beautiful optimization makes XOR gates essentially free. The idea is to impose a global structure on all labels so that XOR "just works" algebraically, requiring no garbled table at all.
-
-**The constraint.** The garbler chooses a random global secret $\Delta$ (a 128-bit string kept hidden from the evaluator). For *every* wire $w$ in the circuit, the garbler ensures:
-$$K_w^1 = K_w^0 \oplus \Delta$$
-
-That is, the two labels for any wire differ by exactly $\Delta$. The garbler picks $K_w^0$ randomly, then derives $K_w^1$ by XORing with $\Delta$. This constraint propagates through the entire circuit.
-
-**Why this helps.** Consider an XOR gate: the output bit equals $a \oplus b$ where $a$ and $b$ are the input bits. The garbler defines the output labels as:
-$$O_0 = L_0 \oplus R_0$$
-
-Since the $\Delta$-constraint must also hold for the output wire, we need $O_1 = O_0 \oplus \Delta$. Let's verify this is consistent:
-$$O_1 = O_0 \oplus \Delta = L_0 \oplus R_0 \oplus \Delta$$
-
-**The magic.** The evaluator holds labels $L_a$ and $R_b$ (one for each input wire, corresponding to bits $a$ and $b$ that they don't know). They simply XOR them: $L_a \oplus R_b$. Why does this produce the correct output label $O_{a \oplus b}$?
-
-- If $a = 0, b = 0$: evaluator computes $L_0 \oplus R_0 = O_0$ $\checkmark$ (and $0 \oplus 0 = 0$)
-- If $a = 0, b = 1$: evaluator computes $L_0 \oplus R_1 = L_0 \oplus (R_0 \oplus \Delta) = O_0 \oplus \Delta = O_1$ $\checkmark$ (and $0 \oplus 1 = 1$)
-- If $a = 1, b = 0$: evaluator computes $L_1 \oplus R_0 = (L_0 \oplus \Delta) \oplus R_0 = O_0 \oplus \Delta = O_1$ $\checkmark$ (and $1 \oplus 0 = 1$)
-- If $a = 1, b = 1$: evaluator computes $L_1 \oplus R_1 = (L_0 \oplus \Delta) \oplus (R_0 \oplus \Delta) = L_0 \oplus R_0 = O_0$ $\checkmark$ (and $1 \oplus 1 = 0$)
-
-In each case, the XOR of the input labels produces exactly the output label for bit $a \oplus b$. No encryption, no garbled table, no communication for that gate. The evaluator performs a single XOR operation and obtains the correct output label.
-
-**Why is it secure?** The evaluator can't exploit the $\Delta$ structure because they never learn $\Delta$ itself. They see only one label per wire, a random-looking 128-bit string. Without knowing $\Delta$, they can't compute the other label or detect the relationship between wires.
-
-This matters enormously in practice. XOR is the most common operation in many computations. Free-XOR reduces circuit size by 30-50% in typical applications.
+What did Bob learn? Only the output. He never learned that $\texttt{9c2b...}$ "meant 1" or that Alice's input was 1. He never saw $L_0$, $R_1$, or $O_1$. What did Alice learn? Nothing about Bob's input, because oblivious transfer hid his choice. She knows the result (Bob can share it) but not which of Bob's bits produced it.
 
 ### Complexity
 
-Communication is $O(|C|)$, proportional to the circuit size, since each non-XOR gate requires a constant-size garbled table. (XOR gates are free.) Computation uses only symmetric-key operations (AES), making garbled circuits fast in practice. The protocol runs in constant rounds: one round to send the garbled circuit, one for oblivious transfers. This makes garbled circuits attractive when network latency dominates, since secret-sharing MPC requires rounds proportional to circuit depth.
+The basic protocol requires four encryptions per gate (one per truth-table row). An optimization called **Free-XOR** eliminates the garbled table entirely for XOR gates by constraining all label pairs to differ by a global secret $\Delta$; the evaluator simply XORs input labels to obtain the output label with no encryption needed. Since XOR is the most common gate in many circuits, this significantly reduces communication in practice.
 
-## Oblivious Transfer
+Communication is $O(|C|)$, proportional to the circuit size. Computation uses only symmetric-key operations (AES). The protocol runs in constant rounds regardless of circuit depth: one round to send the garbled circuit, one for oblivious transfers.
 
-Garbled circuits solve almost all of the two-party computation problem, but leave one gap: how does the evaluator receive labels for their own input bits? The garbler knows both labels for each input wire ($K_w^0$ and $K_w^1$), but must give the evaluator exactly one, the one corresponding to their actual bit. The garbler cannot learn which bit the evaluator chose, and the evaluator cannot learn the other label.
+## Oblivious transfer
 
-This is *oblivious transfer* (OT): a sender holds two messages $m_0$ and $m_1$, a receiver holds a choice bit $b$, and after the protocol the receiver learns $m_b$ and nothing else while the sender learns nothing about $b$.
+The garbled circuits walkthrough relied on a primitive we haven't yet built: a way for Bob to receive one of Alice's two labels without Alice learning which one he chose. This is **oblivious transfer** (OT). In its general form, a sender holds two messages $m_0$ and $m_1$, a receiver holds a choice bit $b$, and after the protocol the receiver learns $m_b$ and nothing else while the sender learns nothing about $b$.
 
-The requirement sounds contradictory. How can the sender give one message without knowing which? How can the receiver receive one without learning the other? Several elegant constructions make this possible.
+The requirement sounds contradictory. Several constructions make it possible.
 
-### Construction from Commutative Encryption
+### Construction from commutative encryption
 
 Imagine an encryption scheme where the order of encryption and decryption doesn't matter:
 $$\text{Dec}_b(\text{Dec}_a(\text{Enc}_b(\text{Enc}_a(x)))) = x$$
 
-A physical metaphor: a box locked with two padlocks. Alice locks it with her padlock and sends it to Bob. Bob adds his padlock and sends it back. Alice removes her lock (Bob's lock doesn't block her). She sends it back. Bob removes his lock and opens the box. The message traveled securely without either party ever having full access.
-
-Mathematically, exponentiation in a finite group provides commutative encryption: encrypt message $g$ with key $a$ by computing $g^a$. Decrypt by taking an $a$-th root. The order of operations doesn't matter since $(g^a)^b = (g^b)^a = g^{ab}$.
+Exponentiation in a finite group provides exactly this. Encrypt message $g$ with key $a$ by computing $g^a$. Decrypt by taking an $a$-th root. The order of encryption doesn't matter since $(g^a)^b = (g^b)^a = g^{ab}$, so either party can decrypt their layer without needing the other to go first.
 
 **The OT protocol.** Alice has $n$ messages $x_1, \ldots, x_n$. Bob wants $x_i$ without Alice learning $i$.
 
-1. Alice encrypts all messages with her key $a$ and sends: $\text{Enc}_a(x_1), \ldots, \text{Enc}_a(x_n)$ in order
-2. Bob picks out $\text{Enc}_a(x_i)$, encrypts it with his key $b$, and sends back $\text{Enc}_b(\text{Enc}_a(x_i))$
+1. Alice encrypts all messages with her key $a$ and sends them in order: $\text{Enc}_a(x_1), \ldots, \text{Enc}_a(x_n)$
+2. Bob knows he wants the $i$-th message, so he takes the $i$-th ciphertext from the list (he can't read it, but he knows its position). He encrypts it with his own key $b$ and sends back $\text{Enc}_b(\text{Enc}_a(x_i))$
 3. Alice decrypts with her key, obtaining $\text{Enc}_b(x_i)$, and sends it to Bob
 4. Bob decrypts with his key to recover $x_i$
 
-Why is Bob protected? Alice sees only a doubly-encrypted blob. She doesn't know Bob's key $b$, so she can't decrypt it to see which message he chose.
+Bob is protected because Alice sees only a doubly-encrypted blob. She doesn't know Bob's key $b$, so she can't decrypt it to see which message he chose.
 
-Why is Alice protected? Bob receives only one singly-encrypted message ($\text{Enc}_b(x_i)$ in step 3). The other $n-1$ messages remain encrypted under Alice's key, which Bob doesn't have.
+Alice is protected because Bob receives only one singly-encrypted message ($\text{Enc}_b(x_i)$ in step 3). The other $n-1$ messages remain encrypted under Alice's key, which Bob doesn't have.
 
 ### Construction from Diffie-Hellman
 
-The commutative encryption approach requires three message rounds. Can we do better?
+The commutative encryption approach requires three rounds of communication between Alice and Bob. A construction based on Diffie-Hellman key exchange reduces this to two rounds by exploiting the fact that the receiver's choice bit can be hidden inside a group element.
 
-A more efficient construction reduces this using Diffie-Hellman key exchange. Work in a group $\mathbb{G}$ of prime order $q$ with generator $g$. The sender chooses random $a$ and sends $A = g^a$. The receiver, depending on their choice bit $b$, responds strategically: if $b = 0$, choose random $k$ and send $B = g^k$; if $b = 1$, send $B = A \cdot g^k = g^{a+k}$ for random $k$.
+Work in a group $\mathbb{G}$ of prime order $q$ with generator $g$. The sender chooses random $a$ and sends $A = g^a$. The receiver embeds their choice bit $b$ into their response: if $b = 0$, choose random $k$ and send $B = g^k$; if $b = 1$, send $B = A \cdot g^k = g^{a+k}$ for random $k$. Either way, the sender sees a random-looking group element $B$ and cannot tell which case applies.
 
 The sender computes two keys: $K_0 = B^a$ and $K_1 = (B \cdot A^{-1})^a$. Then the sender encrypts both messages, $c_0 = \text{Enc}_{K_0}(m_0)$ and $c_1 = \text{Enc}_{K_1}(m_1)$, and sends both ciphertexts.
 
@@ -360,39 +314,29 @@ The receiver can compute only one key. If $b = 0$, the receiver knows $k$ and ca
 
 The sender sees only $B$, a random group element that reveals nothing about whether the receiver chose $b = 0$ or $b = 1$.
 
-### OT Extension
+Both constructions require public-key operations (exponentiations), which is fine for a handful of OTs but problematic when garbled circuits need one OT per input bit. **OT extension** (the IKNP protocol) solves this by using a small number of base OTs (typically 128) to bootstrap an unlimited number of extended OTs using only symmetric-key operations. The amortized cost drops to a few AES calls per OT, making garbled circuits practical even for million-bit inputs.
 
-Both constructions require public-key operations: exponentiations in a group. For a single OT this is fast enough, but garbled circuits need one OT per input bit. A circuit with a million input bits would require a million exponentiations.
+## Mixing protocols
 
-OT extension, pioneered by the IKNP protocol, breaks this barrier. A small number of base OTs ($\kappa$, the security parameter, typically 128) enable an unlimited number of extended OTs using only symmetric-key operations. The amortized cost drops to a few AES calls per OT. This makes garbled circuits practical even for inputs with millions of bits.
+Real computations rarely fit neatly into one paradigm. A machine learning inference might need field arithmetic for the linear layers (where secret-sharing MPC excels) but comparisons for activation functions (where garbled circuits handle more efficiently). The most practical approach switches representations mid-computation, using each paradigm where it performs best.
 
-## Mixing Protocols
+Modern MPC frameworks formalize this by supporting three representations: arithmetic sharing for field operations, Boolean sharing for bitwise operations and comparisons, and Yao's garbled circuits for complex Boolean functions. Conversion protocols translate between them. Arithmetic-to-Boolean (A2B) converts additive shares of a field element into XOR-shares of its bit representation. Boolean-to-Arithmetic (B2A) reverses the process, using oblivious transfer to handle the carry bits that arise when interpreting binary as an integer.
 
-We now have two complete approaches to MPC: secret-sharing (optimal for arithmetic operations, but requires rounds proportional to depth) and garbled circuits (constant rounds, but expensive per gate). Neither dominates the other. Which should we use?
+The design problem becomes partitioning a computation so that each segment uses its most efficient representation. Deep multiplicative chains favor arithmetic sharing. Complex comparisons favor Boolean or Yao representations. The optimal decomposition is often hand-tuned for applications where performance matters.
 
-The answer, increasingly, is both. Real computations don't fit neatly into one paradigm. A machine learning inference might need field arithmetic for the linear layers (where secret-sharing MPC excels) but comparisons for activation functions (where Boolean circuits are better). The most efficient approach often switches representations mid-computation.
+## MPC-in-the-head
 
-Modern MPC frameworks like ABY and MP-SPDZ support three representations: **A**rithmetic sharing for field operations, **B**oolean sharing for bitwise operations and comparisons, and **Y**ao's garbled circuits for complex Boolean functions that would require deep circuits in other representations.
+Everything so far has developed MPC as a tool for private computation among real parties. But this is a book about proof systems, and the MPC machinery we've built turns out to produce zero-knowledge proofs through an unexpected route, one that bypasses polynomial commitments, pairings, and algebraic IOPs entirely.
 
-Conversion protocols translate between representations. Arithmetic-to-Boolean (A2B) converts additive shares of a field element into XOR-shares of its bit representation. Boolean-to-Arithmetic (B2A) reverses the process, using oblivious transfer to handle the carry bits that arise when interpreting binary as an integer. Yao conversions (A2Y, Y2A, B2Y, Y2B) interface with garbled circuits.
+The transformation is called "MPC-in-the-head," and it rests on a symmetry between MPC security and zero-knowledge. In a real MPC protocol, multiple parties compute on secret-shared inputs with the guarantee that no coalition learns more than the output. MPC-in-the-head takes this guarantee and repurposes it: the prover secret-shares the witness among $n$ *imaginary* parties, then simulates the MPC protocol that would compute $R(x, w)$ entirely inside their own mind, playing all $n$ roles. Each simulated party accumulates a "view" consisting of the messages it sent and received, its random tape, and its share of the witness. The prover commits to all $n$ views. What was privacy against colluding parties becomes zero-knowledge against the verifier.
 
-The design problem becomes: given a computation, which operations should use which representation? The answer depends on the operation mix and the network characteristics. Deep multiplicative chains favor secret sharing (low communication per multiplication). Complex comparisons favor garbled circuits (constant rounds). The optimal decomposition is often hand-tuned for critical applications.
+Think of a one-person theater troupe performing a three-character scene. The prover writes out the full script: what Alice said to Bob, what Bob said to Charlie, what Charlie said to Alice. Then they seal each character's script in a separate envelope.
 
-## MPC-in-the-Head: Where the Paths Converge
+The verifier picks two envelopes at random and checks whether the scripts agree. Do the messages that party $i$ claims to have sent match what party $j$ claims to have received? Did both follow the protocol correctly? Does the output equal 1? If Alice's script says she sent "7" to Bob but Bob's script says he received "9," the inconsistency is caught. By checking different random pairs across repetitions, the verifier catches any forged execution with high probability.
 
-This chapter opened by observing that MPC and ZK developed in parallel, addressing different trust problems. But the connection runs deeper than shared history. MPC protocols can be *compiled* into zero-knowledge proofs through a transformation called "MPC-in-the-head."
+Soundness holds because a cheating prover cannot forge consistency across all pairs of views. If the witness is invalid, the honest MPC would output 0. To fake acceptance, the prover must manufacture views where the protocol appears to output 1, but any inconsistency between a pair of views (mismatched messages, or a party that deviated from the protocol rules) gets caught when the verifier opens that pair. A cheating prover can make *some* pairs consistent, but not all. Each random challenge catches an inconsistent pair with constant probability; repetition amplifies.
 
-The idea exploits a strange symmetry. In MPC, multiple real parties compute on secret-shared inputs, and the security guarantee is that no coalition learns more than the output. In MPC-in-the-head, a single prover *simulates* an MPC protocol entirely inside their own mind, playing all the parties simultaneously. The security guarantee transforms: instead of protecting inputs from other parties, it protects the witness from the verifier.
-
-The construction works as follows. The prover secret-shares the witness among $n$ *imaginary* parties. Then the prover simulates the MPC protocol that would compute $R(x, w)$, playing all $n$ roles simultaneously. Each simulated party has a "view": the messages it sent and received, its random tape, its share of the witness. The prover commits to all $n$ views.
-
-Think of the prover as a one-person theater troupe performing a conversation between three characters (Alice, Bob, Charlie). The prover writes out the full script: what Alice said to Bob, what Bob said to Charlie, what Charlie said to Alice. Then they seal each character's script in a separate envelope.
-
-The verifier challenges: "Open the views of parties $i$ and $j$." (Show me Alice and Bob's envelopes.) The prover reveals those two views. The verifier checks consistency: do the messages that party $i$ claims to have sent match what party $j$ claims to have received? Did both parties follow the protocol correctly given their views? Does the MPC output equal 1? If Alice's script says she sent "7" to Bob, but Bob's script says he received "9" from Alice, the prover is caught lying. By randomly checking different pairs, the verifier catches any inconsistency in the performance.
-
-Why is this sound? If the witness is invalid, the MPC would output 0. For the prover to fake acceptance, they must forge views where the MPC appears to output 1. But faking a valid MPC execution requires consistency across all parties. If any pair of views is inconsistent (messages don't match, or a party deviated from the protocol), the verifier catches it. A cheating prover can make some pairs consistent, but not all. The random challenge catches an inconsistent pair with constant probability. Repeat to amplify.
-
-Why is this zero-knowledge? Opening $t-1$ views of a $t$-threshold MPC reveals nothing about the secret (by the MPC privacy guarantee). The verifier sees only a subset of views, not enough to reconstruct the witness.
+Zero-knowledge follows directly from MPC privacy. The number of views the verifier opens must stay below the reconstruction threshold $t$ of the underlying secret sharing scheme. In a $t$-threshold scheme, any $t-1$ shares are consistent with every possible secret, so opening $t-1$ views reveals nothing about the witness. The choice of $t$ controls the tradeoff: higher thresholds allow opening more views (better soundness per repetition) while still preserving zero-knowledge. In the simplest case, 3-party additive sharing requires all 3 shares to reconstruct ($t = 3$), so opening 2 views is safe. Those 2 views suffice to check one pair for consistency, giving soundness error $1/3$ per round, driven down by repetition.
 
 ### Instantiations
 
@@ -402,96 +346,68 @@ Why is this zero-knowledge? Opening $t-1$ views of a $t$-threshold MPC reveals n
 
 **Limbo** and subsequent work push practical performance further, targeting real-world deployment for specific statement classes.
 
+MPC-in-the-head shows that MPC techniques can build proof systems. But MPC also has direct applications of its own, and the most widely deployed is threshold cryptography.
 
 
-## Threshold Cryptography
 
-MPC computes arbitrary functions on distributed inputs. But some functions appear so frequently that they deserve specialized treatment. Chief among these: cryptographic operations. What if the *key itself* is secret-shared?
+## Threshold cryptography
 
-Threshold cryptography applies MPC machinery to distribute cryptographic keys. Instead of a single party holding a signing or decryption key, $n$ parties each hold a share. Any $t$ of them can cooperate to sign or decrypt, but no coalition of fewer than $t$ learns anything about the key. The secret never exists in one place.
+MPC computes arbitrary functions on distributed inputs, but some functions appear so frequently that they deserve specialized protocols. The most important special case is cryptographic key operations. A single signing key or decryption key creates a single point of failure, and the compromise of that one key invalidates all the security built on top of it. MPC provides a way to eliminate that single point by distributing the key itself.
 
-### Threshold Signatures
+Threshold cryptography applies this idea directly. Instead of a single party holding a signing or decryption key, $n$ parties each hold a share. Any $t$ of them can cooperate to sign or decrypt, but no coalition of fewer than $t$ learns anything about the key. The secret never exists in one place.
 
-Consider the problem of institutional key custody. A cryptocurrency exchange holds billions in assets. A single signing key is a single point of failure: theft, coercion, insider attack. The traditional solution is multisig, where the blockchain verifies $t$-of-$n$ separate signatures. But multisig reveals the signing structure on-chain and requires protocol-level support.
+### Threshold key operations
 
-Threshold signatures solve this differently. The $n$ parties hold shares of a single signing key $sk$. When $t$ cooperate, they produce a single signature that looks identical to a signature from a solo signer. The blockchain sees nothing unusual. The distribution is invisible.
+A cryptocurrency exchange holding billions in assets cannot afford to store a signing key on a single machine. The traditional defense is multisig, where the blockchain verifies $t$-of-$n$ separate signatures. But multisig reveals the signing structure on-chain and requires protocol-level support. Threshold signatures take a different approach: the $n$ parties hold shares of a single signing key $sk$, and when $t$ cooperate they produce a single signature indistinguishable from one generated by a solo signer. The blockchain sees nothing unusual. The distribution is invisible.
 
-**FROST** implements threshold Schnorr signatures with particular elegance. The protocol has two phases. In the first, parties jointly generate shares of a random nonce $k$ using Feldman's verifiable secret sharing (Appendix A). Each party contributes randomness, and the distributed nonce emerges without anyone learning its value. In the second phase, each party computes a partial signature using their share of $k$ and their share of $sk$. These partial signatures combine via Lagrange interpolation, the same reconstruction formula from Shamir's scheme. The result is a valid Schnorr signature.
+The reason Schnorr signatures lend themselves to this is linearity. A Schnorr signature has the form $s = k + e \cdot x$ where $k$ is a nonce, $e$ is the challenge hash, and $x$ is the signing key. If parties hold Shamir shares $k_i$ and $x_i$, they compute partial signatures $s_i = k_i + e \cdot x_i$. Lagrange interpolation reconstructs $s = k + e \cdot x$ exactly, the same reconstruction used throughout this chapter.
 
-The linearity of Schnorr makes this work. A Schnorr signature has the form $s = k + e \cdot x$ where $e$ is the challenge hash. If parties hold shares $k_i$ and $x_i$, they compute partial signatures $s_i = k_i + e \cdot x_i$. Lagrange interpolation reconstructs $s = k + e \cdot x$ exactly. FROST inherits Feldman's verifiability: parties can detect if someone contributes malformed shares during the nonce generation, catching cheaters before they can disrupt signing.
+**FROST** builds a complete threshold Schnorr protocol around this observation. In the first phase, parties jointly generate shares of the nonce $k$ using Feldman's verifiable secret sharing (Appendix A), so that each party contributes randomness without anyone learning the full nonce. In the second phase, each party computes their partial signature and the results combine via interpolation. Feldman's verifiability lets parties detect malformed shares during nonce generation, catching cheaters before they can disrupt signing.
 
-One important caveat: FROST's nonce generation phase requires **synchronous coordination**. All participating signers must be online simultaneously to jointly generate the nonce shares and exchange their commitments. If a signer goes offline during this phase, the protocol stalls. This synchronicity constraint can be problematic in real-world deployments where signers span different time zones or operate on unreliable networks.
+FROST requires **synchronous coordination** during nonce generation: all participating signers must be online simultaneously to exchange commitments. If a signer drops offline, the protocol stalls. **ROAST** wraps FROST in an asynchronous coordinator that adaptively selects responsive signers, maintains concurrent sessions, and starts fresh with a different subset when someone times out. The first session to complete produces the signature. ROAST doesn't modify FROST's cryptography; it adds a session management layer that makes threshold signing practical across time zones and unreliable networks.
 
-**ROAST** addresses this limitation by wrapping FROST in a robust, asynchronous coordinator. Instead of requiring all $t$ signers to be online at once, ROAST has a coordinator that adaptively selects responsive signers. The coordinator maintains multiple concurrent signing sessions and gracefully handles signers who fail to respond. If a signer times out, the coordinator simply starts a new session with a different signer subset. The first session to complete produces the signature. ROAST doesn't modify FROST's cryptography; it adds a session management layer that tolerates network asynchrony and unresponsive parties, making threshold signing practical for geographically distributed deployments.
+Threshold ECDSA is harder. ECDSA signatures involve a modular inversion step, $s = k^{-1}(z + r \cdot x)$, and inversion is not linear. Computing it on shared values requires a full MPC protocol for the inversion, adding rounds and computational overhead. Protocols like GG18 and GG20 solve this but at higher cost than FROST.
 
-Threshold ECDSA is more complex. ECDSA signatures involve a modular inversion step, $s = k^{-1}(z + r \cdot x)$, and inversion is not linear. Computing it on shared values requires a full MPC protocol for the inversion, adding rounds and computational overhead. Protocols like GG18 and GG20 solve this but at higher cost than FROST.
+The same distribution principle applies beyond signing. Threshold decryption (used in e-voting systems like Helios and Belenios via threshold ElGamal) splits a decryption key so that encrypted ballots can only be opened after polls close and only if enough trustees cooperate. The pattern generalizes: any cryptographic operation that depends on a secret key can, in principle, be distributed so that the key never exists in one place.
 
-### Threshold Decryption
+## Practical considerations
 
-The same distribution principle applies to decryption. Parties hold shares of a decryption key. When a ciphertext arrives, each party contributes a partial decryption using their share. The threshold combines these contributions to recover the plaintext, but no party ever holds the full key.
+The protocols developed in this chapter are theoretically complete. Given enough time and bandwidth, any function can be computed securely. But deploying MPC in practice introduces constraints that the theory abstracts away.
 
-This structure appears in voting systems, where an encrypted ballot should only be decrypted after polls close and only if enough trustees cooperate. It appears in key escrow, where law enforcement access requires multiple parties to agree. And it appears in distributed custody systems, where no single server compromise can steal user funds.
+### Communication is the bottleneck
 
-## Practical Considerations
+MPC and ZK have opposite performance profiles. A ZK prover performs heavy local computation (MSMs, FFTs, hashes) but sends a small proof. An MPC protocol does lightweight computation at each party but exchanges massive amounts of data between them. A ZK prover might spend 10 seconds computing and 10 milliseconds sending; an MPC protocol might spend 10 milliseconds computing and 10 seconds sending. You can run a ZK prover on a single powerful machine, but you can't run high-speed MPC over a slow network.
 
-The theoretical protocols are complete: given enough time and bandwidth, any function can be computed securely. But theory and practice diverge. What determines whether an MPC deployment actually works?
+Within MPC, the binding constraint is usually either bandwidth or latency, and which one dominates determines the protocol choice. If bandwidth is cheap but latency is high (parties on different continents), garbled circuits win because they run in constant rounds despite sending more data. If bandwidth is limited but latency is low (parties in the same data center), secret-sharing MPC wins because each round sends less. The network, not the cryptography, is usually what makes MPC slow.
 
-### Communication Patterns
+### Preprocessing vs. online
 
-The network topology shapes everything. MPC protocols differ in how parties communicate, and the choice significantly affects performance. In a star topology, all parties route messages through a central dealer or combiner. This simplifies coordination but creates a bottleneck and a single point of failure. In full connectivity, every party communicates directly with every other party. This eliminates the central bottleneck but requires $O(n^2)$ connections. Broadcast protocols have each message go to all parties simultaneously, useful when the computation requires everyone to see the same values (like reconstructing a shared secret).
+MPC protocols are slow when inputs arrive because every operation pays a cryptographic cost. For latency-sensitive applications like sealed-bid auctions, where parties submit bids that must be processed immediately, this cost is unacceptable. The solution is to separate the computation into two phases. The preprocessing phase generates correlated randomness before the actual inputs are known. Beaver triples for multiplication, OT correlations for garbled circuits, random sharings for masking all fall into this category. The online phase consumes this preprocessed material to compute on the real inputs. 
 
-The bottleneck inversion between ZK and MPC deserves emphasis. In ZK, the bottleneck is usually **compute**: the prover performs heavy cryptographic work (MSMs, FFTs, hashes) and sends relatively small proofs. In MPC, the bottleneck is almost always **bandwidth**: many parties do lightweight operations but exchange massive amounts of data. A ZK prover might spend 10 seconds computing and 10 milliseconds sending. An MPC protocol might spend 10 milliseconds computing and 10 seconds sending. This inversion dictates architecture: you can run a ZK prover on a single powerful machine, but you can't run high-speed MPC over a 4G connection.
+Because none of this preprocessed material depends on the actual inputs, it can be generated during idle time, spreading the heavy cryptographic work across hours or days. When inputs finally arrive, the online phase consumes the stockpiled randomness and runs fast, achieving sub-second latency despite the underlying complexity.
 
-Network latency often dominates the cost of MPC. A protocol that requires 100 rounds of communication will be slow even if each round sends only a few bytes. This is why garbled circuits, with their constant round complexity, often outperform secret-sharing MPC for interactive applications despite sending more data. The design choice depends on whether bandwidth or latency is the limiting factor.
+Where does the preprocessing come from? In production systems (cryptocurrency custody platforms, private computation services built on SPDZ), the parties typically generate it themselves via OT extensions or homomorphic encryption, paying the full cost upfront but requiring no trusted party. A simpler alternative is a trusted dealer who generates and distributes the correlated randomness, though this reintroduces a single point of trust that MPC was designed to eliminate. Hybrid approaches using trusted execution environments as hardware-backed dealers are emerging in the wallet and custody space but remain less established.
 
-### Preprocessing vs. Online
+### Malicious security
 
-A key optimization divides MPC into two phases. The preprocessing phase generates correlated randomness before the actual inputs are known. Beaver triples for multiplication, OT correlations for garbled circuits, and random sharings for masking all fall into this category. The online phase consumes this preprocessed material to compute on the real inputs.
+Everything so far assumes semi-honest adversaries who follow the protocol faithfully but try to extract information from what they observe. Real deployments often face adversaries who can deviate arbitrarily, sending malformed messages or aborting at strategic moments. Adding security against such adversaries requires mechanisms to detect cheating.
 
-This separation has practical benefits. Preprocessing can happen during idle time, spreading the computational cost across hours or days. When the actual computation is needed, the online phase runs quickly using the stockpiled randomness. For applications like sealed-bid auctions, where parties submit bids that must be processed immediately, the preprocessing model allows sub-second latency despite the underlying cryptographic complexity.
+For secret-sharing MPC, the main tool is authentication. The SPDZ protocol attaches a Message Authentication Code (MAC) to each shared value. When shares are combined or reconstructed, the MACs are verified. A cheating party who modifies a share will fail the MAC check with overwhelming probability. The SPDZ preprocessing includes authenticated Beaver triples so that the online phase can verify multiplications respect the triple structure. Recent work has brought the communication cost of malicious SPDZ close to the semi-honest baseline, narrowing a gap that was once a factor of two.
 
-Where does the preprocessing come from? One option is a trusted dealer who generates and distributes the correlated randomness. This is simple but reintroduces trust. Another option is to generate the preprocessing via MPC itself, a slower process that pays the full cost but requires no trusted party. A third option uses hardware: trusted execution environments can generate the randomness with attestation that the correct distribution was used.
+For garbled circuits, the problem is different. The semi-honest protocol assumes the garbler constructs the circuit correctly, but a malicious garbler could create a circuit that computes the wrong function, leaking information about the evaluator's input. Early solutions used **cut-and-choose**, where the garbler creates dozens of independent garbled circuits and the evaluator randomly selects some to verify and the rest to evaluate. This works but is expensive. Modern protocols use **authenticated garbling**, which achieves malicious security with a single garbled circuit by attaching authentication tags to each wire label, reducing the overhead substantially.
 
-### Malicious Security
+In practice, malicious security is standard for high-value operations. Cryptocurrency custody platforms (Fireblocks, Coinbase) use malicious-secure threshold signature protocols, since a compromised signing ceremony could mean direct financial loss. General-purpose malicious-secure MPC remains more expensive and is less common in production, though the cost gap continues to shrink.
 
-Everything so far assumes semi-honest adversaries: parties who follow the protocol faithfully but try to extract information from what they observe. What if an adversary can deviate arbitrarily, sending malformed messages or aborting at strategic moments?
+## Key takeaways
 
-Adding security against malicious adversaries roughly doubles the computational cost.
+1. **MPC eliminates trusted third parties.** Any function computable by a circuit can be computed jointly by mutually distrustful parties, revealing only the output. Security is defined through simulation: whatever a corrupt coalition observes, it could have generated from its own inputs and the output alone.
 
-For secret-sharing MPC, malicious security requires authenticating every share. The SPDZ protocol attaches a Message Authentication Code (MAC) to each shared value. When shares are combined or reconstructed, the MACs are verified. A cheating party who modifies a share will fail the MAC check with overwhelming probability.
+2. **MPC solves the "who runs the prover?" problem.** When a witness is too sensitive for any single party, secret-sharing it among multiple proving servers lets them jointly compute a ZK proof without any server learning the witness.
 
-Consistency checks at each gate catch parties who compute incorrectly. The SPDZ preprocessing includes authenticated triples, and the online phase verifies that multiplications respect the triple structure.
+3. **Two paradigms with different tradeoffs.** Secret-sharing MPC (BGW) handles $n$ parties with free linear operations but rounds proportional to multiplicative depth. Garbled circuits achieve constant rounds for two parties but communicate proportional to circuit size. The network, not the cryptography, usually determines which wins.
 
-For garbled circuits, malicious security faces a different challenge. The semi-honest protocol assumes the garbler constructs the circuit correctly. A malicious garbler could create a circuit that computes the wrong function, leaking information about the evaluator's input. How can the evaluator verify the circuit without being able to inspect it?
+4. **MPC-in-the-head bridges MPC and ZK.** Simulate an MPC protocol inside the prover's mind, commit to all party views, let the verifier audit a random subset. MPC privacy becomes zero-knowledge; MPC correctness becomes soundness. This yields proof systems (ZKBoo, Ligero) that bypass polynomial machinery entirely.
 
-**Cut-and-choose** solves this with redundancy. The garbler creates $s$ independent garbled circuits for the same function (typically $s = 40$ or more). The evaluator randomly partitions these circuits: select a fraction (say, half) to *check* and the rest to *evaluate*.
+5. **Threshold cryptography distributes key operations.** Secret-share a signing or decryption key among $n$ parties so that any $t$ can operate but fewer than $t$ learn nothing. FROST makes threshold Schnorr practical; ROAST adds asynchrony. This is the most widely deployed application of MPC.
 
-For checked circuits, the garbler reveals everything: all labels, all randomness used during garbling. The evaluator reconstructs the circuit from scratch and verifies it matches what was sent. If any checked circuit is malformed, the evaluator aborts and the garbler is caught cheating.
-
-For evaluated circuits, the protocol proceeds normally. The evaluator computes on all of them and takes the majority output. Even if the garbler cheated on some evaluated circuits, majority voting ensures correctness as long as most circuits are honest.
-
-The security argument: the garbler doesn't know which circuits will be checked. If they cheat on $k$ circuits, the probability that *all* cheated circuits end up in the evaluated set (avoiding detection) is roughly $(1/2)^k$. Cheating is exponentially unlikely to succeed.
-
-**Point-and-permute** is a simpler optimization that improves efficiency without full cut-and-choose. The garbler appends a random "pointer bit" to each label. The four rows of a garbled table are sorted by these pointer bits rather than randomly shuffled. The evaluator, holding input labels with their pointer bits, immediately knows which row to decrypt without trying all four. This reduces decryption work from 4 attempts to 1.
-
-These overheads explain why many practical deployments assume semi-honest adversaries when the trust model permits it. Malicious security is achievable, but it comes at a cost.
-
-## Key Takeaways
-
-1. **MPC eliminates trusted third parties**: Any function computable by a circuit can be computed jointly by mutually distrustful parties, revealing only the output. The theoretical result is complete; practical efficiency is the ongoing challenge.
-
-2. **Two paradigms, different tradeoffs**: Secret-sharing MPC (BGW) handles $n$ parties and makes linear operations free, but requires communication rounds proportional to circuit depth. Garbled circuits achieve constant rounds for two parties, but require communication proportional to circuit size.
-
-3. **Multiplication is the bottleneck**: In secret-sharing MPC, addition and scalar multiplication need no communication. Multiplication consumes preprocessed Beaver triples and forces a round of interaction. Circuit design should minimize multiplicative depth.
-
-4. **Oblivious transfer is fundamental**: OT lets a sender transmit one of two messages without learning which was received, and lets the receiver learn one without accessing the other. This seemingly impossible primitive underlies garbled circuits and much else. OT extension makes it practical at scale.
-
-5. **Free-XOR transforms garbled circuit efficiency**: By constraining labels so that $K_w^1 = K_w^0 \oplus \Delta$ for a global secret $\Delta$, XOR gates require no garbled table at all. This reduces circuit size by 30-50% in typical applications.
-
-6. **MPC-in-the-head bridges MPC and ZK**: Simulate an MPC protocol in your head, commit to all party views, let the verifier audit a random pair. MPC privacy becomes ZK; MPC correctness becomes soundness. This compiler yields practical ZK proofs (ZKBoo, Ligero) without polynomial machinery.
-
-7. **Threshold cryptography distributes trust**: Secret-share a signing or decryption key among $n$ parties. Any $t$ can operate; fewer than $t$ learn nothing. The key never exists in one place. FROST makes threshold Schnorr practical; ROAST adds asynchrony.
-
-8. **Preprocessing separates costs**: Generate Beaver triples and OT correlations during idle time. The online phase consumes this stockpile, achieving low latency when inputs arrive. The split enables sub-second MPC for time-sensitive applications.
-
-9. **Malicious security is achievable but costly**: SPDZ authenticates shares with MACs; cut-and-choose forces honest garbling. Both roughly double the work. Choose based on your trust model.
+6. **Malicious security is production-ready for high-value operations.** SPDZ authenticates shares with MACs; authenticated garbling verifies circuit construction. Cryptocurrency custody platforms use malicious-secure threshold signatures as standard, while general-purpose malicious MPC continues to close the cost gap with semi-honest protocols.
