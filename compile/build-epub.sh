@@ -9,8 +9,7 @@ cd "$(dirname "$0")"
 cat > /tmp/zkBook_epub.md << 'HEADER'
 ---
 title: "Minimizing Trust"
-subtitle: "The Architecture of Verifiable Secrets"
-author: "particle"
+author: "parti"
 toc: true
 toc-depth: 2
 ---

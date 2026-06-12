@@ -33,9 +33,8 @@ header-includes:
 \thispagestyle{empty}
 \begin{center}
 \vspace*{3cm}
-{\Huge\bfseries Minimizing Trust}\\[1cm]
-{\Large\itshape The Architecture of Verifiable Secrets}\\[2cm]
-{\large particle}\\[4cm]
+{\Huge\bfseries Minimizing Trust}\\[2cm]
+{\large parti}\\[4cm]
 \vfill
 \end{center}
 
