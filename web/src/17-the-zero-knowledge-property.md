@@ -166,7 +166,7 @@ Several masking techniques (developed in Chapter 18) add zero-knowledge to sum-c
 - Commit to intermediate values instead of revealing them
 - Use randomization to hide the structure of $g$
 
-The key insight: zero-knowledge is a *system-level* property, not a per-protocol property. We can compose non-ZK building blocks (sum-check, FRI, polynomial commitments) into ZK systems by carefully controlling what the verifier sees.
+Zero-knowledge is a *system-level* property, not a per-protocol property. We can compose non-ZK building blocks (sum-check, FRI, polynomial commitments) into ZK systems by carefully controlling what the verifier sees.
 
 
 > **Zero-knowledge vs. knowledge soundness**
@@ -190,7 +190,7 @@ This definition handles composed protocols. Even if the verifier has side inform
 Auxiliary-input ZK is necessary for security in complex systems where many proofs interleave.
 
 
-## Key Takeaways
+## Key takeaways
 
 1. **Zero-knowledge** means existence of a simulator: an efficient algorithm that, without the witness, produces transcripts indistinguishable from real executions. If the transcript could have been fabricated, it carries no information about the witness.
 

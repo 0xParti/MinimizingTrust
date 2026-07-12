@@ -85,7 +85,7 @@ A computationally unbounded prover claims to have solved a problem. A polynomial
 
 In an **interactive proof**, the verifier sends random challenges, the prover responds, and after some number of rounds, the verifier decides whether to accept or reject the claim.
 
-The magic is in two properties:
+Two properties give the conversation its power:
 
 **Completeness**: If the claim is true, an honest prover can always convince the verifier to accept.
 
@@ -237,13 +237,13 @@ The IOP abstraction separates the *protocol logic* from the *implementation of o
 
 ### Linear PCPs
 
-IOPs gave us a clean abstraction, but implementing them required a way to make oracles concrete and binding. A key insight: if we restrict what *kind* of queries the verifier can make, we can use cryptography to enforce that restriction. This leads to Linear PCPs.
+IOPs gave us a clean abstraction, but implementing them required a way to make oracles concrete and binding. If we restrict what *kind* of queries the verifier can make, we can use cryptography to enforce that restriction. This leads to Linear PCPs.
 
 In a standard PCP (as described above), the proof is a string of symbols and the verifier reads a few specific positions: "give me $\pi_{17}$, $\pi_{42}$, and $\pi_{803}$." In a **Linear PCP**, the proof is still a vector of values $\vec{\pi} = (\pi_1, \pi_2, \ldots, \pi_k)$, but the verifier can only ask for linear combinations: "give me $\sum_i q_i \cdot \pi_i$ for my chosen weights $q$."
 
 Think of it as a library where you can't open the books (that would reveal the witness). You can only ask the librarian to weigh books in specific combinations. "Put 2 copies of book 1 on the scale, plus 3 copies of book 3, plus 1 copy of book 7, and tell me the total weight." The librarian answers with a single number. You ask several such questions. From these weighted sums, you try to verify some property of the books without ever seeing their contents.
 
-The linearity constraint turns out to be exactly what we need. If the verifier is restricted to weighted-sum queries, we can use cryptography to *enforce* this restriction. Here's the key insight: **certain cryptographic structures only allow weighted-sum operations, nothing else**.
+The linearity constraint turns out to be exactly what we need, because **certain cryptographic structures only allow weighted-sum operations, nothing else**.
 
 Elliptic curve groups have this property. In an elliptic curve group, you can add points together and multiply points by numbers, but you cannot multiply two points together. Think of it like a calculator that has + and × buttons, but the × only works when one input is a regular number. If the proof values are encoded as elliptic curve points, then anyone holding those points can only compute weighted sums of them.
 
@@ -346,11 +346,11 @@ Chapters 19-21 form Part VI on prover optimization, covering fast sum-check prov
 
 Composition and recursion (Chapter 23) enable proofs about proofs: unlimited computation with constant verification. The book concludes with system selection guidance (Chapter 24), MPC's parallel path (Chapter 25), open frontiers (Chapter 26), and the broader cryptographic landscape (Chapter 27).
 
-By the end, you'll understand not just what zkSNARKs do, but *how* they work: the mathematical structures that make the impossible possible.
+By the end, you'll understand what zkSNARKs do and, beneath that, *how* they work: the mathematical structures that make the impossible possible.
 
 
 
-## Key Takeaways
+## Key takeaways
 
 1. **Verification should be cheaper than computation.** If Alice outsources a computation to Bob, she shouldn't have to redo the entire work to check his answer. The goal is *asymmetric verification*: Bob does the hard work once, Alice checks quickly.
 

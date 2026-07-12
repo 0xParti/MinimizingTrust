@@ -72,7 +72,7 @@ Modern arithmetization uses a clever insight: instead of building a circuit that
 
 An **execution trace** is a complete record of a computation's execution: every instruction, every intermediate value, every memory access. Think of it as a detailed log file that captures everything that happened during the computation.
 
-The key insight: checking that a trace is valid is much easier than producing the computation. Validity checking is *local*. To verify a trace, you only need to check that each step follows from the previous one according to the program's rules. The prover does the hard computational work; the circuit does the much easier work of checking consistency.
+Checking that a trace is valid is much easier than producing the computation. Validity checking is *local*. To verify a trace, you only need to check that each step follows from the previous one according to the program's rules. The prover does the hard computational work; the circuit does the much easier work of checking consistency.
 
 For simple computations (evaluating a polynomial, computing a hash), the trace is just the sequence of intermediate values at each gate. For more complex computations like CPU execution, the trace includes registers, program counters, and memory operations. The machinery for handling such traces (time consistency, memory consistency via permutation arguments) is developed in Chapter 21 in the context of efficient proving techniques. Here, we focus on the simpler case: a circuit where the witness captures all intermediate gate values.
 
@@ -136,7 +136,7 @@ For example, proving $x^3 + x + 5 = 35$ with secret $x = 3$:
 | $Z_5$ | 30 | Private: $x^3 + x$ |
 | $Z_6$ | 35 | Private: $x^3 + x + 5$ |
 
-The witness includes not just the input $x$, but all intermediate values. The constraint system checks that each step was performed correctly.
+The witness includes every intermediate value, not only the input $x$. The constraint system checks that each step was performed correctly.
 
 ### Basic Gates in R1CS
 
@@ -421,7 +421,7 @@ A CCS instance consists of:
 - **Matrices** $M_1, \ldots, M_t$: sparse matrices over $\mathbb{F}$, encoding constraint structure
 - **Constraint specifications**: which matrices combine in each constraint, with what operation
 
-The key insight: any constraint system can be expressed as:
+Any constraint system can be expressed as:
 
 $$\sum_i c_i \cdot \bigcirc_{j \in S_i} (M_j \cdot z) = 0$$
 
@@ -617,7 +617,7 @@ This changes what's feasible:
 | 64-bit XOR | ~130 constraints | ~24 constraints |
 | SHA-256 (via chunks) | ~20,000 constraints | ~2,000 constraints |
 
-The "how" of lookup arguments (Plookup's grand products, LogUp's logarithmic derivatives, Lasso's decomposition for huge tables) is developed in **Chapter 14**. The key insight for arithmetization is architectural: non-field-native operations that would otherwise dominate constraint counts can be handled via table membership at roughly constant cost per lookup.
+The "how" of lookup arguments (Plookup's grand products, LogUp's logarithmic derivatives, Lasso's decomposition for huge tables) is developed in **Chapter 14**. What matters for arithmetization is architectural: non-field-native operations that would otherwise dominate constraint counts can be handled via table membership at roughly constant cost per lookup.
 
 This is why modern zkVMs are practical. Cairo, RISC-Zero, SP1, and Jolt prove instruction execution not by encoding CPU semantics in constraints, but by verifying that each instruction's behavior matches a precomputed table. The paradigm shifted from encoding *logic* to referencing *data*.
 
@@ -650,7 +650,7 @@ The choice depends on your use case. Verifying a hash? A custom circuit is faste
 
 
 
-## Key Takeaways
+## Key takeaways
 
 1. **The pipeline**: Program → execution trace (witness) → constraint system → polynomial identity → proof. Arithmetization is the bridge between computation and algebra.
 

@@ -80,14 +80,14 @@ But computing $\log_g h$ is the discrete logarithm problem! If Alice could find 
 
 ### Why Hiding Holds
 
-The commitment $C = g^m h^r$ is **perfectly hiding**. Here's the key insight: since $r$ is uniformly random in $\mathbb{Z}_q$, and $h$ is a generator of $G$, the term $h^r$ is uniformly distributed over all of $G$.
+The commitment $C = g^m h^r$ is **perfectly hiding**. Since $r$ is uniformly random in $\mathbb{Z}_q$ and $h$ is a generator of $G$, the term $h^r$ is uniformly distributed over all of $G$.
 
 For any message $m$, the commitment $C = g^m \cdot h^r$ is a uniformly random group element. This means:
 
 - $\text{Commitment to } m_1 \sim \text{Uniform}(G)$
 - $\text{Commitment to } m_2 \sim \text{Uniform}(G)$
 
-The two distributions are identical: not just computationally indistinguishable, but *statistically* identical. Even an unbounded adversary cannot determine the committed value from the commitment alone.
+The two distributions are *statistically* identical, not merely computationally indistinguishable. Even an unbounded adversary cannot determine the committed value from the commitment alone.
 
 
 ### The Independence Requirement
@@ -354,7 +354,7 @@ But first, we need to understand *what* we're proving. Chapter 7 introduces the 
 
 
 
-## Key Takeaways
+## Key takeaways
 
 1. **The binding problem**: Interactive proofs need cryptographic enforcement to prevent provers from adapting their answers to verifier challenges.
 

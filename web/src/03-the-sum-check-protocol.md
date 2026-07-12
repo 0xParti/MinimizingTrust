@@ -62,7 +62,7 @@ Let's make this precise. The sum-check protocol verifies a claim of the form:
 
 $$H = \sum_{(b_1, \ldots, b_\nu) \in \{0,1\}^\nu} g(b_1, \ldots, b_\nu)$$
 
-where $g$ is a $\nu$-variate polynomial of degree at most $d$ in each variable. (More generally, each variable $X_j$ can have its own degree bound $d_j$; we use uniform $d$ for simplicity.) The verifier must know these degree bounds before the protocol begins—they're part of the problem specification, not something the prover provides. If the prover could claim arbitrary degree bounds, soundness would collapse: a high-degree polynomial can pass through any finite set of points while matching an honest polynomial elsewhere. The sum ranges over boolean points, but $g$ is a polynomial over the field $\mathbb{F}$ and can have degree greater than 1. For example, $g(X_1, X_2) = X_1^2 + X_2^2 + X_1 X_2$ has $d = 2$; when we sum over $\{0,1\}^2$, we get $g(0,0) + g(0,1) + g(1,0) + g(1,1) = 0 + 1 + 1 + 3 = 5$. The degree bound $d$ matters because it determines how many coefficients the prover must send in each round: a degree-$d$ univariate polynomial requires $d+1$ coefficients. The protocol proceeds in $\nu$ rounds.
+where $g$ is a $\nu$-variate polynomial of degree at most $d$ in each variable. (More generally, each variable $X_j$ can have its own degree bound $d_j$; we use uniform $d$ for simplicity.) The verifier must know these degree bounds before the protocol begins. They're part of the problem specification, not something the prover provides. If the prover could claim arbitrary degree bounds, soundness would collapse: a high-degree polynomial can pass through any finite set of points while matching an honest polynomial elsewhere. The sum ranges over boolean points, but $g$ is a polynomial over the field $\mathbb{F}$ and can have degree greater than 1. For example, $g(X_1, X_2) = X_1^2 + X_2^2 + X_1 X_2$ has $d = 2$; when we sum over $\{0,1\}^2$, we get $g(0,0) + g(0,1) + g(1,0) + g(1,1) = 0 + 1 + 1 + 3 = 5$. The degree bound $d$ matters because it determines how many coefficients the prover must send in each round: a degree-$d$ univariate polynomial requires $d+1$ coefficients. The protocol proceeds in $\nu$ rounds.
 
 ### Round 1
 
@@ -290,7 +290,7 @@ This is a canonical #P-complete problem, even harder than NP. Verifying the coun
 
 ### Arithmetization of Boolean Formulas
 
-The key insight is to transform the boolean formula into a polynomial that equals 1 on satisfying assignments and 0 otherwise.
+The reduction transforms the boolean formula into a polynomial that equals 1 on satisfying assignments and 0 otherwise.
 
 **Step 1: Arithmetize literals**
 
@@ -364,9 +364,9 @@ The prover uses sum-check to convince the verifier of this count. The polynomial
 
 
 
-## The Magic of Deferred Evaluation
+## Deferred Evaluation
 
-The sum-check protocol embodies a profound principle: **you don't need to compute a sum to verify it**.
+The sum-check protocol rests on the principle that **you don't need to compute a sum to verify it**.
 
 Consider what the verifier actually does:
 
@@ -408,7 +408,7 @@ This requires summing over $2^{\nu-j}$ terms. Across all rounds, the prover's to
 
 $$O\left(\sum_{j=1}^{\nu} (d+1) \cdot 2^{\nu-j}\right) = O(d \cdot 2^\nu)$$
 
-The prover does work proportional to the size of the hypercube, but crucially, this is what the prover would need to do anyway to compute the sum. The sum-check protocol doesn't add significant overhead to the prover. Note that achieving $O(2^{\nu-j})$ per round (rather than recomputing from scratch each time) requires an algorithmic trick: maintaining and folding intermediate arrays so that each round reuses the previous round's work. Chapter 19 develops this technique in detail.
+The prover does work proportional to the size of the hypercube, but this is what the prover would need to do anyway to compute the sum. The sum-check protocol doesn't add significant overhead to the prover. Note that achieving $O(2^{\nu-j})$ per round (rather than recomputing from scratch each time) requires an algorithmic trick: maintaining and folding intermediate arrays so that each round reuses the previous round's work. Chapter 19 develops this technique in detail.
 
 **Verifier complexity**: In each round, the verifier:
 
@@ -485,7 +485,7 @@ Every sum-check-based SNARK makes this transition at the final step. The oracle 
 
 
 
-## Key Takeaways
+## Key takeaways
 
 1. **The sum-check protocol verifies exponential sums efficiently**: A prover can convince a verifier that $\sum_{b \in \{0,1\}^\nu} g(b) = H$ with the verifier doing only $O(\nu)$ work, plus one evaluation of $g$. The verifier never computes any sum herself.
 
@@ -499,4 +499,4 @@ Every sum-check-based SNARK makes this transition at the final step. The oracle 
 
 6. **The final evaluation is the bridge to cryptography**: Sum-check reduces an exponential sum to one evaluation. When that evaluation depends on the prover's private data, a polynomial commitment scheme (Chapter 9) closes the gap: the prover commits before seeing the challenge point, then opens at the end. This is the "last mile" that turns the information-theoretic protocol into a SNARK.
 
-7. **Sum-check is foundational**: IP = PSPACE, GKR, Spartan, Lasso, and most multilinear SNARKs build on sum-check. The protocol's comeback in practical systems (Chapter 19) shows it wasn't just theoretically elegant but practically powerful.
+7. **Sum-check is foundational**: IP = PSPACE, GKR, Spartan, Lasso, and most multilinear SNARKs build on sum-check. The protocol's comeback in practical systems (Chapter 19) shows that its elegance survives contact with real provers.

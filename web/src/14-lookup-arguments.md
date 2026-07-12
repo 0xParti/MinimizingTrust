@@ -232,7 +232,7 @@ If all hold, every element in $f$ found a matching entry in $t$. A cheating prov
 
 #### Verification
 
-The verifier checks the polynomial identities (initialization, recursion) via the standard PLONK batched evaluation. Crucially, the verifier never touches the table directly. The table polynomial $t(X)$ was committed during setup, and the verifier only checks openings at random evaluation points. Verification cost is independent of table size $d$: a lookup into a 256-entry table costs the same as a lookup into a million-entry table.
+The verifier checks the polynomial identities (initialization, recursion) via the standard PLONK batched evaluation. The verifier never touches the table directly. The table polynomial $t(X)$ was committed during setup, and the verifier only checks openings at random evaluation points. Verification cost is independent of table size $d$: a lookup into a 256-entry table costs the same as a lookup into a million-entry table.
 
 
 ## Comparison: Custom Gates vs. Lookup Tables
@@ -378,13 +378,13 @@ Lasso exploits *decomposable tables*. Many tables have structure: their MLE (mul
 
 $$\tilde{T}(y) = \sum_{j=1}^{\alpha} c_j \cdot \tilde{T}_j(y_{S_j})$$
 
-Each subtable $\tilde{T}_j$ looks at only a small chunk of the total input $y$. This "Structure of Sums" (SoS) property enables dramatic efficiency gains. (This is a cousin of the tensor product structure for Lagrange bases in Chapter 4—both exploit how multilinear functions over product domains inherit structure from their factors.)
+Each subtable $\tilde{T}_j$ looks at only a small chunk of the total input $y$. This "Structure of Sums" (SoS) property enables dramatic efficiency gains. (This is a cousin of the tensor product structure for Lagrange bases in Chapter 4, since both exploit how multilinear functions over product domains inherit structure from their factors.)
 
 Consider 64-bit AND. The conceptual table has $2^{128}$ entries (all pairs of 64-bit inputs). But bitwise AND decomposes perfectly: split inputs into sixteen 4-bit chunks, perform 16 lookups into a tiny 256-entry `AND_4` table, concatenate results. The prover never touches the $2^{128}$-entry table.
 
 ### Why Prover Costs Scale with Lookups
 
-Lasso represents the sparse access pattern—which indices were hit, how many times—using commitment schemes optimized for sparse polynomials, then proves correctness via sum-check. The prover commits only to the accessed entries and their multiplicities, never to the full table. For structured tables, the verifier can evaluate $\tilde{T}(r)$ at a random challenge point in $O(\log N)$ time using the table's algebraic formula, without ever seeing the table itself.
+Lasso represents the sparse access pattern (which indices were hit, how many times) using commitment schemes optimized for sparse polynomials, then proves correctness via sum-check. The prover commits only to the accessed entries and their multiplicities, never to the full table. For structured tables, the verifier can evaluate $\tilde{T}(r)$ at a random challenge point in $O(\log N)$ time using the table's algebraic formula, without ever seeing the table itself.
 
 ### Jolt: A zkVM Built on Lasso
 
@@ -419,7 +419,7 @@ STARK-based zkVMs (Cairo, RISC0, SP1) rely heavily on this integration. Their ex
 
 
 
-## Key Takeaways
+## Key takeaways
 
 **General principles** (apply to all lookup arguments):
 

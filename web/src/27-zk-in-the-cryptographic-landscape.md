@@ -83,7 +83,7 @@ Libraries like Microsoft SEAL, OpenFHE, and Zama's Concrete have made FHE access
 
 ## Program obfuscation
 
-Program obfuscation is the most ambitious dream of programmable cryptography. Not just computing on secrets, but making *programs themselves* into secrets.
+Program obfuscation is the most ambitious dream of programmable cryptography. Where the rest of cryptography computes on secrets, obfuscation makes the *programs themselves* into secrets.
 
 ### Virtual black-box obfuscation
 

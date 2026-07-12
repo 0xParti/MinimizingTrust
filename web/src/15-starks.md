@@ -319,7 +319,7 @@ The implementation complexity is higher. But for systems targeting maximum prove
 Circle STARKs exemplify a general principle: *match the algebraic structure to hardware capabilities*. Traditional STARKs chose fields for mathematical convenience (large primes with smooth multiplicative order). Circle STARKs choose fields for computational efficiency (Mersenne primes with fast reduction), then build the necessary mathematical structure (the circle group) around that choice. Binius (Chapter 26) pushes this further by working over binary tower fields, where addition is XOR and field elements match the computer's native data types. As proof systems mature, field choice increasingly reflects hardware realities rather than purely mathematical aesthetics.
 
 
-## Key Takeaways
+## Key takeaways
 
 1. **STARKs eliminate trusted setup** by building on hash functions rather than pairings. Merkle trees provide binding commitments; FRI proves low-degree properties.
 

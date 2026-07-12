@@ -457,7 +457,7 @@ This reduces polynomial evaluation proofs to inner product proofs, and inner pro
 
 
 
-## Key Takeaways
+## Key takeaways
 
 1. **The Boolean hypercube** $\{0,1\}^n$ is the natural domain for multilinear polynomials. It has $2^n$ points.
 

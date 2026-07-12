@@ -4,7 +4,7 @@ In 2016, the National Institute of Standards and Technology issued a warning tha
 
 The "toxic waste" problem of trusted setups was bad. The "quantum apocalypse" was existential.
 
-This urgency drove the creation of a new kind of proof system. The goal was not just to remove the trusted setup; it was to build on cryptographic primitives believed to resist quantum attacks. Hash functions are one such primitive (lattice-based cryptography is another).
+This urgency drove the creation of a new kind of proof system. Removing the trusted setup was only half the goal. The other half was to build on cryptographic primitives believed to resist quantum attacks. Hash functions are one such primitive (lattice-based cryptography is another).
 
 One answer came from Eli Ben-Sasson and collaborators: FRI (2017) and STARKs (2018). These are proof systems built entirely on hash functions, where "transparency" is not marketing but a technical property. No secrets. No ceremonies. No trapdoors that could compromise the system if they leaked, because no trapdoors exist at all.
 
@@ -109,7 +109,7 @@ where:
 - $f_E(Y)$ contains the even-power coefficients: $c_0 + c_2 Y + c_4 Y^2 + \cdots$
 - $f_O(Y)$ contains the odd-power coefficients: $c_1 + c_3 Y + c_5 Y^2 + \cdots$
 
-If $\deg(f) \leq d$, then $\deg(f_E) \leq d/2$ and $\deg(f_O) \leq d/2$. More precisely, $\deg(f_E) \leq \lfloor d/2 \rfloor$ and $\deg(f_O) \leq \lfloor (d-1)/2 \rfloor$. This degree halving is the crucial property that makes FRI work.
+If $\deg(f) \leq d$, then $\deg(f_E) \leq d/2$ and $\deg(f_O) \leq d/2$. More precisely, $\deg(f_E) \leq \lfloor d/2 \rfloor$ and $\deg(f_O) \leq \lfloor (d-1)/2 \rfloor$. This degree halving is what makes FRI work.
 
 Given a random challenge $\alpha$ from the verifier, we fold the polynomial:
 
@@ -124,7 +124,7 @@ Where do Merkle trees fit in? Each round, the prover:
 4. Receives a random challenge $\alpha_i$
 5. Computes the folded polynomial $f_{i+1}$ and repeats
 
-The Merkle root commits the prover to specific evaluation values *before* seeing the challenge. This ordering is crucial: if the prover could see $\alpha_i$ first, they could craft fake evaluations that satisfy the folding check. By committing first, cheating becomes detectable.
+The Merkle root commits the prover to specific evaluation values *before* seeing the challenge. The ordering matters. If the prover could see $\alpha_i$ first, they could craft fake evaluations that satisfy the folding check. By committing first, cheating becomes detectable.
 
 Let's trace through the algebra with a concrete example.
 
@@ -520,7 +520,7 @@ The "S" stands for "Scalable": prover time is quasi-linear, enabled by FFT and t
 Modern systems like **Plonky2** and **Plonky3** combine PLONK's flexible arithmetization with FRI-based commitments, getting the best of both worlds.
 
 
-## Key Takeaways
+## Key takeaways
 
 1. **Merkle trees commit to evaluations, not coefficients.** FRI commits to a polynomial by hashing its evaluations over a domain $D$. The Merkle root is 32 bytes regardless of polynomial size. Opening a single evaluation costs $O(\log |D|)$ hashes.
 

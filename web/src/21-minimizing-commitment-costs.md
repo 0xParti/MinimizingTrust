@@ -95,7 +95,7 @@ Each approach therefore answers a different question.
 
 *Approach 2 (PCS batch opening)* answers "I have one committed polynomial; how do I send many opening proofs in one go?" Use it when $f$ is already committed (typically via KZG) and you need to prove evaluations at multiple points. The win is purely in proof size: one group element instead of $T$. The prover still computes all $T$ evaluations internally and does the corresponding MSM work; nothing about $f$'s structure or the access pattern matters.
 
-*Approach 3 (sum-check over the domain)* answers "I have many evaluations of the same polynomial with structured access; can the prover do less work overall?" Use it when (a) you are proving many evaluations $f(y_j)$ of the same $f$, and (b) the access pattern has structure the sum-check can exploit, in particular the one-hot or tensor-decomposable structure of the access matrix $ra$. Crucially, this is structure in *how the polynomial is queried*, not structure in the polynomial itself. The decisive parameters are $T$ (number of accesses) and $K = 2^\ell$ (domain size): when $T \ll K$, exploiting the access sparsity is what makes $T$ accesses to a $K$-sized table feasible. Without that structure, Approach 3 has nothing to exploit and Approach 2 is simpler.
+*Approach 3 (sum-check over the domain)* answers "I have many evaluations of the same polynomial with structured access; can the prover do less work overall?" Use it when (a) you are proving many evaluations $f(y_j)$ of the same $f$, and (b) the access pattern has structure the sum-check can exploit, in particular the one-hot or tensor-decomposable structure of the access matrix $ra$. This is structure in *how the polynomial is queried*, not structure in the polynomial itself. The decisive parameters are $T$ (number of accesses) and $K = 2^\ell$ (domain size): when $T \ll K$, exploiting the access sparsity is what makes $T$ accesses to a $K$-sized table feasible. Without that structure, Approach 3 has nothing to exploit and Approach 2 is simpler.
 
 There is a deeper connection across all three. Evaluating an MLE at a random point $r'$ *is* a random linear combination, weighted by the Lagrange basis $\widetilde{\text{eq}}(r', \cdot)$ rather than powers of $\alpha$. The sum-check formulation in Approach 3 is random linear combination in MLE clothing, but operating at the domain level unlocks optimizations that claim-level batching (Approaches 1 and 2) cannot reach.
 
@@ -325,7 +325,7 @@ The techniques above make it tractable. Registers, RAM, and bytecode all reduce 
 
 What emerges is a surprising economy. A zkVM with $2^{32}$ bytes of addressable RAM, 32 registers, and a megabyte of bytecode commits roughly the same amount per cycle regardless of these sizes. The commitment cost tracks operations, not capacity. Memory becomes (in a sense) free. You pay for what you use, not what you could use.
 
-There is a deeper connection worth noting. Circuit *wiring* (the copy-constraint problem from Chapter 13) is itself a memory access pattern. When the output of gate $j$ feeds into gate $k$ as an input, the circuit is "reading" a value that was "written" by gate $j$. Quotienting-based systems handle this through permutation arguments (grand products over accumulated ratios). In the memory-checking framework developed here, the same constraint reduces to a read-write access pattern over a table of wire values, verified via the same $ra$/$wa$ machinery. Chapter 22 develops this parallel explicitly, showing that wiring constraints are where the two PIOP paradigms diverge most sharply in abstraction while converging in purpose.
+Circuit *wiring* (the copy-constraint problem from Chapter 13) is itself a memory access pattern. When the output of gate $j$ feeds into gate $k$ as an input, the circuit is "reading" a value that was "written" by gate $j$. Quotienting-based systems handle this through permutation arguments (grand products over accumulated ratios). In the memory-checking framework developed here, the same constraint reduces to a read-write access pattern over a table of wire values, verified via the same $ra$/$wa$ machinery. Chapter 22 develops this parallel explicitly, showing that wiring constraints are where the two PIOP paradigms diverge most sharply in abstraction while converging in purpose.
 
 
 
@@ -472,7 +472,7 @@ The difference between a 10-second prover and a 2-second prover often lies in th
 
 
 
-## Key Takeaways
+## Key takeaways
 
 1. **Commitment dominates prover cost in curve-based systems.** A single elliptic curve exponentiation costs $\approx 3{,}000$ field multiplications; an MSM over $N$ points costs $\approx N/\log N$ exponentiations. After the linear-time sum-check techniques of Chapter 19, the prover spends more time committing than proving. Every optimization in this chapter reduces what the prover must commit.
 

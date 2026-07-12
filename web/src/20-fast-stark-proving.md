@@ -16,12 +16,12 @@ The trajectory of improvement across the ecosystem has been dramatic. Early STAR
 
 The STARK prover executes a sequence of stages, each feeding into the next. Understanding where time goes requires tracing this pipeline end to end. The following variables recur throughout this chapter:
 
-- **$T$** — trace length (number of rows/timesteps), always a power of two
-- **$w$** — trace width (number of columns/registers)
-- **$d$** — maximum constraint degree across all AIR transition polynomials
-- **$\rho$** — blowup factor, the ratio $|D|/|H|$ between the LDE evaluation domain and the trace domain (typically 2, 4, or 8)
-- **$\lambda$** — number of FRI query repetitions (security parameter)
-- **$c_h$** — cost of one hash invocation measured in field multiplications
+- **$T$**: trace length (number of rows/timesteps), always a power of two
+- **$w$**: trace width (number of columns/registers)
+- **$d$**: maximum constraint degree across all AIR transition polynomials
+- **$\rho$**: blowup factor, the ratio $|D|/|H|$ between the LDE evaluation domain and the trace domain (typically 2, 4, or 8)
+- **$\lambda$**: number of FRI query repetitions (security parameter)
+- **$c_h$**: cost of one hash invocation measured in field multiplications
 
 **Stage 1: Trace generation.** The prover runs the computation, filling the execution trace, a matrix with $w$ columns (registers) and $T$ rows (timesteps). For a hash function like Poseidon with 30 rounds and state width 12, the trace might have 12-24 columns and $30 \cdot B$ rows for $B$ input blocks. This stage performs the same arithmetic the original computation would, plus bookkeeping for each intermediate state. Cost: $O(w \cdot T)$ field operations with a small constant per cell.
 
@@ -83,7 +83,7 @@ Poseidon2 illustrates the tension. The S-box degree is 5 (or 3 after decompositi
 
 ### Reducing degree: wide versus tall traces
 
-The principle above (add columns to reduce degree) applies not just to individual constraints like $x^8$ but to the overall trace architecture. The total number of trace cells $w \cdot T$ is roughly fixed by the computation, so the question is how to partition that area: many columns with few rows, or few columns with many rows?
+The principle above (add columns to reduce degree) applies to the overall trace architecture, not only to individual constraints like $x^8$. The total number of trace cells $w \cdot T$ is roughly fixed by the computation, so the question is how to partition that area: many columns with few rows, or few columns with many rows?
 
 For hash functions, where the computation is regular and the state width is fixed, the trace width maps naturally to the state size. For virtual machines, the choice is less obvious. A zkVM instruction like `ADD R1, R2, R3` touches three registers, a program counter, various flags. Representing all of these as separate columns creates a wide trace (50-100 columns in practice) with degree-2 or degree-3 constraints. Alternatively, encoding multiple values per column via bit-packing creates a narrower trace with higher-degree constraints to extract individual fields.
 
@@ -151,7 +151,7 @@ Concretely, with $a = 5 + 7\alpha$ and $b = 2 + 3\alpha$: the schoolbook computa
 
 Small fields make each multiplication cheaper but do nothing to reduce the *number* of multiplications. If anything they raise the count slightly, since the parts of the protocol that touch extension elements pay roughly 9 base multiplies per extension multiply. The pipeline stage that consumes most of those multiplications is the low-degree extension (Stage 4): the prover takes each of the $w$ trace polynomials defined on the trace domain $H$ and re-evaluates it on the larger LDE domain $D$ of size $\rho T$. The algorithm that does this efficiently is the **number-theoretic transform** (NTT), which converts between coefficient and evaluation representations of a polynomial in $O(N \log N)$ field operations.
 
-The arithmetic cost is fixed by the domain size: $O(\rho T \log(\rho T))$ multiplications per polynomial, $O(w \rho T \log(\rho T))$ total across all $w$ trace columns. For a trace with $T = 2^{20}$ rows, $w = 40$ columns, and blowup $\rho = 4$, this comes to roughly $40 \times 4 \times 2^{20} \times 22 \approx 3.7 \times 10^9$ field multiplications in the NTT alone. Even at 3-4 cycles per BabyBear multiply, this is over a second on a single core. The NTT is not merely a subroutine; for medium-to-large traces, it *is* the prover.
+The arithmetic cost is fixed by the domain size: $O(\rho T \log(\rho T))$ multiplications per polynomial, $O(w \rho T \log(\rho T))$ total across all $w$ trace columns. For a trace with $T = 2^{20}$ rows, $w = 40$ columns, and blowup $\rho = 4$, this comes to roughly $40 \times 4 \times 2^{20} \times 22 \approx 3.7 \times 10^9$ field multiplications in the NTT alone. Even at 3-4 cycles per BabyBear multiply, this is over a second on a single core. For medium-to-large traces, the NTT *is* the prover.
 
 The algorithm is the same Cooley-Tukey butterfly as the FFT from Chapter 5; in the STARK context, "NTT" and "FFT" are interchangeable, with "NTT" emphasizing the finite-field setting. (Lattice cryptography also uses NTTs, but over a different domain: the reduction polynomial is $X^n + 1$ rather than $X^n - 1$, so the transform evaluates at primitive $2n$-th roots of unity and computes a *negacyclic* convolution. The STARK NTT uses $n$-th roots and computes a standard cyclic convolution, matching the vanishing polynomial $Z_H(X) = X^n - 1$ from Chapter 15.) Beyond the LDE, the prover also runs NTTs in each FRI folding round to extract even/odd parts of the polynomial, but those are smaller and form a geometric series dominated by the first round.
 
@@ -252,7 +252,7 @@ In practice, DEEP-ALI is a strict improvement: it removes a Merkle tree, removes
 
 Each FRI query buys $\log_2 \rho$ bits of security (under the conjectured analysis) but adds proof bytes: a query requires opening Merkle paths across every committed layer, costing tens of KB per query at typical parameters. The query count therefore sets the proof size. At $\rho = 2$, achieving 128-bit security requires 128 queries, which produces a proof of several megabytes. The question grinding answers: can the prover *trade computation for proof bytes*, paying CPU time at proving to reduce the number of queries needed?
 
-The mechanism is a hash puzzle. After the FRI commitment phase ends, the verifier's query positions are determined by hashing the transcript. The prover is required to find a 64-bit nonce such that hashing (transcript $\|$ nonce) yields a digest with $g$ leading zero bits. Such a nonce exists with probability $2^{-g}$ per attempt, so finding one costs $\approx 2^g$ hash evaluations on average. Crucially, the puzzle binds *every* committed value: a cheating prover who alters any Merkle root changes the hash input and must restart the search from scratch. Inverting a $g$-bit hash prefix costs $\approx 2^g$ work, so grinding contributes exactly $g$ bits of security to the total budget.
+The mechanism is a hash puzzle. After the FRI commitment phase ends, the verifier's query positions are determined by hashing the transcript. The prover is required to find a 64-bit nonce such that hashing (transcript $\|$ nonce) yields a digest with $g$ leading zero bits. Such a nonce exists with probability $2^{-g}$ per attempt, so finding one costs $\approx 2^g$ hash evaluations on average. The puzzle binds *every* committed value: a cheating prover who alters any Merkle root changes the hash input and must restart the search from scratch. Inverting a $g$-bit hash prefix costs $\approx 2^g$ work, so grinding contributes exactly $g$ bits of security to the total budget.
 
 To make the trade concrete, consider a target of 128-bit security at $\rho = 2$ and trace width $w = 40$ over BabyBear with $T = 2^{20}$ rows.
 

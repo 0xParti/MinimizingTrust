@@ -12,7 +12,7 @@ This chapter explores that peril and its alternatives. We'll see two fundamental
 
 Everything we've built (sum-check, GKR, arithmetization) reduces complex claims to polynomial identities. A prover claims that polynomial $p(X)$ has certain properties: it equals another polynomial, it vanishes on a domain, it evaluates to a specific value at a point.
 
-But here's the catch: verifying these claims directly would require the verifier to see the entire polynomial. For a polynomial of degree $n$, that's $n+1$ coefficients, exactly as much data as the original computation. We've achieved nothing.
+But there is a catch. Verifying these claims directly would require the verifier to see the entire polynomial. For a polynomial of degree $n$, that's $n+1$ coefficients, exactly as much data as the original computation. We've achieved nothing.
 
 **Polynomial Commitment Schemes (PCS)** solve this problem. A PCS allows a prover to commit to a polynomial with a short commitment, then later prove claims about the polynomial (its evaluations at specific points) without revealing the polynomial itself. The commitment is binding (the prover can't change the polynomial), and the proofs are succinct (much smaller than the polynomial).
 
@@ -36,7 +36,7 @@ A polynomial commitment scheme consists of three algorithms:
 - **Hiding** (optional): The commitment reveals nothing about the polynomial
 - **Succinctness**: Commitments and proofs are much smaller than the polynomial
 
-The key insight: if the prover is bound to a specific polynomial before seeing the verifier's challenge point, and the commitment is much smaller than the polynomial, then we can verify polynomial identities by checking at random points.
+If the prover is bound to a specific polynomial before seeing the verifier's challenge point, and the commitment is much smaller than the polynomial, then we can verify polynomial identities by checking at random points.
 
 
 
@@ -44,7 +44,7 @@ The key insight: if the prover is bound to a specific polynomial before seeing t
 
 The Kate-Zaverucha-Goldberg (KZG) scheme achieves the holy grail: constant-size commitments *and* constant-size evaluation proofs. No matter how large the polynomial, the proof is just one group element.
 
-### The Magic Ingredient: Pairings
+### Pairings
 
 A **bilinear pairing** is a map $e: G_1 \times G_2 \to G_T$ between three groups with the property:
 
@@ -52,7 +52,7 @@ $$e(aP, bQ) = e(P, Q)^{ab}$$
 
 for all scalars $a, b$ and group elements $P \in G_1$, $Q \in G_2$.
 
-This seemingly simple equation has profound consequences. It allows us to check multiplicative relationships *in the exponent*. Given commitments $g^a$ and $g^b$, we cannot compute $g^{ab}$ (that would break CDH). But if someone claims to know $c = ab$, we can *verify* their claim by checking:
+This one equation lets us check multiplicative relationships *in the exponent*. Given commitments $g^a$ and $g^b$, we cannot compute $g^{ab}$ (that would break CDH). But if someone claims to know $c = ab$, we can *verify* their claim by checking:
 
 $$e(g^a, g^b) = e(g^c, g)$$
 
@@ -189,7 +189,7 @@ The solution is **multi-party computation (MPC) ceremonies**. Instead of trustin
 2. **Participant 2** picks secret $\tau_2$, raises each element to $\tau_2$, getting $[1]_1, [\tau_1\tau_2]_1, [(\tau_1\tau_2)^2]_1, \ldots$ and destroys $\tau_2$
 3. Continue for hundreds or thousands of participants...
 
-The final structured reference string encodes powers of $\tau = \tau_1 \cdot \tau_2 \cdot \tau_3 \cdots \tau_n$. The crucial insight: **the setup is secure if *any single participant* destroyed their secret**. This is the "1-of-N" trust model; you only need to trust that *one* honest participant existed among potentially thousands.
+The final structured reference string encodes powers of $\tau = \tau_1 \cdot \tau_2 \cdot \tau_3 \cdots \tau_n$. **The setup is secure if *any single participant* destroyed their secret**. This is the "1-of-N" trust model; you only need to trust that *one* honest participant existed among potentially thousands.
 
 The Zcash Powers of Tau ceremony (2017-2018) had 87 participants contribute to a universal phase, followed by circuit-specific ceremonies for Sapling. The Ethereum KZG Ceremony (2023) dwarfed this with over 140,000 contributions for EIP-4844 blob commitments.
 
@@ -208,9 +208,9 @@ The terminology can be confusing:
 - **IPA** (Inner Product Argument) is the *technique*: the recursive folding protocol that proves $\langle \vec{a}, \vec{b} \rangle = c$
 - **Bulletproofs** is the *system* that used IPA for range proofs and general arithmetic circuits
 
-Today, "IPA" and "Bulletproofs" are often used interchangeably to describe the folding-based polynomial commitment scheme. The key innovation: achieving transparency (no toxic waste) at the cost of logarithmic proofs and linear verification.
+Today, "IPA" and "Bulletproofs" are often used interchangeably to describe the folding-based polynomial commitment scheme. The scheme achieves transparency (no toxic waste) at the cost of logarithmic proofs and linear verification.
 
-### The Key Insight: Polynomial Evaluation as Inner Product
+### Polynomial Evaluation as Inner Product
 
 As we saw in Chapters 4 and 5, polynomial evaluation is an inner product. For univariate polynomials:
 
@@ -535,7 +535,7 @@ KZG dominates when verification cost matters and trust is acceptable, which is w
 
 
 
-## Key Takeaways
+## Key takeaways
 
 ### The Core Abstraction
 
@@ -547,7 +547,7 @@ KZG dominates when verification cost matters and trust is acceptable, which is w
 
 ### The Two Paradigms
 
-4. **KZG achieves constant-size proofs via pairings.** The key insight: if $(X - z)$ divides $f(X) - v$, then $f(z) = v$. The prover commits to the quotient; the verifier checks divisibility at a secret point $\tau$ using one pairing equation. No matter the polynomial's size, the proof is one group element.
+4. **KZG achieves constant-size proofs via pairings.** Everything rests on the fact that $(X - z)$ divides $f(X) - v$ exactly when $f(z) = v$. The prover commits to the quotient; the verifier checks divisibility at a secret point $\tau$ using one pairing equation. No matter the polynomial's size, the proof is one group element.
 
 5. **KZG requires trusted setup.** The structured reference string encodes powers of a secret $\tau$. If anyone learns $\tau$, they can forge proofs. Multi-party ceremonies with thousands of participants ensure security under the "1-of-N" trust model: security holds if any single participant was honest.
 

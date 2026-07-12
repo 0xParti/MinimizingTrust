@@ -196,7 +196,7 @@ The combined commitment collapses to a pure power of $h$. To prove the relation 
 
 Multiplication is harder. Pedersen commitments aren't multiplicatively homomorphic. Given $C_1 = g^{m_1} h^{r_1}$, $C_2 = g^{m_2} h^{r_2}$, $C_3 = g^{m_3} h^{r_3}$, how do we prove $m_1 \cdot m_2 = m_3$?
 
-The key insight is to change bases. Observe that:
+The trick is to change bases. Observe that:
 $$g^{m_3} = g^{m_1 \cdot m_2} = (g^{m_1})^{m_2}$$
 
 If $C_3 = g^{m_1 m_2} h^{r_3}$, then $C_3$ can also be viewed as:
@@ -294,7 +294,7 @@ You can prove you know one of two secrets without revealing which. Ring signatur
 
 
 
-## Key Takeaways
+## Key takeaways
 
 1. **Three messages suffice** for zero-knowledge proofs of knowledge. Commit → Challenge → Response. The commitment must come before the challenge; reversing this order destroys soundness.
 

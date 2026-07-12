@@ -6,7 +6,7 @@ Then Jens Groth published a paper that seemed to violate the laws of physics. He
 
 `[Proof: 0x1a2b3c...] #Zcash`
 
-This was not just optimization. It was the theoretical minimum. Groth proved mathematically that for pairing-based systems, you literally cannot get smaller than 3 group elements. He had found the floor.
+This was the theoretical minimum. Groth proved mathematically that for pairing-based systems, you literally cannot get smaller than 3 group elements. He had found the floor.
 
 The paper, "On the Size of Pairing-based Non-interactive Arguments," became the most deployed SNARK in history. When Zcash launched its Sapling upgrade in 2018, it used Groth16. When Tornado Cash and dozens of other privacy applications needed succinct proofs, they used Groth16. The answer to "what's the smallest possible proof?" turned out to be the answer the entire field needed.
 
@@ -100,7 +100,7 @@ Groth16 solves this with three ideas working in concert:
 
 Groth16 is best understood through the lens of **Linear PCPs**, introduced in Chapter 1. Recall: in a standard PCP, the verifier queries specific positions of a proof string. In a Linear PCP, the "proof" is a linear function $\pi: \mathbb{F}^k \to \mathbb{F}$, and the verifier can only ask for linear combinations $\pi(q) = \sum_i q_i \cdot \pi_i$ for chosen query vectors $q$.
 
-This restriction enables a clever trick: if the queries are encrypted as $g^q$, the prover can compute $g^{\pi(q)}$ homomorphically—without ever learning $q$ itself.
+This restriction enables a clever trick: if the queries are encrypted as $g^q$, the prover can compute $g^{\pi(q)}$ homomorphically, without ever learning $q$ itself.
 
 Groth16's trusted setup embeds carefully chosen query vectors into group elements. The prover computes responses using only scalar multiplication: linear operations on the encrypted queries. The verifier checks a quadratic relation using a single pairing equation.
 
@@ -217,7 +217,7 @@ The term $e(\pi_C, g_2^\delta)$ contributes $\delta \cdot (\text{exponent of } \
 
 Grouping: $s(\alpha + A(\tau)) + r(\beta + B(\tau)) + rs\delta$. But $\pi_A$'s exponent is $\alpha + A(\tau) + r\delta$, so we can write $s(\alpha + A(\tau) + r\delta) + r(\beta + B(\tau) + s\delta) - rs\delta$. The $-rs\delta$ corrects for double-counting.
 
-The formula is not arbitrary—it's the unique solution ensuring the blinding terms cancel while the QAP check remains intact.
+The formula is not arbitrary. It is the unique solution ensuring the blinding terms cancel while the QAP check remains intact.
 
 The prover outputs $\pi = (\pi_A, \pi_B, \pi_C) \in \mathbb{G}_1 \times \mathbb{G}_2 \times \mathbb{G}_1$.
 
@@ -235,7 +235,7 @@ This is the smallest proof size achieved by any pairing-based SNARK. The paper p
 
 ### Verifier Algorithm
 
-The verification equation is identical for both versions—the verifier doesn't know (or care) whether zero-knowledge randomization was used. The $r, s$ terms cancel algebraically.
+The verification equation is identical for both versions. The verifier doesn't know (or care) whether zero-knowledge randomization was used. The $r, s$ terms cancel algebraically.
 
 Given public inputs $\text{io} = (z_0, z_1, \ldots, z_\ell)$ where $z_0 = 1$:
 
@@ -363,7 +363,7 @@ The adversary cannot:
 - Look inside a group element to see its discrete log
 - Exploit number-theoretic structure of the curve
 
-The SRS contains group elements encoding powers of $\tau$ and combinations involving $\alpha, \beta, \gamma, \delta$. The prover never sees these scalars directly—only their encrypted forms. To produce a valid proof, the prover must construct group elements satisfying the verification equation.
+The SRS contains group elements encoding powers of $\tau$ and combinations involving $\alpha, \beta, \gamma, \delta$. The prover never sees these scalars directly, only their encrypted forms. To produce a valid proof, the prover must construct group elements satisfying the verification equation.
 
 The security argument asks: what group elements can a prover actually compute? They can only form linear combinations of SRS elements (scalar multiplication and addition). The proof shows that any linear combination satisfying the verification equation must encode a valid QAP solution. There's no way to "forge" the right algebraic structure without knowing a witness, because the prover can't extract $\tau$ from $g^\tau$ or construct arbitrary polynomials evaluated at $\tau$.
 
@@ -525,7 +525,7 @@ A typical Groth16 verifier contract:
 
 Gas cost: ~200,000-300,000 gas depending on public input count.
 
-## Key Takeaways
+## Key takeaways
 
 1. **Optimal proof size.** Three group elements (128 bytes on BN254). Groth proved this is the theoretical minimum for pairing-based SNARKs.
 
@@ -533,12 +533,12 @@ Gas cost: ~200,000-300,000 gas depending on public input count.
 
 3. **Pairings check multiplication on hidden values.** The verification equation $e(\pi_A, \pi_B) = \ldots$ checks that $A(\tau) \cdot B(\tau) = C(\tau) + H(\tau)Z_H(\tau)$ without revealing $\tau$ or the witness polynomials. Bilinearity is the mechanism.
 
-4. **The prover is algebraically constrained.** The SRS contains group elements encoding $\tau^i$, $\alpha$, $\beta$, $\gamma$, $\delta$ in specific combinations. The prover can only form linear combinations of these. Any proof satisfying the verification equation must encode a valid QAP solution—there's no way to "forge" the algebraic structure.
+4. **The prover is algebraically constrained.** The SRS contains group elements encoding $\tau^i$, $\alpha$, $\beta$, $\gamma$, $\delta$ in specific combinations. The prover can only form linear combinations of these. Any proof satisfying the verification equation must encode a valid QAP solution. There is no way to "forge" the algebraic structure.
 
 5. **Circuit-specific setup.** Phase 1 (powers of tau) is universal. Phase 2 embeds the circuit's basis polynomials $A_j(\tau), B_j(\tau), C_j(\tau)$ into the SRS. Change one gate, redo Phase 2.
 
 6. **1-of-N trust.** If any ceremony participant destroys their toxic waste, the setup is secure. This makes the trust assumption practical despite requiring a trusted setup.
 
-7. **Zero-knowledge by algebraic design.** The blinding terms in $\pi_C$ are not arbitrary—they're the unique values ensuring the $r\delta$, $s\delta$ masks cancel in the verification equation. The protocol's ZK property is woven into its algebraic structure.
+7. **Zero-knowledge by algebraic design.** The blinding terms in $\pi_C$ are not arbitrary. They are the unique values ensuring the $r\delta$, $s\delta$ masks cancel in the verification equation. The protocol's ZK property is woven into its algebraic structure.
 
 8. **Generic group model.** Security relies on assuming adversaries cannot exploit the curve's number-theoretic structure. Stronger than standard assumptions, but no practical attacks are known.

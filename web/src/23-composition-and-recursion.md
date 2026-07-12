@@ -259,7 +259,7 @@ Composition combines different proof systems; the recursion we've seen so far co
 
 A blockchain processes transactions one by one. A verifiable delay function (VDF) computes a hash chain for hours, proving that real time elapsed. A zkVM executes a program instruction by instruction. In each case, the computation is *sequential*: step $i$ depends on step $i-1$. You can't parallelize it. You can't wait until the end to start proving (the end might be days away, or never).
 
-What you want is a proof that *grows* with the computation. After step 1, you have a proof of step 1. After step 1000, you have a proof of steps 1 through 1000. Crucially, the proof at step 1000 shouldn't be 1000× larger than the proof at step 1. And creating the proof for step 1000 shouldn't require re-proving steps 1 through 999.
+What you want is a proof that *grows* with the computation. After step 1, you have a proof of step 1. After step 1000, you have a proof of steps 1 through 1000. The proof at step 1000 shouldn't be 1000× larger than the proof at step 1. And creating the proof for step 1000 shouldn't require re-proving steps 1 through 999.
 
 This is **incrementally verifiable computation**, or **IVC**: proofs that extend cheaply, verify in constant time, and accumulate the history of an unbounded sequential process. The term appears throughout the literature; systems like Nova, SuperNova, and ProtoStar are "IVC schemes."
 
@@ -713,7 +713,7 @@ The chapter has covered three recursion-related techniques, each at a different 
 
 
 
-## Key Takeaways
+## Key takeaways
 
 1. **Composition combines complementary proof systems.** The outer prover handles only the inner verifier circuit, which is much smaller than the original computation. This is why Groth16 wrapping doesn't reintroduce the slow prover: Groth16 proves a circuit of size $O(\sqrt{N})$, not $N$.
 

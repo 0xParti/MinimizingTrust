@@ -178,7 +178,7 @@ The cost difference reflects a difference in abstraction level. Commit-and-prove
 
 Most production systems use masking for the main protocol body and commit-and-prove for auxiliary statements (range proofs, committed value equality, etc.).
 
-A third approach, developed in the HyperNova paper (Kothapalli, Setty, Tzialla, 2023), sidesteps both techniques entirely. Instead of masking round polynomials or wrapping each check in a $\Sigma$-protocol, the prover replaces every sum-check message with a Pedersen commitment and then proves, via Nova folding, that the committed values satisfy the verifier's checks. The folding step acts as an algebraic one-time pad: the real witness is combined with a random satisfying instance, producing a folded witness that is uniformly distributed regardless of the original. The cost is roughly 3 KB of additional proof data and negligible prover overhead. This technique, called BlindFold, is what made production zkVMs (notably Jolt) genuinely zero-knowledge. Chapter 22 develops it in full after introducing the folding machinery it depends on.
+A third approach, developed in the HyperNova paper (Kothapalli, Setty, Tzialla, 2023), sidesteps both techniques entirely. Instead of masking round polynomials or wrapping each check in a $\Sigma$-protocol, the prover replaces every sum-check message with a Pedersen commitment and then proves, via Nova folding, that the committed values satisfy the verifier's checks. The folding step acts as an algebraic one-time pad: the real witness is combined with a random satisfying instance, producing a folded witness that is uniformly distributed regardless of the original. The cost is roughly 3 KB of additional proof data and negligible prover overhead. This technique, called BlindFold, is what made production zkVMs (notably Jolt) genuinely zero-knowledge. Chapter 23 develops it in full after introducing the folding machinery it depends on.
 
 ## Zero-Knowledge in Practice
 
@@ -256,7 +256,7 @@ Despite different mechanisms, Groth16 and PLONK follow the same pattern: find th
 
 
 
-## Key Takeaways
+## Key takeaways
 
 1. **Every ZK technique finds the null space of the verification procedure and injects randomness there.** Transformations that don't affect the verification outcome are the prover's freedom. Soundness constrains what the prover can do; zero-knowledge exploits what the prover is free to randomize.
 
@@ -268,4 +268,4 @@ Despite different mechanisms, Groth16 and PLONK follow the same pattern: find th
    - *Groth16*: fresh scalars $(r, s)$ shift the proof elements; $\pi_C$ absorbs the cross-terms so the pairing equation is unchanged.
    - *PLONK*: random multiples of $Z_H(X)$ vanish on the constraint domain $H$ but randomize evaluations at the query point $\zeta \notin H$.
 
-5. **Production systems blend approaches.** Masking handles the core polynomial protocol. Commit-and-prove handles auxiliary statements (range proofs, committed value equality). BlindFold (Chapter 22) offers a third path via folding.
+5. **Production systems blend approaches.** Masking handles the core polynomial protocol. Commit-and-prove handles auxiliary statements (range proofs, committed value equality). BlindFold (Chapter 23) offers a third path via folding.

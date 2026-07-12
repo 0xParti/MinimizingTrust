@@ -602,7 +602,7 @@ The practical landscape reflects this. For applications where post-quantum secur
 
 
 
-## Key Takeaways
+## Key takeaways
 
 1. **The halving trick achieves $O(N)$ prover time.** Fold evaluation tables after each challenge: $N \to N/2 \to N/4 \to \ldots$ via multilinear interpolation. Total work is the geometric series $N + N/2 + \cdots = O(N)$.
 

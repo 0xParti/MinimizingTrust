@@ -40,7 +40,7 @@ These systems dominated deployed ZK applications: Zcash, various rollups, privac
 
 ### The Sum-Check Renaissance (2020s)
 
-Systems like Spartan, Lasso, and Jolt demonstrated that sum-check-based designs achieve the fastest prover times. The key insight, crystallized in Chapter 19, is that interaction is a resource, and removing it twice (once in the PIOP, once via Fiat-Shamir) is wasteful.
+Systems like Spartan, Lasso, and Jolt demonstrated that sum-check-based designs achieve the fastest prover times. The reason, crystallized in Chapter 19, is that interaction is a resource, and removing it twice (once in the PIOP, once via Fiat-Shamir) is wasteful.
 
 GKR's layer-by-layer virtualization, combined with efficient multilinear PCS, enabled provers to approach linear time. Virtual polynomials slashed commitment costs.
 
@@ -116,7 +116,7 @@ The quotient polynomial has degree at most $2N - 2 - N = N - 2$. Computing it re
 
 The prover's dominant costs: FFT for quotient computation, MSM for commitment.
 
-The hidden cost in univariate systems is not just the $O(N \log N)$ time complexity but the *memory access pattern*. FFTs require "butterfly" operations that shuffle data across the entire memory space: element $i$ interacts with element $i + N/2$, then $i + N/4$, and so on. These non-local accesses cause massive cache misses on modern CPUs. In contrast, sum-check's halving trick scans data linearly (adjacent pairs combine), which is cache-friendly and easy to parallelize across cores. For large $N$, the memory bottleneck often dominates the arithmetic.
+The hidden cost in univariate systems is the *memory access pattern*, not the $O(N \log N)$ time complexity. FFTs require "butterfly" operations that shuffle data across the entire memory space: element $i$ interacts with element $i + N/2$, then $i + N/4$, and so on. These non-local accesses cause massive cache misses on modern CPUs. In contrast, sum-check's halving trick scans data linearly (adjacent pairs combine), which is cache-friendly and easy to parallelize across cores. For large $N$, the memory bottleneck often dominates the arithmetic.
 
 
 
@@ -254,7 +254,7 @@ In principle, any PIOP can use any PCS of the matching polynomial type. In pract
 
 ## Choosing a Paradigm
 
-The comparisons above reveal a pattern. Quotienting and sum-check differ not just in mechanism but in what they optimize for.
+The comparisons above reveal a pattern. Quotienting and sum-check differ in what they optimize for, not only in mechanism.
 
 **Quotienting excels when structure is fixed and dense.** The quotient polynomial costs $O(N)$ regardless of how many constraints actually matter. FFT runs in $O(N \log N)$ regardless of sparsity. The permutation argument handles any wiring pattern equally. This uniformity is a strength when constraints fill the domain densely and circuit topology is known at compile time. Small circuits with degree-2 or degree-3 constraints, existing infrastructure with optimized KZG and FFT libraries, applications where proof size matters more than prover time: these favor quotienting. Chapter 20 shows how small-field NTT optimization, DEEP-ALI, and batched FRI reduce the concrete cost of this $O(N \log N)$ path to the point where it competes with sum-check for structured workloads like hashing.
 
@@ -262,10 +262,10 @@ The comparisons above reveal a pattern. Quotienting and sum-check differ not jus
 
 The wiring story reinforces this. Permutation arguments treat all wire patterns uniformly: a random scramble costs the same as a structured dataflow. Memory checking adapts: tensor decomposition exploits address structure, virtualization skips commitment to state tables, and read-only versus read-write falls out of the same framework.
 
-A useful heuristic: if you know exactly what your circuit looks like at compile time and it fits comfortably in memory, quotienting's simplicity wins. If your circuit's shape depends on runtime data, or if you're pushing toward billions of constraints, sum-check's adaptivity wins.
+A useful heuristic: if you know exactly what your circuit looks like at compile time and it fits comfortably in memory, quotienting's simplicity wins. If your circuit's shape depends on runtime data, or if you're pushing toward billions of constraints, sum-check's adaptivity wins. The choice propagates further than this chapter covers: Chapter 23 shows that the recursion strategy (full verification vs. folding) also aligns with the paradigm, extending the compatibility chain from constraint system through PIOP, PCS, and into recursive composition.
 
 
-## Key Takeaways
+## Key takeaways
 
 1. **One choice determines the rest.** Quotienting uses univariate polynomials over roots of unity and proves constraints via divisibility ($Z_H$ divides the error). Sum-check uses multilinear polynomials over the Boolean hypercube and proves constraints via random linear combination. Polynomial type, domain, and constraint strategy are linked; choosing one determines the other two.
 

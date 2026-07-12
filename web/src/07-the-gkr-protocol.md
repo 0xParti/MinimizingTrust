@@ -27,9 +27,9 @@ But computation is more than summation. A real computation involves:
 - Data dependencies (the output of one step becomes the input to another)
 - A final output
 
-The insight of GKR is that these computations have *layered structure*. A circuit consists of gates organized into layers, where each layer's outputs feed into the next layer's inputs. And crucially, the relationship between adjacent layers can be expressed as a polynomial identity: one that sum-check can verify.
+The insight of GKR is that these computations have *layered structure*. A circuit consists of gates organized into layers, where each layer's outputs feed into the next layer's inputs. The relationship between adjacent layers can be expressed as a polynomial identity, one that sum-check can verify.
 
-> **Remark (GKR as a chain of sum-checks).** GKR is a sequence of sum-checks, each reducing a claim about layer $i$ to a claim about layer $i+1$. This is a special case of a more general pattern: sum-checks composing into directed graphs, where each sum-check is a node and evaluation claims are edges. GKR's graph is a path (linear chain from output to input). More complex protocols like Spartan (Chapter 19) have branching structure: one outer sum-check spawns multiple inner sum-checks. The graph perspective, where depth determines sequential stages and width enables batching, becomes crucial for understanding prover efficiency in Chapters 19-20.
+> **Remark (GKR as a chain of sum-checks).** GKR is a sequence of sum-checks, each reducing a claim about layer $i$ to a claim about layer $i+1$. This is a special case of a more general pattern: sum-checks composing into directed graphs, where each sum-check is a node and evaluation claims are edges. GKR's graph is a path (linear chain from output to input). More complex protocols like Spartan (Chapter 19) have branching structure: one outer sum-check spawns multiple inner sum-checks. The graph perspective, where depth determines sequential stages and width enables batching, becomes central to prover efficiency in Chapters 19-20.
 
 
 
@@ -197,7 +197,7 @@ At the start of round $i$, the verifier holds a claim: "$\tilde{W}_i(r_i) = V_i$
    - The verifier checks $q(0) = \tilde{W}_{i+1}(s_b)$ and $q(1) = \tilde{W}_{i+1}(s_c)$ against the prover's earlier claims
    - Set $V_{i+1} = q(\alpha)$, which equals $\tilde{W}_{i+1}(r_{i+1})$
 
-   The key insight: restricting a multilinear polynomial to a line yields a low-degree univariate polynomial. The random $\alpha$ serves double duty: (1) it tests consistency; (2) it produces a fresh random point $r_{i+1}$ that combines both claims into one for the next round.
+   Restricting a multilinear polynomial to a line yields a low-degree univariate polynomial. The random $\alpha$ serves double duty: (1) it tests consistency; (2) it produces a fresh random point $r_{i+1}$ that combines both claims into one for the next round.
 
    Why does this catch inconsistency? If the prover lied about either $\tilde{W}_{i+1}(s_b)$ or $\tilde{W}_{i+1}(s_c)$, they cannot produce a degree-$k_{i+1}$ polynomial $q(t)$ that passes through both false values while also being the restriction of the true $\tilde{W}_{i+1}$ to the line $\ell$. The degree bound is the handcuff: a low-degree polynomial through the wrong points must differ from the true polynomial almost everywhere. By Schwartz-Zippel, the probability that the random $\alpha$ lands on one of the at most $k_{i+1}$ points where a false $q$ happens to agree with the truth is at most $k_{i+1}/|\mathbb{F}|$, which is negligible
 
@@ -391,11 +391,11 @@ This modularity is powerful. The "frontend" (how to express a computation as a c
 
 But GKR as originally described is an **interactive** protocol. The prover and verifier exchange messages over multiple rounds. For practical applications (blockchain verification, privacy-preserving credentials) we want **non-interactive** proofs that anyone can verify without interaction.
 
-Chapter 11 will show how to compile interactive protocols like GKR into non-interactive SNARKs using polynomial commitment schemes and the Fiat-Shamir transformation. The journey from sum-check to practical zero-knowledge proofs passes through GKR as a crucial waypoint.
+Chapter 11 will show how to compile interactive protocols like GKR into non-interactive SNARKs using polynomial commitment schemes and the Fiat-Shamir transformation. The journey from sum-check to practical zero-knowledge proofs passes through GKR.
 
 **Is GKR actually used?** For years, GKR was primarily of theoretical interest; the prover overhead and circuit structure requirements made pairing-based SNARKs (Groth16, PLONK) more practical. But GKR is experiencing a resurgence. Modern systems like Lasso and Jolt use GKR-style sum-check reductions as their core verification mechanism, achieving state-of-the-art prover performance for certain computations.
 
-The key insight is that GKR's prover is *native*, working directly with the computation's structure rather than reducing to generic polynomial arithmetic. To see why this matters, consider the alternative. In R1CS-based systems (Groth16, Spartan), every computation, no matter how structured, gets flattened into a uniform constraint system: thousands of equations of the form $a \cdot b = c$. A 256-bit multiplication, a hash function, a simple addition: all become rows in the same homogeneous matrix. The prover then does generic linear algebra over this matrix, blind to the original structure.
+GKR's prover is *native*, working directly with the computation's structure rather than reducing to generic polynomial arithmetic. To see why this matters, consider the alternative. In R1CS-based systems (Groth16, Spartan), every computation, no matter how structured, gets flattened into a uniform constraint system: thousands of equations of the form $a \cdot b = c$. A 256-bit multiplication, a hash function, a simple addition: all become rows in the same homogeneous matrix. The prover then does generic linear algebra over this matrix, blind to the original structure.
 
 GKR is different. The prover traverses the actual circuit layer by layer, computing the sum-check polynomials from the wiring predicates and gate values directly. If your circuit has repeated structure, say 1000 copies of the same subcircuit, the prover can exploit that. If a layer is sparse (few gates), the work is proportionally smaller. The algorithm "sees" the computation's shape.
 
@@ -405,7 +405,7 @@ GKR is also transparent (no trusted setup) and plausibly post-quantum when insta
 
 
 
-## Key Takeaways
+## Key takeaways
 
 1. **Backward propagation**: GKR reduces output verification to input verification by propagating claims backward through layers. Each layer reduction is a sum-check.
 

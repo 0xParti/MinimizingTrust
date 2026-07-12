@@ -57,7 +57,7 @@ The breakthrough insight of interactive proofs is that through *interaction* and
 
 Polynomials are the key to making this work. They transform #SAT, this hopelessly unverifiable counting problem, into a series of polynomial identity checks where cheating is detectable with overwhelming probability.
 
-We'll see exactly how in Chapter 3 when we study the sum-check protocol. But first, we need to understand why polynomials have this magical power.
+We'll see exactly how in Chapter 3 when we study the sum-check protocol. But first, we need to understand where polynomials get this power.
 
 
 
@@ -77,7 +77,7 @@ The rest of this chapter develops each pillar in turn.
 
 ## Pillar 1: Representation - From Data to Polynomials
 
-The first magical property: any finite dataset can be encoded as a polynomial.
+Any finite dataset can be encoded as a polynomial.
 
 But first, we must define the terrain. Where do these polynomials live? Not in the real numbers. Remember the Patriot missile from Chapter 1: a rounding error of 0.000000095 seconds, accumulated over time, killed 28 soldiers. Real number arithmetic is treacherous. Equality is approximate, errors accumulate, and 0.1 has no exact binary representation.
 
@@ -143,13 +143,13 @@ Verification: $p(0) = 2$, $p(1) = 1 + 2 + 2 = 5$, $p(2) = 4 + 4 + 2 = 10$. All m
 
 ### The Rigidity of Polynomials
 
-Here's the key property that makes verification possible:
+The key property that makes verification possible is this:
 
 **Two different degree-$d$ polynomials can agree on at most $d$ points.**
 
 *Proof*: Let $p$ and $q$ be distinct polynomials of degree at most $d$. Their difference $p - q$ is non-zero (since $p \neq q$) and has degree at most $d$. A non-zero polynomial of degree $d$ has at most $d$ roots. Therefore $p(x) = q(x)$ for at most $d$ values of $x$. $\square$
 
-This seems like a simple algebraic fact, but its consequences are profound. Consider what this means:
+The statement reads like a routine algebra exercise until you weigh the bound against the size of the field.
 
 If you and I each have a degree-99 polynomial, and they're *different* polynomials, then they can agree on at most 99 input values. Out of, say, $2^{256}$ possible inputs in a cryptographic field, they *disagree* on all but at most 99 of them.
 
@@ -169,7 +169,7 @@ This property alone is purely mathematical. To turn it into a verification tool,
 
 In 1976, Gary Miller discovered a fast algorithm to test whether a number is prime. There was one problem: proving it correct required assuming the Riemann Hypothesis, one of the deepest unsolved problems in mathematics. Four years later, Michael Rabin found a way out. He modified Miller's test to use random sampling. The new algorithm couldn't *guarantee* the right answer, but it could make errors arbitrarily unlikely, say, less likely than a cosmic ray flipping a bit in your computer's memory. By embracing randomness, Rabin traded an unproven conjecture for a proven bound on failure probability.
 
-This is the paradigm shift: randomness as a *resource* for verification. A cheating prover might fool a deterministic check, but fooling a random check requires being lucky, and we can make luck arbitrarily improbable.
+Rabin's move treats randomness as a *resource* for verification. A cheating prover might fool a deterministic check, but fooling a random check requires being lucky, and we can make luck arbitrarily improbable.
 
 The rigidity of polynomials becomes a verification tool through one of the most important theorems in computational complexity:
 
@@ -392,7 +392,7 @@ In ZK:
 
 4. If the prover cheated (wrong witness), the polynomial won't satisfy required properties, and this corruption spreads across almost all evaluation points due to the Reed-Solomon distance property.
 
-**The key insight:** Reed-Solomon encoding is *distance-amplifying*. A small, localized lie (wrong witness value) becomes a large, detectable corruption (wrong polynomial evaluations everywhere).
+Reed-Solomon encoding is *distance-amplifying*. A small, localized lie (wrong witness value) becomes a large, detectable corruption (wrong polynomial evaluations everywhere).
 
 ### Real-World Applications of Reed-Solomon
 
@@ -422,7 +422,7 @@ A computation consists of many local constraints. Consider a circuit with a mill
 
 Checking all million constraints individually takes a million operations. Can we do better?
 
-**The key insight:** We can aggregate all constraints into a single polynomial identity.
+We can aggregate all of them into a single polynomial identity.
 
 ### The Vanishing Polynomial Technique
 
@@ -679,7 +679,7 @@ This paradigm appears in every major ZK system:
 
 
 
-## Key Takeaways
+## Key takeaways
 
 1. **The counting problem (#SAT) motivates why polynomials matter:** Some computations have no obvious short certificate, but polynomial encodings enable efficient verification through interaction and randomness.
 

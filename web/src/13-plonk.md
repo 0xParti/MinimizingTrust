@@ -1,6 +1,6 @@
 # Chapter 13: PLONK: Universal SNARKs and the Permutation Argument
 
-By 2018, Groth16 had proven SNARKs worked in production. Zcash was live, proofs were 128 bytes, verification was fast. But every protocol upgrade required a new trusted setup ceremony—a multi-party computation specific to that circuit. For a project planning rapid iteration, this was a bottleneck. The cryptographic world wanted a setup you could perform once and reuse for any circuit.
+By 2018, Groth16 had proven SNARKs worked in production. Zcash was live, proofs were 128 bytes, verification was fast. But every protocol upgrade required a new trusted setup ceremony, a multi-party computation specific to that circuit. For a project planning rapid iteration, this was a bottleneck. The cryptographic world wanted a setup you could perform once and reuse for any circuit.
 
 Ariel Gabizon, Zachary Williamson, and Oana Ciobotaru found the path. Their insight was *permutations*: instead of encoding circuit structure directly into the setup, separate two concerns: what each gate computes (local) and how gates connect (global). The wiring could be encoded as a permutation, checked with a polynomial argument that worked identically for any circuit.
 
@@ -86,7 +86,7 @@ PLONK separates these concerns differently:
 - **Selector polynomials** ($Q_L, Q_R, Q_O, Q_M, Q_C$): Define the circuit. Fixed once the circuit is designed. Different circuits have different selectors.
 - **Witness polynomials** ($a, b, c$): Computed fresh by the prover for each proof. Different inputs produce different witness values, interpolated into different polynomials.
 
-Circuit structure lives in the selector polynomials, which are ordinary polynomials—not special objects requiring circuit-specific setup. This separation is what enables universality: the same trusted setup works for any circuit, because it doesn't need to "know" about selectors in advance.
+Circuit structure lives in the selector polynomials, which are ordinary polynomials, not special objects requiring circuit-specific setup. This separation is what enables universality: the same trusted setup works for any circuit, because it doesn't need to "know" about selectors in advance.
 
 With all these polynomials defined, the per-gate equation $Q_L \cdot a + Q_R \cdot b + Q_O \cdot c + Q_M \cdot ab + Q_C = 0$ becomes a polynomial identity:
 
@@ -127,7 +127,7 @@ Before diving into the mechanism, understand the key mental shift. So far, we've
 
 The permutation argument reframes this. Instead of "connections," think of *equivalence classes*. All wires that should hold the same value belong to the same class. Within each class, the wires form a *cycle* under a permutation: $c_1 \to a_2 \to c_1$ (a 2-cycle), or longer chains like $a_1 \to b_3 \to c_5 \to a_1$ (a 3-cycle). Wires with no copy constraints form trivial 1-cycles (fixed points).
 
-If we traverse each cycle, do all the values match? This shift from "gates and wires" to "values and cycles" is what makes efficient verification possible—we're not checking connections one by one, but verifying that the entire wiring topology is consistent in one algebraic test.
+If we traverse each cycle, do all the values match? This shift from "gates and wires" to "values and cycles" is what makes efficient verification possible. We're not checking connections one by one, but verifying that the entire wiring topology is consistent in one algebraic test.
 
 ### Representing Wiring as a Permutation
 
@@ -472,7 +472,7 @@ All challenges are deterministic functions of the transcript via Fiat-Shamir.
 
 **2. Compute the Linearization Polynomial Commitment**
 
-The combined constraint polynomial $P(X)$ contains products like $Q_M(X) \cdot a(X) \cdot b(X)$. The verifier has commitments $[Q_M]_1$, $[a]_1$, $[b]_1$ but cannot compute $[Q_M \cdot a \cdot b]_1$ from these—there's no way to multiply group elements to get a commitment to a product of polynomials.
+The combined constraint polynomial $P(X)$ contains products like $Q_M(X) \cdot a(X) \cdot b(X)$. The verifier has commitments $[Q_M]_1$, $[a]_1$, $[b]_1$ but cannot compute $[Q_M \cdot a \cdot b]_1$ from these. There is no way to multiply group elements to get a commitment to a product of polynomials.
 
 The linearization trick solves this. Once the prover sends evaluations $a(\zeta), b(\zeta)$ as field elements, these become scalars. The verifier can compute:
 
@@ -566,7 +566,7 @@ The preceding sections developed these architectural differences in detail. Here
 
 ## Custom Gates and Extensions
 
-PLONK's gate equation generalizes naturally. Custom gates aren't exclusive to PLONKish systems—Spartan's CCS (Customizable Constraint Systems) also supports arbitrary polynomial constraints, generalizing both R1CS and PLONKish arithmetization. But PLONK variants were the first to deploy custom gates widely in production.
+PLONK's gate equation generalizes naturally. Custom gates aren't exclusive to PLONKish systems. Spartan's CCS (Customizable Constraint Systems) also supports arbitrary polynomial constraints, generalizing both R1CS and PLONKish arithmetization. But PLONK variants were the first to deploy custom gates widely in production.
 
 ### More Wires
 
@@ -605,7 +605,7 @@ Chapter 14 develops lookup arguments in detail.
 
 ## UltraPLONK
 
-"UltraPLONK" denotes PLONK variants combining custom gates and lookup arguments. These systems achieve dramatic efficiency gains for real-world circuits: composite gates encode multiple operations simultaneously (e.g., $a + b = c$ and $d \cdot e = f$ in one gate), the permutation argument extends to prove set membership in lookup tables, and Poseidon-specific gates reduce hash computation by 10-20× compared to vanilla PLONK. The architecture remains a polynomial IOP compiled with KZG (or alternatives)—the IOP grows more sophisticated, but the verification structure persists.
+"UltraPLONK" denotes PLONK variants combining custom gates and lookup arguments. These systems achieve dramatic efficiency gains for real-world circuits: composite gates encode multiple operations simultaneously (e.g., $a + b = c$ and $d \cdot e = f$ in one gate), the permutation argument extends to prove set membership in lookup tables, and Poseidon-specific gates reduce hash computation by 10-20× compared to vanilla PLONK. The architecture remains a polynomial IOP compiled with KZG (or alternatives). The IOP grows more sophisticated, but the verification structure persists.
 
 Aztec Labs, co-founded by Zac Williamson (one of PLONK's creators), developed UltraPLONK in their Barretenberg library. Their system has since evolved to Honk, which replaces the univariate polynomial IOP with sum-check over multilinear polynomials (similar to Spartan's approach). Honk retains PLONKish arithmetization but gains the memory efficiency of sum-check (Chapter 19 explains why: sum-check's linear memory access pattern is cache-friendly, unlike FFT's butterfly shuffles). For on-chain verification, Aztec compresses Honk proofs into UltraPLONK proofs; UltraPLONK's simpler verifier (fewer selector polynomials, no multilinear machinery) reduces gas costs. Their Goblin PLONK technique further optimizes recursive proof composition by deferring expensive elliptic curve operations rather than computing them at each recursion layer.
 
@@ -628,7 +628,7 @@ PLONK's security depends on the polynomial commitment scheme used:
 - **With FRI**: Security relies only on collision-resistant hashing. Fewer assumptions, and potentially quantum-resistant, but larger proofs.
 
 
-## Key Takeaways
+## Key takeaways
 
 1. **Universal setup**: One ceremony works for all circuits up to a size bound. This comes from treating witness values as polynomial evaluations (interpolated at proving time) rather than coefficients (baked into setup).
 

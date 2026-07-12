@@ -131,7 +131,7 @@ Let the IOP have soundness error $\epsilon_{\text{IOP}}$ and the PCS have bindin
 
 ## Layer 3: The Fiat-Shamir Transformation
 
-The Fiat-Shamir transformation is deceptively simple but foundational. Virtually every deployed SNARK uses it, and subtle implementation errors have led to real-world vulnerabilities.
+The Fiat-Shamir transformation fits in one line of pseudocode. Virtually every deployed SNARK uses it, and subtle implementation errors have led to real-world vulnerabilities.
 
 Adi Shamir and Amos Fiat introduced the technique in 1986, originally to convert interactive identification schemes into digital signatures. Their insight was that if the verifier's only role is to provide randomness, a hash function can play that role instead. The idea predates SNARKs by decades, but it applies directly: after PCS compilation, we have an *interactive* argument where the verifier's only contribution is random challenges. For many applications (blockchain verification, credential systems, asynchronous protocols) this interaction is unacceptable. We need a static proof that anyone can verify without engaging in a conversation.
 
@@ -289,7 +289,7 @@ No single system dominates all metrics. The choice depends on what constraints b
 
 
 
-## Key Takeaways
+## Key takeaways
 
 1. **Three-layer architecture**: IOP defines protocol logic, PCS provides cryptographic binding, Fiat-Shamir eliminates interaction. Each layer is analyzed independently.
 

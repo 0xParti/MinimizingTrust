@@ -19,7 +19,7 @@ A finite field $\mathbb{F}_p$ consists of the integers $\{0, 1, 2, \ldots, p-1\}
 $$3 + 5 = 8 \equiv 1 \pmod 7$$
 $$3 \times 5 = 15 \equiv 1 \pmod 7$$
 
-The magic is in division. Every nonzero element has a multiplicative inverse: this is guaranteed because $p$ is prime. (More generally, finite fields exist for any prime power $p^k$, but prime fields $\mathbb{F}_p$ are the simplest case.) In $\mathbb{F}_7$, we have $3^{-1} = 5$ because $3 \times 5 = 15 \equiv 1$. You can divide by any nonzero element, and the result is exact (no fractions, no approximations).
+Division is where finite fields differ from ordinary modular arithmetic. Every nonzero element has a multiplicative inverse: this is guaranteed because $p$ is prime. (More generally, finite fields exist for any prime power $p^k$, but prime fields $\mathbb{F}_p$ are the simplest case.) In $\mathbb{F}_7$, we have $3^{-1} = 5$ because $3 \times 5 = 15 \equiv 1$. You can divide by any nonzero element, and the result is exact (no fractions, no approximations).
 
 This is why we call it a *field*. A *ring* (like the integers $\mathbb{Z}$) lets you add, subtract, and multiply. A *field* lets you also divide. The integers are not a field because $1/2$ isn't an integer. But in $\mathbb{F}_7$, division always works: $1/2 = 1 \cdot 2^{-1} = 1 \cdot 4 = 4$, since $2 \cdot 4 = 8 \equiv 1$.
 
@@ -295,7 +295,7 @@ If $C(X) = Q(X) \cdot Z_H(X)$ as polynomials, this equation holds for all $z$, i
 
 If $C(X) \neq Q(X) \cdot Z_H(X)$, their difference is a nonzero polynomial. By Schwartz-Zippel, a random $z$ catches this disagreement with probability at least $1 - d/|\mathbb{F}|$, where $d$ is the degree.
 
-One random check. $n$ constraints verified. This is the magic.
+A single random check verifies all $n$ constraints.
 
 
 
@@ -345,7 +345,7 @@ Take $k = 2$. The coset is $2H = \{2, 10, 11, 3\}$. The two sets are disjoint, g
 
 The key property: to evaluate $P(X)$ on $2H$, you don't need a new algorithm. If $P(X) = c_0 + c_1 X + c_2 X^2 + c_3 X^3$, then evaluating at $2\omega^i$ is the same as evaluating $P'(X) = c_0 + 2c_1 X + 4c_2 X^2 + 8c_3 X^3$ at $\omega^i$. Scale the coefficients by powers of $k$, then run the standard FFT on $H$. Cosets give you new evaluation domains for free.
 
-**Why cosets matter in ZK:** Several proof systems crucially depend on cosets:
+**Why cosets matter in ZK:** Several proof systems depend on cosets:
 
 - **PLONK's permutation argument**: Uses multiple cosets to encode wire positions. If you have $n$ gates with 3 wires each ($a$, $b$, $c$), PLONK encodes them on $H$, $kH$, and $k^2H$ (three disjoint domains of size $n$ each). This lets the permutation polynomial distinguish "wire $a$ of gate 5" from "wire $b$ of gate 5."
 
@@ -398,7 +398,7 @@ Both achieve the same essential goal: reduce exponentially many constraint check
 
 
 
-## Key Takeaways
+## Key takeaways
 
 1. **Finite fields** provide exact arithmetic with every nonzero element invertible. The nonzero elements form a cyclic group.
 

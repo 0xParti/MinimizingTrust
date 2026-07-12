@@ -4,7 +4,6 @@
 
 # Minimizing Trust
 
-*The Architecture of Verifiable Secrets*
 
 **by particle**
 

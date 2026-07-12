@@ -190,7 +190,7 @@ On-chain verification still demands small proofs, so zkVMs follow the same compo
 
 ### Privacy-Preserving Applications
 
-When zero-knowledge is the point (not just a bonus), implementation quality matters as much as theoretical properties.
+When zero-knowledge is the point rather than a bonus, implementation quality matters as much as theoretical properties.
 
 Groth16 and PLONK produce ZK proofs with modest overhead. The masking techniques are well-understood. But implementation errors can leak information through timing side channels, error messages, or malformed proof handling.
 
@@ -252,7 +252,7 @@ The choice of proof system often follows from the available tooling rather than 
 | Whirlaway (WHIR) | ~50-100 KB | $O(\log^2 n)$ hashes | $O(n)$ | Transparent | Yes |
 
 
-## Key Takeaways
+## Key takeaways
 
 1. **Every application has a binding constraint; the system choice follows from it.** On-chain verification binds on proof size (Groth16/PLONK). zkVMs bind on prover speed (sum-check/STARKs). Privacy binds on implementation quality and client-side efficiency. Long-lived infrastructure binds on quantum resistance (hash-based systems only). Identify which constraint binds tightest; the rest is negotiable.
 
