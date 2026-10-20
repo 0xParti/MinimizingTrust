@@ -87,11 +87,11 @@ The resistant systems form a growing family:
 
 - Hash-based constructions (STARKs with FRI, WHIR-based systems)
 - Sum-check + hash-based PCS (Whirlaway combines SuperSpartan with WHIR, achieving both multilinear proving and post-quantum security with proofs smaller than FRI at the same security level)
-- Lattice-based commitments (LatticeFold, Neo; under active research, not yet production-ready)
+- Sum-check + lattice-based PCS (Jolt with Akita, a Module-SIS commitment, since September 2026; lattice folding schemes such as LatticeFold and Neo remain research prototypes)
 
-The sum-check tradition is no longer tied to discrete-log commitments. WHIR (EUROCRYPT 2025) provides a hash-based multilinear PCS with faster verification than FRI, enabling sum-check-based provers to achieve post-quantum security without switching to the univariate/STARK paradigm. This closes a gap that previously forced sum-check systems to rely on IPA or KZG, both quantum-vulnerable.
+The sum-check tradition is no longer tied to discrete-log commitments. WHIR (EUROCRYPT 2025) provides a hash-based multilinear PCS with faster verification than FRI, enabling sum-check-based provers to achieve post-quantum security without switching to the univariate/STARK paradigm. Lattice commitments offer a second exit. An Ajtai commitment $As \bmod q$ to a short vector $s$ is linear in the way a Pedersen commitment is, so it keeps the property that made curve-based sum-check provers fast, namely that committing to small or zero values costs little. Both routes close the gap that previously forced sum-check systems to rely on IPA, KZG or Dory, all quantum-vulnerable.
 
-When will quantum computers arrive? Estimates as of 2026 range from 5 to 20 years for cryptographically relevant machines, with the timeline compressing as investment accelerates. For a private transaction, the uncertainty is tolerable. For infrastructure meant to last decades (identity systems, legal records, financial settlements), the Ethereum Foundation's response is instructive: provable 128-bit security by end of 2026, with proof-size caps that push the ecosystem toward hash-based schemes.
+When will quantum computers arrive? Estimates as of 2026 range from 5 to 20 years for cryptographically relevant machines, with the timeline compressing as investment accelerates. For a private transaction, the uncertainty is tolerable. For infrastructure meant to last decades (identity systems, legal records, financial settlements), the Ethereum Foundation's response is instructive: provable 128-bit security by end of 2026, with proof-size caps of 300 KiB that push the ecosystem toward hash-based schemes. The word *provable* carries weight. Between late 2025 and spring 2026 the up-to-capacity proximity gap conjectures behind FRI and WHIR parameters were disproved (Chapter 26), so a system advertising 100 conjectured bits may deliver closer to 80.
 
 ## The System Landscape
 
@@ -141,20 +141,21 @@ Spartan, Lasso, Jolt, HyperPlonk, Binius, and the Whirlaway stack all belong to 
 
 Virtual polynomials minimize commitment costs (Chapter 21). Sparse sum-check handles irregular constraint structures naturally. The apparatus is optimized for general-purpose computation, which is why zkVMs have increasingly adopted sum-check architectures.
 
-Sum-check systems produce larger proofs (logarithmic, not constant), have newer implementations (less battle-tested), and historically depended on discrete-log-based PCS (IPA, KZG) that made them quantum-vulnerable. This last limitation is dissolving from two directions. WHIR (EUROCRYPT 2025) provides a hash-based multilinear PCS with faster verification than FRI; Hachi (eprint 2026/156) provides a lattice-based multilinear PCS under Module-SIS with $\approx 55$ KB proofs and 12.5× faster verification than prior lattice schemes. Whirlaway (SuperSpartan + WHIR) demonstrates that sum-check-based systems can achieve post-quantum security without switching to the univariate/STARK paradigm. The Ethereum Foundation's Lean Ethereum project is building a minimal zkVM on this stack (KoalaBear field, WHIR PCS, sum-check proving), targeting post-quantum on-chain verification.
+Sum-check systems produce larger proofs (logarithmic, not constant), have newer implementations (less battle-tested), and historically depended on discrete-log-based PCS (IPA, KZG) that made them quantum-vulnerable. This last limitation is dissolving from two directions. WHIR (EUROCRYPT 2025) provides a hash-based multilinear PCS with faster verification than FRI; Hachi (eprint 2026/156) provides a lattice-based multilinear PCS under Module-SIS with $\approx 55$ KB proofs and 12.5× faster verification than prior lattice schemes. Its successor Akita (eprint 2026/1983) became Jolt's commitment in September 2026, yielding a post-quantum zkVM with proofs under 100 KB that proves faster than the curve-based Jolt it replaced. Whirlaway (SuperSpartan + WHIR) demonstrated that sum-check-based systems can achieve post-quantum security without switching to the univariate/STARK paradigm. The Ethereum Foundation's lean stack grew out of it. Its current zkVM, leanVM, works over a 192-bit binary tower field with WHIR and Ligerito commitments and standard hashes in place of Poseidon, targeting post-quantum on-chain verification with no reliance on proximity gap conjectures.
 
 ### The converging zkVM landscape
 
 The boundaries between the categories above are blurring in production zkVMs. The major systems as of 2026:
 
-- **SP1** (Succinct): migrated from STARK-based (SP1 Turbo, FRI over BabyBear) to sum-check-based (SP1 Hypercube, multilinear polynomials with a jagged PCS from Chapter 21 and Logup-GKR). Proves over 93% of Ethereum blocks in under 12 seconds (average 10.3s) on a cluster of ~160 RTX 4090 GPUs (~$300-400K in hardware).
+- **SP1** (Succinct): migrated from STARK-based (SP1 Turbo, FRI over BabyBear) to sum-check-based (SP1 Hypercube, multilinear polynomials over KoalaBear with a jagged PCS from Chapter 21 and Logup-GKR). On mainnet since February 2026, it proves 99.7% of Ethereum blocks in under 12 seconds on 16 RTX 5090 GPUs, at 100 provable bits with proofs of about 530 KiB.
+- **OpenVM** (Axiom): version 2.0 replaced FRI with SWIRL, a multilinear stack built on WHIR and LogUp over BabyBear, reporting 100 provable bits with proofs of about 270 KiB. Its RV32IM extension is formally verified in Lean.
 - **RISC Zero**: STARK-based with FRI over BabyBear, Groth16 wrapper for on-chain verification. Proves Ethereum blocks in under 45 seconds.
-- **Jolt** (a16z): pure sum-check with Lasso lookups (Chapter 21) and Twist/Shout memory checking. Over 1 million RISC-V cycles per second on a 32-core CPU.
+- **Jolt** (a16z): pure sum-check with Lasso lookups (Chapter 21) and Twist/Shout memory checking. With the lattice-based Akita commitment it proves over 2 million RV64 cycles per second on a laptop CPU with proofs under 100 KB, post-quantum under Module-SIS.
 - **ZKsync Airbender**: STARK-based over Mersenne31 with a custom DEEP-ALI implementation.
-- **Zisk** (Polygon spinoff): RISC-V 64 with a 1.5 GHz execution engine, optimized for low-latency distributed proving.
-- **Lean Ethereum** (Ethereum Foundation): minimal zkVM using Whirlaway (SuperSpartan + WHIR) over KoalaBear, targeting provable 128-bit post-quantum security.
+- **Zisk** (Polygon spinoff): RISC-V 64 over Goldilocks with a 1.5 GHz execution engine, optimized for low-latency distributed proving. Reports 128 provable bits with proofs of about 270 KiB before its PLONK wrapper.
+- **leanVM** (Ethereum Foundation): minimal zkVM that began as Whirlaway (SuperSpartan + WHIR over KoalaBear) and now runs over a binary tower field with standard hashes, targeting provable 128-bit post-quantum security.
 
-All of these use small fields (BabyBear or Mersenne31), AIR or CCS constraints, and Logup-style bus arguments for cross-table consistency. The convergence on shared primitives (Chapter 20) is striking even as the architectural choices diverge.
+Most of these share small or word-sized fields (BabyBear, KoalaBear, Mersenne31, Goldilocks), AIR or CCS constraints and Logup-style bus arguments for cross-table consistency. The exceptions are instructive. Jolt with Akita works over a 128-bit prime because its lattice commitment no longer needs a curve-sized field. leanVM moved to binary towers so that standard hashes such as SHA and BLAKE become cheap to prove. The convergence on shared primitives (Chapter 20) holds even as the field choices begin to diverge.
 
 ## Application-Specific Guidance
 
@@ -238,7 +239,7 @@ GPU proving is now standard for production zkVMs, with 10-100× speedups over CP
 
 ### Tooling
 
-The choice of proof system often follows from the available tooling rather than the other way around. Circom targets Groth16 and PLONK circuits. Cairo is StarkWare's language for STARK-based programs. Noir (Aztec) compiles to multiple backends. At the library level, Arkworks provides modular Rust primitives for field arithmetic, curves, and SNARK components, and Plonky3 (Polygon) is the shared proving framework underlying SP1, OpenVM, and several other production zkVMs, with pluggable field backends (BabyBear, Mersenne31) and a modular AIR interface. Mature tooling compounds over time; switching frameworks mid-project is expensive.
+The choice of proof system often follows from the available tooling rather than the other way around. Circom targets Groth16 and PLONK circuits. Cairo is StarkWare's language for STARK-based programs. Noir (Aztec) compiles to multiple backends. At the library level, Arkworks provides modular Rust primitives for field arithmetic, curves, and SNARK components. Plonky3 (Polygon) is the shared proving toolkit beneath Pico, Miden and the first generation of OpenVM, with pluggable field backends (BabyBear, KoalaBear, Mersenne31, Goldilocks) and a modular AIR interface. On the multilinear side the reference implementations remain closer to research code. WHIR's own repository describes itself as an academic prototype, while Jolt ships its lattice commitment behind a feature flag in an alpha release. Mature tooling compounds over time; switching frameworks mid-project is expensive.
 
 ## Quick Reference
 
@@ -248,8 +249,11 @@ The choice of proof system often follows from the available tooling rather than 
 | PLONK+KZG | ~500 B | ~10 pairings | $O(n \log n)$ | Universal | No |
 | STARK (FRI) | ~50-100 KB | $O(\log^2 n)$ hashes | $O(n)$ | Transparent | Yes |
 | Bulletproofs | ~600 B + log | $O(n)$ exp | $O(n)$ exp | Transparent | No |
-| Spartan/Jolt | ~log KB | $O(\log n)$ exp | $O(n)$ | Transparent | No |
-| Whirlaway (WHIR) | ~50-100 KB | $O(\log^2 n)$ hashes | $O(n)$ | Transparent | Yes |
+| Spartan/Jolt (curves) | ~log KB | $O(\log n)$ exp | $O(n)$ | Transparent | No |
+| Sum-check + WHIR | ~50-300 KB | $O(\log^2 n)$ hashes | $O(n)$ | Transparent | Yes |
+| Jolt + Akita (lattice) | ~60-100 KB | $\tilde{O}(n^{1/K})$ | $O(n)$ | Transparent | Yes |
+
+The hash-based rows widen once security is stated in provable rather than conjectured bits. At 100 to 128 provable bits, production systems report proofs between 200 and 530 KiB.
 
 
 ## Key takeaways
@@ -258,8 +262,8 @@ The choice of proof system often follows from the available tooling rather than 
 
 2. **The trade-off triangle is inescapable within a single system.** Small proofs + fast provers requires trusted setup. Small proofs + transparent requires slow verification. Fast provers + transparent requires large proofs. Composition (Chapter 23) breaks the triangle by combining systems, at the cost of architectural complexity.
 
-3. **Sum-check systems are no longer quantum-vulnerable.** WHIR and Hachi provide hash-based and lattice-based multilinear PCS respectively, closing the gap that previously forced sum-check provers onto discrete-log commitments. For private data, post-quantum security is needed from day one (harvest-now-decrypt-later attacks make deferred migration dangerous).
+3. **Sum-check systems are no longer quantum-vulnerable.** WHIR provides a hash-based multilinear PCS. Hachi and its successor Akita provide lattice-based ones. Akita already runs inside Jolt, which became post-quantum and faster at the same time. Both routes close the gap that previously forced sum-check provers onto discrete-log commitments. For private data, post-quantum security is needed from day one (harvest-now-decrypt-later attacks make deferred migration dangerous).
 
-4. **The zkVM landscape is converging on shared primitives.** Small fields, AIR or CCS constraints, Logup bus arguments, and STARK→Groth16 composition appear across SP1, RISC Zero, Jolt, ZKsync Airbender, and Lean Ethereum, even as their architectural choices diverge. Plonky3 and Arkworks provide the shared infrastructure.
+4. **The zkVM landscape is converging on shared primitives.** Small fields, AIR or CCS constraints, Logup bus arguments, and STARK→Groth16 composition appear across SP1, OpenVM, RISC Zero, Jolt, ZKsync Airbender and leanVM, even as their architectural choices diverge. Security is now reported in provable bits, measured with shared tools such as the Ethereum Foundation's soundcalc.
 
 5. **Tooling and audit status constrain choices as much as theory.** ZK bugs are silent (Zcash's Sprout had a soundness bug for years), so multiple recent audits matter more than theoretical elegance. Mature tooling compounds; switching frameworks mid-project is expensive.

@@ -382,8 +382,10 @@ The hash must include:
 | BLS12-381 scalar | $\approx 2^{255}$ | ~128 bits | Zcash, many SNARKs |
 | Goldilocks | $2^{64} - 2^{32} + 1$ | ~100 bits* | Plonky2, fast arithmetic |
 | Baby Bear | $2^{31} - 2^{27} + 1$ | ~100 bits* | RISC Zero |
-| KoalaBear | $2^{31} - 2^{24} + 1$ | ~100 bits* | Lean Ethereum (Whirlaway) |
+| KoalaBear | $2^{31} - 2^{24} + 1$ | ~100 bits* | SP1 Hypercube, Plonky3 |
 | Mersenne-31 | $2^{31} - 1$ | ~100 bits* | Circle STARKs, Airbender |
+| Jolt prime | $2^{128} - 2^{32} + 22537$ | ~128 bits | Jolt with Akita (lattice PCS) |
+| Binary towers | $\mathbb{F}_{2^{k}}$, $k$ up to 192 | ~128 bits | Binius64, leanVM |
 
 *Small fields require extension fields for cryptographic security; base field security refers to the overall system design.
 
